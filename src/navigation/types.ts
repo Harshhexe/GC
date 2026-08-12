@@ -10,7 +10,8 @@ export type RootStackParamList = {
   MainTabs: undefined;
   /** `unreadCount` comes from the chat list so the transcript can place its
    *  "unread" divider without re-reading a stamp it is about to overwrite. */
-  Chat: { groupId: string; unreadCount?: number };
+  Chat: { groupId: string; unreadCount?: number; jumpToMessageId?: string };
   GroupInfo: { groupId: string };
   WhatDidIMiss: { groupId: string; groupName?: string };
+  Notifications: undefined;
 };

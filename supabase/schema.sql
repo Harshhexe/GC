@@ -72,7 +72,9 @@ create table if not exists public.groups (
   invite_code text unique,
   theme text not null default 'violet',
   avatar_url text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Cooldown gate for @everyone — see prepare_message_mentions() below.
+  last_everyone_mention_at timestamptz
 );
 
 alter table public.groups enable row level security;
@@ -86,6 +88,9 @@ create table if not exists public.group_members (
   -- Owner: created the group (or inherited it — see delete_own_account()).
   -- Admin: can manage members/theme. Member: everyone else.
   role text not null default 'member' check (role in ('owner', 'admin', 'member')),
+  -- Skips @everyone notifications for this member; an explicit @mention
+  -- still reaches them regardless — see notify_message_mentions() below.
+  muted boolean not null default false,
   primary key (group_id, user_id)
 );
 
@@ -190,8 +195,33 @@ create table if not exists public.messages (
   -- account deletion failing outright on a foreign-key violation).
   author_id uuid references public.profiles (id) on delete set null,
   text text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Reply: a lightweight pointer, not a duplicated copy of the original.
+  -- ON DELETE SET NULL so a hard-deleted target (shouldn't normally happen —
+  -- deletes are soft, see is_deleted) doesn't take the reply down with it.
+  reply_to_message_id uuid references public.messages (id) on delete set null,
+  edited_at timestamptz,
+  is_deleted boolean not null default false,
+  -- Structured mentions — a snapshot of {userId, username} pairs, not a
+  -- live join, so rendering never needs a per-message profile lookup.
+  mentions jsonb not null default '[]'::jsonb,
+  mention_everyone boolean not null default false,
+  -- Media attachment — a message can be text-only, media-only (empty
+  -- caption), or both.
+  media_url text,
+  media_type text check (media_type in ('image', 'video', 'gif', 'file')),
+  media_mime text,
+  media_name text,
+  media_size bigint,
+  media_width int,
+  media_height int,
+  media_duration_ms int,
+  constraint media_url_required_with_type check (media_type is null or media_url is not null)
 );
+
+create index if not exists messages_reply_to_idx
+  on public.messages (reply_to_message_id)
+  where reply_to_message_id is not null;
 
 alter table public.messages enable row level security;
 
@@ -204,6 +234,224 @@ create policy "members can send messages in their groups"
   on public.messages for insert
   to authenticated
   with check (author_id = auth.uid() and public.is_group_member(group_id, auth.uid()));
+
+-- Two things happen via UPDATE: the author editing their own text, or the
+-- author/an owner/admin soft-deleting it. RLS can't see *which* columns
+-- changed, so the trigger below is what actually keeps "can touch the row"
+-- (checked here) separate from "can rewrite the text" (author-only).
+create policy "authors and mods can update messages"
+  on public.messages for update
+  to authenticated
+  using (
+    public.is_group_member(group_id, auth.uid())
+    and (author_id = auth.uid() or public.group_role(group_id, auth.uid()) in ('owner', 'admin'))
+  )
+  with check (
+    public.is_group_member(group_id, auth.uid())
+    and (author_id = auth.uid() or public.group_role(group_id, auth.uid()) in ('owner', 'admin'))
+  );
+
+create or replace function public.enforce_message_edit_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (
+      new.text is distinct from old.text
+      or new.mentions is distinct from old.mentions
+      or new.mention_everyone is distinct from old.mention_everyone
+    )
+    and old.author_id is distinct from auth.uid() then
+    raise exception 'Only the author can edit this message';
+  end if;
+  if old.is_deleted and new.is_deleted then
+    new.text := old.text;
+    new.edited_at := old.edited_at;
+    new.media_url := old.media_url;
+    new.media_type := old.media_type;
+  end if;
+  if new.is_deleted and not old.is_deleted then
+    new.text := '';
+    new.media_url := null;
+    new.media_type := null;
+    new.media_mime := null;
+    new.media_name := null;
+    new.media_size := null;
+    new.media_width := null;
+    new.media_height := null;
+    new.media_duration_ms := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_message_edit_rules on public.messages;
+create trigger enforce_message_edit_rules
+  before update on public.messages
+  for each row
+  execute function public.enforce_message_edit_rules();
+
+-- ── notifications ───────────────────────────────────────────────────────
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  actor_id uuid references public.profiles (id) on delete set null,
+  group_id uuid not null references public.groups (id) on delete cascade,
+  message_id uuid not null references public.messages (id) on delete cascade,
+  kind text not null check (kind in ('mention', 'mention_everyone')),
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.notifications enable row level security;
+
+-- No insert policy for `authenticated` — rows only ever come from the
+-- SECURITY DEFINER trigger below, which bypasses RLS entirely.
+create policy "users can read their own notifications"
+  on public.notifications for select
+  to authenticated
+  using (user_id = (select auth.uid()));
+
+create policy "users can mark their own notifications read"
+  on public.notifications for update
+  to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+create index if not exists notifications_user_created_idx
+  on public.notifications (user_id, created_at desc);
+
+create index if not exists notifications_unread_idx
+  on public.notifications (user_id)
+  where read_at is null;
+
+create index if not exists notifications_actor_id_idx on public.notifications (actor_id);
+create index if not exists notifications_group_id_idx on public.notifications (group_id);
+create index if not exists notifications_message_id_idx on public.notifications (message_id);
+
+-- ── @mentions: normalise + notify ──────────────────────────────────────
+create or replace function public.prepare_message_mentions()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  deduped jsonb;
+  cooldown interval := interval '5 minutes';
+  last_everyone timestamptz;
+  becoming_everyone boolean;
+begin
+  select coalesce(jsonb_agg(m.mention order by m.ord), '[]'::jsonb)
+  into deduped
+  from (
+    select distinct on (mention ->> 'userId') mention, ord
+    from jsonb_array_elements(coalesce(new.mentions, '[]'::jsonb)) with ordinality as t(mention, ord)
+    where mention ->> 'userId' is not null
+    order by mention ->> 'userId', ord
+  ) m;
+  new.mentions := deduped;
+
+  becoming_everyone := new.mention_everyone
+    and (tg_op = 'INSERT' or old.mention_everyone is distinct from true);
+
+  if becoming_everyone then
+    if public.group_role(new.group_id, auth.uid()) not in ('owner', 'admin') then
+      new.mention_everyone := false;
+    else
+      select last_everyone_mention_at into last_everyone from public.groups where id = new.group_id;
+      if last_everyone is not null and now() - last_everyone < cooldown then
+        new.mention_everyone := false;
+      else
+        update public.groups set last_everyone_mention_at = now() where id = new.group_id;
+      end if;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists prepare_message_mentions on public.messages;
+create trigger prepare_message_mentions
+  before insert or update on public.messages
+  for each row
+  execute function public.prepare_message_mentions();
+
+create or replace function public.notify_message_mentions()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m record;
+  old_ids uuid[];
+  everyone_is_new boolean;
+begin
+  if new.is_deleted then
+    return new;
+  end if;
+
+  old_ids := case
+    when tg_op = 'UPDATE' then array(select (x ->> 'userId')::uuid from jsonb_array_elements(old.mentions) x)
+    else array[]::uuid[]
+  end;
+
+  for m in select * from jsonb_to_recordset(new.mentions) as x("userId" uuid, username text)
+  loop
+    continue when m."userId" is null or m."userId" = new.author_id;
+    continue when tg_op = 'UPDATE' and m."userId" = any(old_ids);
+    insert into public.notifications (user_id, actor_id, group_id, message_id, kind)
+    values (m."userId", new.author_id, new.group_id, new.id, 'mention');
+  end loop;
+
+  everyone_is_new := new.mention_everyone and (tg_op = 'INSERT' or old.mention_everyone is distinct from true);
+  if everyone_is_new then
+    insert into public.notifications (user_id, actor_id, group_id, message_id, kind)
+    select gm.user_id, new.author_id, new.group_id, new.id, 'mention_everyone'
+    from public.group_members gm
+    where gm.group_id = new.group_id
+      and gm.user_id <> new.author_id
+      and gm.muted = false;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_message_mentions on public.messages;
+create trigger notify_message_mentions
+  after insert or update on public.messages
+  for each row
+  execute function public.notify_message_mentions();
+
+-- Trigger-only functions — never meant to be called directly as a public RPC.
+revoke execute on function public.enforce_message_edit_rules() from anon, authenticated;
+revoke execute on function public.prepare_message_mentions() from anon, authenticated;
+revoke execute on function public.notify_message_mentions() from anon, authenticated;
+
+-- ── message media storage ───────────────────────────────────────────────
+-- Public read (same model as user-avatars/group-avatars). Path convention
+-- is `<group_id>/<filename>`, which the insert policy checks against.
+insert into storage.buckets (id, name, public)
+values ('message-media', 'message-media', true)
+on conflict (id) do nothing;
+
+create policy "message media is publicly readable"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'message-media');
+
+create policy "members upload media to their groups"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'message-media'
+    and public.is_group_member((storage.foldername(name))[1]::uuid, auth.uid())
+  );
 
 -- ── message_reactions ───────────────────────────────────────────────────
 create table if not exists public.message_reactions (
@@ -464,3 +712,4 @@ grant execute on function public.leave_group(uuid) to authenticated;
 alter publication supabase_realtime add table public.messages;
 alter publication supabase_realtime add table public.message_reactions;
 alter publication supabase_realtime add table public.group_members;
+alter publication supabase_realtime add table public.notifications;

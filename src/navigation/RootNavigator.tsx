@@ -8,6 +8,7 @@ import MainTabs from './MainTabs';
 import ChatScreen from '../screens/ChatScreen';
 import GroupInfoScreen from '../screens/GroupInfoScreen';
 import WhatDidIMissScreen from '../screens/WhatDidIMissScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -53,6 +54,11 @@ export default function RootNavigator() {
             <Stack.Screen
               name="WhatDidIMiss"
               component={WhatDidIMissScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
               options={{ animation: 'slide_from_bottom' }}
             />
           </>

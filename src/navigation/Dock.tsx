@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadows.soft,
   },
-  dockFill: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(12, 12, 18, 0.88)' },
+  dockFill: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12, 12, 18, 0.88)' },
   dockSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: 40 },
   item: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },
   iconSlot: {

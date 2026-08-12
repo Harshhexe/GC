@@ -27,6 +27,7 @@ import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { timeAgo } from '../utils/time';
 import { Group } from '../types';
 import { useGroups } from '../hooks/useGroups';
+import { useNotifications } from '../hooks/useNotifications';
 import { useAfterHours } from '../hooks/useAfterHours';
 import { useAuth } from '../context/AuthContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -142,8 +143,9 @@ function GroupCard({
 
 export default function GroupListScreen({ navigation }: Props) {
   const { groups, loading, refetch } = useGroups();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { afterHours } = useAfterHours();
+  const { unreadCount: unreadNotifications } = useNotifications(session?.user.id);
 
   const [emptyText] = useState(() => pick(copy.emptyGroups));
   const [loadingText] = useState(() => pick(copy.loadingGroups));
@@ -163,15 +165,33 @@ export default function GroupListScreen({ navigation }: Props) {
         <AppHeader
           wordmark
           right={
-            <PressableScale scaleTo={0.9} onPress={() => navigation.navigate('Profile')}>
-              <Avatar
-                emoji={profile?.avatar_emoji}
-                imageUrl={profile?.avatar_url}
-                label={profile?.display_name}
-                size={38}
-                status="online"
-              />
-            </PressableScale>
+            <View style={styles.headerRight}>
+              <PressableScale
+                style={styles.bellButton}
+                scaleTo={0.88}
+                hitSlop={6}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <Ionicons name="notifications-outline" size={21} color={colors.onSurface} />
+                {unreadNotifications > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                    </Text>
+                  </View>
+                )}
+              </PressableScale>
+
+              <PressableScale scaleTo={0.9} onPress={() => navigation.navigate('Profile')}>
+                <Avatar
+                  emoji={profile?.avatar_emoji}
+                  imageUrl={profile?.avatar_url}
+                  label={profile?.display_name}
+                  size={38}
+                  status="online"
+                />
+              </PressableScale>
+            </View>
           }
         />
 
@@ -232,6 +252,32 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.headline, color: colors.onSurface },
   subtitle: { ...typography.caption, color: colors.onSurfaceVariant, marginTop: 4 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  bellButton: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 17,
+    height: 17,
+    borderRadius: radius.pill,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.bg,
+  },
+  bellBadgeText: { ...typography.label, fontSize: 9.5, color: colors.onSecondary },
   list: {
     paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: DOCK_HEIGHT + spacing.xxl,

@@ -9,7 +9,10 @@
     "backgroundColor": "#0B0B12",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.GC"
+      "bundleIdentifier": "com.anonymous.GC",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +21,11 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.GC"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,7 +33,19 @@
     "plugins": [
       "expo-font",
       "expo-splash-screen",
-      "expo-status-bar"
-    ]
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Let GC access your photos so you can send them to the group.",
+          "cameraPermission": "Let GC use your camera so you can snap something for the group."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eda4be96-0e54-4b02-88a8-d7a456652f83"
+      }
+    }
   }
 }

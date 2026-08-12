@@ -1,0 +1,125 @@
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { Platform } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { colors, glass, radius, spacing, typography } from '../theme/theme';
+import { duration, easing, reduceMotion } from '../theme/motion';
+import { Avatar } from './ui/Avatar';
+import { PressableScale } from './ui/PressableScale';
+import type { GroupMember } from '../types';
+
+/**
+ * The @mention picker — floats directly above the composer rather than
+ * pushing it around, and closes itself the instant its `visible` prop goes
+ * false (driven entirely by whether an active @query exists; see ChatScreen).
+ */
+export function MentionSuggestions({
+  visible,
+  members,
+  showEveryone,
+  accentColor,
+  onSelectMember,
+  onSelectEveryone,
+}: {
+  visible: boolean;
+  members: GroupMember[];
+  /** Show the "@everyone" row above the member list. */
+  showEveryone: boolean;
+  accentColor: string;
+  onSelectMember: (member: GroupMember) => void;
+  onSelectEveryone: () => void;
+}) {
+  if (!visible || (members.length === 0 && !showEveryone)) return null;
+
+  return (
+    <Animated.View
+      entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
+      exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
+      style={styles.wrap}
+    >
+      {Platform.OS !== 'web' && <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />}
+      <FlatList
+        data={members}
+        keyExtractor={(m) => m.id}
+        keyboardShouldPersistTaps="handled"
+        style={styles.list}
+        ListHeaderComponent={
+          showEveryone ? (
+            <PressableScale style={styles.row} scaleTo={0.98} haptic="light" onPress={onSelectEveryone}>
+              <View style={[styles.everyoneIcon, { backgroundColor: `${accentColor}26` }]}>
+                <Ionicons name="megaphone" size={18} color={accentColor} />
+              </View>
+              <View style={styles.rowCopy}>
+                <Text style={styles.rowName}>everyone</Text>
+                <Text style={styles.rowMeta}>Notify the whole GC</Text>
+              </View>
+            </PressableScale>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <PressableScale style={styles.row} scaleTo={0.98} haptic="light" onPress={() => onSelectMember(item)}>
+            <Avatar
+              emoji={item.avatarEmoji}
+              imageUrl={item.avatarUrl}
+              label={item.displayName}
+              size={34}
+              ringColors={[item.avatarColor, accentColor]}
+            />
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowName} numberOfLines={1}>
+                {item.displayName}
+              </Text>
+              {!!item.username && (
+                <Text style={styles.rowMeta} numberOfLines={1}>
+                  @{item.username}
+                </Text>
+              )}
+            </View>
+          </PressableScale>
+        )}
+      />
+    </Animated.View>
+  );
+}
+
+const MAX_HEIGHT = 240;
+
+const styles = StyleSheet.create({
+  wrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: '100%',
+    marginBottom: spacing.sm,
+    maxHeight: MAX_HEIGHT,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(22, 22, 34, 0.94)',
+    borderWidth: 1,
+    borderColor: glass.strokeBright,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  list: { maxHeight: MAX_HEIGHT },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 2,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+  },
+  rowCopy: { flex: 1, gap: 1 },
+  rowName: { ...typography.bodyMedium, fontSize: 14.5, color: colors.onSurface },
+  rowMeta: { ...typography.caption, fontSize: 12, color: colors.onSurfaceVariant },
+  everyoneIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
