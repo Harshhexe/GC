@@ -228,6 +228,10 @@ export default function ChatScreen({ route, navigation }: Props) {
   // in flight; the attachment survives an upload failure so retrying doesn't
   // mean re-picking.
   const [attachmentSheetVisible, setAttachmentSheetVisible] = useState(false);
+  // Which picker the user chose, held until the sheet has finished dismissing
+  // (see choosePicker) so the native presentation can't collide with it.
+  const pendingPickerRef = useRef<(() => Promise<PickResult | null>) | null>(null);
+  const pickerLaunchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -446,8 +450,43 @@ export default function ChatScreen({ route, navigation }: Props) {
     setAttachmentSheetVisible(true);
   }
 
-  async function handlePicked(picker: () => Promise<PickResult | null>) {
+  /**
+   * Picking is a two-step dance on purpose. Opening a native picker (or the
+   * permission prompt that precedes it) while the attachment sheet is still
+   * animating away makes iOS refuse the presentation: the picker never shows
+   * and its promise never settles, so the app looks frozen. So we only record
+   * *which* picker was chosen, close the sheet, and wait for the modal to
+   * report that it's fully gone before touching anything native.
+   */
+  function choosePicker(picker: () => Promise<PickResult | null>) {
+    pendingPickerRef.current = picker;
     setAttachmentSheetVisible(false);
+    // Modal.onDismiss is iOS-only, so elsewhere fall back to a timer that
+    // comfortably outlasts the sheet's slide-out.
+    if (Platform.OS !== 'ios') {
+      pickerLaunchTimer.current = setTimeout(launchPendingPicker, 350);
+    }
+  }
+
+  useEffect(
+    () => () => {
+      if (pickerLaunchTimer.current) clearTimeout(pickerLaunchTimer.current);
+    },
+    []
+  );
+
+  function launchPendingPicker() {
+    if (pickerLaunchTimer.current) {
+      clearTimeout(pickerLaunchTimer.current);
+      pickerLaunchTimer.current = null;
+    }
+    const picker = pendingPickerRef.current;
+    pendingPickerRef.current = null;
+    // Nothing pending means the sheet was dismissed by tapping outside.
+    if (picker) handlePicked(picker);
+  }
+
+  async function handlePicked(picker: () => Promise<PickResult | null>) {
     const result = await picker();
     if (!result) return; // user cancelled
     if (result.error) {
@@ -1144,10 +1183,11 @@ export default function ChatScreen({ route, navigation }: Props) {
 
       <AttachmentSheet
         visible={attachmentSheetVisible}
-        onCamera={() => handlePicked(pickFromCamera)}
-        onLibrary={() => handlePicked(pickFromLibrary)}
-        onDocument={() => handlePicked(pickDocument)}
+        onCamera={() => choosePicker(pickFromCamera)}
+        onLibrary={() => choosePicker(pickFromLibrary)}
+        onDocument={() => choosePicker(pickDocument)}
         onClose={() => setAttachmentSheetVisible(false)}
+        onClosed={launchPendingPicker}
       />
 
       <MediaViewerModal media={viewingMedia} onClose={() => setViewingMedia(null)} />

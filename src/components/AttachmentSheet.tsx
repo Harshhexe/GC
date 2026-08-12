@@ -17,15 +17,30 @@ export function AttachmentSheet({
   onLibrary,
   onDocument,
   onClose,
+  onClosed,
 }: {
   visible: boolean;
   onCamera: () => void;
   onLibrary: () => void;
   onDocument: () => void;
   onClose: () => void;
+  /**
+   * Fires once the modal is *fully* dismissed (iOS `Modal.onDismiss`).
+   * Launching a native picker while this modal is still animating away makes
+   * UIKit refuse the presentation — the picker never appears and its promise
+   * never settles, which reads as the app freezing. The caller waits for this
+   * before opening anything native.
+   */
+  onClosed?: () => void;
 }) {
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+      onDismiss={onClosed}
+    >
       <View style={styles.sheetAnchor}>
         <Animated.View
           entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}

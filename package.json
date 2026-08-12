@@ -14,7 +14,6 @@
     "@react-navigation/native-stack": "^7.18.8",
     "@supabase/supabase-js": "^2.112.2",
     "base64-arraybuffer": "^1.0.2",
-    "eas-cli": "^21.8.0",
     "expo": "^54.0.0",
     "expo-blur": "~15.0.8",
     "expo-clipboard": "~8.0.8",
@@ -27,6 +26,7 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "expo-system-ui": "~6.0.9",
     "expo-video": "~3.0.16",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -45,8 +45,9 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 expo run:android",
+    "ios": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 expo run:ios",
+    "prebuild": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 expo prebuild --clean",
     "web": "expo start --web"
   },
   "private": true

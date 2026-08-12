@@ -1,7 +1,11 @@
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+// SDK 54's `expo-file-system` root export is the new File/Directory API,
+// which has no readAsStringAsync — the classic functions live behind the
+// `/legacy` entry point. Importing the root here silently yields `undefined`
+// and blows up only at call time, i.e. exactly when you pick a photo.
+import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import type { MediaType, MessageKind } from '../types';
 
