@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Group } from '../types';
+import { Group, MediaType } from '../types';
+import { describeMedia } from '../lib/media';
+
+/** A media-only last message has empty `text` — fall back to "📷 Photo" /
+ *  "🎥 Video" / the filename so the group card isn't blank. */
+function previewFor(text: string | null | undefined, mediaType: MediaType | null | undefined) {
+  if (text) return text;
+  if (!mediaType) return null;
+  const { label } = describeMedia(mediaType, null);
+  const emoji = { image: '📷', gif: '🎞️', video: '🎥', file: '📄' }[mediaType];
+  return `${emoji} ${label}`;
+}
 
 /**
  * @param realtime Subscribe to live updates. Bottom-tab screens stay mounted,
@@ -46,7 +57,7 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
         const [{ data: lastMsg }, { count }] = await Promise.all([
           supabase
             .from('messages')
-            .select('text, created_at, author_id')
+            .select('text, created_at, author_id, media_type')
             .eq('group_id', g.id)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -64,7 +75,7 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
           avatarUrl: g.avatar_url,
           theme: g.theme,
           memberCount: count ?? 0,
-          lastMessage: lastMsg?.text,
+          lastMessage: previewFor(lastMsg?.text, lastMsg?.media_type as MediaType | null) ?? undefined,
           lastMessageAt: lastMsg?.created_at ?? g.created_at,
           lastMessageAuthorId: lastMsg?.author_id,
           unreadCount: 0,

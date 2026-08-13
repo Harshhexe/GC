@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureResponderEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
@@ -32,6 +32,7 @@ export function MessageQuotePreview({
   accentColor,
   isMine,
   onPress,
+  onLongPress,
   onClose,
   compact = false,
 }: {
@@ -44,6 +45,8 @@ export function MessageQuotePreview({
   isMine?: boolean;
   /** Bubble variant: tap to jump to the original. */
   onPress?: () => void;
+  /** Bubble variant: long press to open message action sheet. */
+  onLongPress?: (e: GestureResponderEvent) => void;
   /** Composer variant: X to cancel reply mode. */
   onClose?: () => void;
   /** Slightly tighter — used inside a bubble rather than above the composer. */
@@ -53,7 +56,7 @@ export function MessageQuotePreview({
 
   const content = (
     <View style={[styles.row, compact && styles.rowCompact, { borderLeftColor: accentColor }]}>
-      <View style={styles.copy}>
+      <View style={[styles.copy, !compact && styles.copyFull]}>
         {!isDeleted && (
           <View style={styles.headerRow}>
             <Ionicons name="arrow-undo" size={11} color={accentColor} style={styles.replyIcon} />
@@ -77,17 +80,21 @@ export function MessageQuotePreview({
       </View>
 
       {onClose && (
-        <Pressable hitSlop={8} onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={16} color={colors.onSurfaceVariant} />
+        <Pressable
+          hitSlop={8}
+          onPress={onClose}
+          style={[styles.closeButton, { backgroundColor: `${accentColor}26` }]}
+        >
+          <Ionicons name="close" size={16} color={accentColor} />
         </Pressable>
       )}
     </View>
   );
 
-  if (!onPress) return content;
+  if (!onPress && !onLongPress) return content;
 
   return (
-    <PressableScale scaleTo={0.98} haptic="light" onPress={onPress}>
+    <PressableScale scaleTo={0.98} haptic="light" onPress={onPress} onLongPress={onLongPress}>
       {content}
     </PressableScale>
   );
@@ -113,6 +120,7 @@ const styles = StyleSheet.create({
   // width when the parent bubble is sizing itself to content — a flexBasis:0
   // child is excluded from that measurement entirely and collapses to ~0.
   copy: { flexShrink: 1, gap: 1 },
+  copyFull: { flex: 1 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   replyIcon: { marginTop: -1 },
   author: { ...typography.label, fontSize: 11 },

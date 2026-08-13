@@ -16,6 +16,10 @@ export type MediaType = 'image' | 'video' | 'gif' | 'file';
  *  carry both — media plus a caption. */
 export type MessageMedia = {
   url: string;
+  /** Videos only: a poster frame grabbed from the clip at send time. An
+   *  <Image> pointed at a video URL renders nothing, so this is what a bubble
+   *  and the media grid actually draw. */
+  thumbUrl?: string | null;
   type: MediaType;
   mime: string;
   /** Original filename — mainly for documents, where it's the only label. */
@@ -58,12 +62,16 @@ export type Message = {
   authorName: string;
   authorColor: string;
   authorEmoji?: string;
+  authorAvatarUrl?: string | null;
   isDeletedAuthor?: boolean;
   text: string;
   kind: MessageKind;
   createdAt: string; // ISO
   editedAt?: string | null;
   isDeleted?: boolean;
+  /** True when a moderator deleted someone else's message, rather than the
+   *  author deleting their own — the bubble says "Deleted by admin". */
+  deletedByAdmin?: boolean;
   replyToMessageId?: string | null;
   replyPreview?: ReplyPreview | null;
   mentions: Mention[];
@@ -89,6 +97,21 @@ export type GroupMember = {
   avatarColor: string;
   avatarUrl: string | null;
   role: 'owner' | 'admin' | 'member';
+};
+
+/** A pinned pointer joined against its live message/pinner — never a copy of
+ *  the message itself. `exists` is false once the original was deleted. */
+export type PinnedMessage = {
+  messageId: string;
+  pinnedBy: string | null;
+  pinnedByName: string;
+  pinnedAt: string;
+  exists: boolean;
+  authorName: string;
+  text: string;
+  mediaType: MediaType | null;
+  mediaName: string | null;
+  messageCreatedAt: string;
 };
 
 export type Group = {

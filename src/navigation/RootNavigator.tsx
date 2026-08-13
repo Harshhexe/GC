@@ -7,6 +7,9 @@ import AuthScreen from '../screens/AuthScreen';
 import MainTabs from './MainTabs';
 import ChatScreen from '../screens/ChatScreen';
 import GroupInfoScreen from '../screens/GroupInfoScreen';
+import PinnedMessagesScreen from '../screens/PinnedMessagesScreen';
+import GroupSearchScreen from '../screens/GroupSearchScreen';
+import MediaLinksFilesScreen from '../screens/MediaLinksFilesScreen';
 import WhatDidIMissScreen from '../screens/WhatDidIMissScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import { RootStackParamList } from './types';
@@ -51,6 +54,13 @@ export default function RootNavigator() {
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="GroupInfo" component={GroupInfoScreen} />
+            <Stack.Screen name="PinnedMessages" component={PinnedMessagesScreen} />
+            <Stack.Screen
+              name="GroupSearch"
+              component={GroupSearchScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen name="MediaLinksFiles" component={MediaLinksFilesScreen} />
             <Stack.Screen
               name="WhatDidIMiss"
               component={WhatDidIMissScreen}

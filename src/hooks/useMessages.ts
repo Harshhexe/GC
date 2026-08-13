@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Mention, Message, MessageKind, MessageMedia, Reaction, ReplyPreview } from '../types';
 import { labelFor } from '../data/reactions';
 
-type ProfileLite = { id: string; display_name: string; avatar_color: string; avatar_emoji: string };
+type ProfileLite = {
+  id: string;
+  display_name: string;
+  avatar_color: string;
+  avatar_emoji: string;
+  avatar_url: string | null;
+};
 type ReactionRow = { message_id: string; user_id: string; emoji: string; label: string };
 type MessageRow = {
   id: string;
@@ -15,9 +21,11 @@ type MessageRow = {
   reply_to_message_id: string | null;
   edited_at: string | null;
   is_deleted: boolean;
+  deleted_by: string | null;
   mentions: Mention[] | null;
   mention_everyone: boolean;
   media_url: string | null;
+  media_thumb_url: string | null;
   media_type: 'image' | 'video' | 'gif' | 'file' | null;
   media_mime: string | null;
   media_name: string | null;
@@ -28,12 +36,13 @@ type MessageRow = {
 };
 
 const MESSAGE_COLUMNS =
-  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, mentions, mention_everyone, media_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms';
+  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms';
 
 function mediaFor(row: MessageRow): MessageMedia | null {
   if (!row.media_url || !row.media_type) return null;
   return {
     url: row.media_url,
+    thumbUrl: row.media_thumb_url,
     type: row.media_type,
     mime: row.media_mime ?? '',
     name: row.media_name,
@@ -42,6 +51,11 @@ function mediaFor(row: MessageRow): MessageMedia | null {
     height: row.media_height,
     durationMs: row.media_duration_ms,
   };
+}
+
+/** A moderator takedown, as opposed to the author deleting their own. */
+function deletedByAdminFor(row: MessageRow): boolean {
+  return !!row.is_deleted && !!row.deleted_by && row.deleted_by !== row.author_id;
 }
 
 function kindFor(row: MessageRow): MessageKind {
@@ -77,8 +91,16 @@ function aggregateReactions(rows: ReactionRow[], messageId: string, myUserId: st
 export function useMessages(groupId: string) {
   const { session } = useAuth();
   const myId = session?.user.id ?? '';
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [allMessages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  // Messages this viewer has "deleted for me". They still exist for everyone
+  // else, so they're filtered out here rather than removed from the table.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+
+  const messages = useMemo(
+    () => (hiddenIds.size === 0 ? allMessages : allMessages.filter((m) => !hiddenIds.has(m.id))),
+    [allMessages, hiddenIds]
+  );
   const profilesRef = useRef<Map<string, ProfileLite>>(new Map());
   const reactionRowsRef = useRef<ReactionRow[]>([]);
   // Every message row seen so far, keyed by id — lets a reply preview resolve
@@ -153,6 +175,7 @@ export function useMessages(groupId: string) {
             createdAt: row.created_at,
             editedAt: row.edited_at,
             isDeleted: row.is_deleted,
+            deletedByAdmin: deletedByAdminFor(row),
             replyToMessageId: row.reply_to_message_id,
             replyPreview,
             mentions: row.mentions ?? [],
@@ -172,11 +195,13 @@ export function useMessages(groupId: string) {
           authorName: profile?.display_name ?? 'someone',
           authorColor: profile?.avatar_color ?? '#B98CFF',
           authorEmoji: profile?.avatar_emoji ?? '👤',
+          authorAvatarUrl: profile?.avatar_url ?? null,
           text: displayText,
           kind: row.is_deleted ? 'text' : kindFor(row),
           createdAt: row.created_at,
           editedAt: row.edited_at,
           isDeleted: row.is_deleted,
+          deletedByAdmin: deletedByAdminFor(row),
           replyToMessageId: row.reply_to_message_id,
           replyPreview,
           mentions: row.mentions ?? [],
@@ -218,7 +243,7 @@ export function useMessages(groupId: string) {
           if (row.author_id && !profilesRef.current.has(row.author_id)) {
             const { data: p } = await supabase
               .from('profiles')
-              .select('id, display_name, avatar_color, avatar_emoji')
+              .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
               .eq('id', row.author_id)
               .single();
             if (p) profilesRef.current.set(p.id, p);
@@ -265,20 +290,27 @@ export function useMessages(groupId: string) {
     if (authorIds.length > 0) {
       const { data: profileRows } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_color, avatar_emoji')
+        .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
         .in('id', authorIds);
       for (const p of profileRows ?? []) profilesRef.current.set(p.id, p);
     }
 
     const messageIds = rows.map((r) => r.id);
     if (messageIds.length > 0) {
-      const { data: reactionRows } = await supabase
-        .from('message_reactions')
-        .select('message_id, user_id, emoji, label')
-        .in('message_id', messageIds);
+      // Scoped to this page of messages rather than every hide the user has
+      // ever made, so the query stays proportional to what's on screen.
+      const [{ data: reactionRows }, { data: hiddenRows }] = await Promise.all([
+        supabase
+          .from('message_reactions')
+          .select('message_id, user_id, emoji, label')
+          .in('message_id', messageIds),
+        supabase.from('hidden_messages').select('message_id').in('message_id', messageIds),
+      ]);
       reactionRowsRef.current = reactionRows ?? [];
+      setHiddenIds(new Set((hiddenRows ?? []).map((r) => r.message_id)));
     } else {
       reactionRowsRef.current = [];
+      setHiddenIds(new Set());
     }
 
     setMessages(buildMessages(rows));
@@ -320,7 +352,7 @@ export function useMessages(groupId: string) {
           if (row.author_id && !profilesRef.current.has(row.author_id)) {
             const { data: p } = await supabase
               .from('profiles')
-              .select('id, display_name, avatar_color, avatar_emoji')
+              .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
               .eq('id', row.author_id)
               .single();
             if (p) profilesRef.current.set(p.id, p);
@@ -347,6 +379,7 @@ export function useMessages(groupId: string) {
                     media: row.is_deleted ? null : mediaFor(row),
                     editedAt: row.edited_at,
                     isDeleted: row.is_deleted,
+                    deletedByAdmin: deletedByAdminFor(row),
                     mentions: row.mentions ?? [],
                     mentionEveryone: row.mention_everyone,
                   }
@@ -409,6 +442,7 @@ export function useMessages(groupId: string) {
       mentions,
       mention_everyone: mentionEveryone,
       media_url: media?.url ?? null,
+      media_thumb_url: media?.thumbUrl ?? null,
       media_type: media?.type ?? null,
       media_mime: media?.mime ?? null,
       media_name: media?.name ?? null,
@@ -442,11 +476,45 @@ export function useMessages(groupId: string) {
       .eq('id', messageId);
   }
 
+  /** Delete for everyone: the message becomes a tombstone for every member.
+   *  Who may do this is enforced by RLS (author, or the group's owner/admin). */
   async function deleteMessage(messageId: string) {
+    const target = messagesRef.current.find((m) => m.id === messageId);
     setMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, text: '', isDeleted: true } : m))
+      prev.map((m) =>
+        m.id === messageId
+          ? {
+              ...m,
+              text: '',
+              media: null,
+              isDeleted: true,
+              // Mirrors what the trigger will stamp, so the label doesn't
+              // flicker in after the realtime UPDATE lands.
+              deletedByAdmin: !!target && target.authorId !== myId,
+            }
+          : m
+      )
     );
     await supabase.from('messages').update({ is_deleted: true }).eq('id', messageId);
+  }
+
+  /** Delete for me: hides the message for this viewer only. The message
+   *  itself is untouched, so everyone else still sees it. */
+  async function hideMessage(messageId: string) {
+    if (!myId) return;
+    setHiddenIds((prev) => new Set(prev).add(messageId));
+    const { error } = await supabase
+      .from('hidden_messages')
+      .insert({ message_id: messageId, user_id: myId });
+    if (error) {
+      // Put it back rather than leaving it hidden on this device only — a
+      // hide that didn't persist would reappear on the next load anyway.
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
   }
 
   async function toggleReaction(messageId: string, emoji: string, label?: string) {
@@ -497,5 +565,5 @@ export function useMessages(groupId: string) {
     refreshReactions();
   }
 
-  return { messages, loading, sendMessage, editMessage, deleteMessage, toggleReaction };
+  return { messages, loading, sendMessage, editMessage, deleteMessage, hideMessage, toggleReaction };
 }

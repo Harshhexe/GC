@@ -7,6 +7,7 @@ export type Reader = {
   displayName: string;
   avatarEmoji: string;
   avatarColor: string;
+  avatarUrl: string | null;
   lastReadAt: string;
 };
 
@@ -36,7 +37,7 @@ export function useReadReceipts(groupId: string, myUserId: string | undefined) {
 
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_emoji, avatar_color')
+      .select('id, display_name, avatar_emoji, avatar_color, avatar_url')
       .in(
         'id',
         others.map((o) => o.user_id)
@@ -51,6 +52,7 @@ export function useReadReceipts(groupId: string, myUserId: string | undefined) {
           displayName: p?.display_name ?? 'someone',
           avatarEmoji: p?.avatar_emoji ?? '👤',
           avatarColor: p?.avatar_color ?? '#d0bcff',
+          avatarUrl: p?.avatar_url ?? null,
           lastReadAt: o.last_read_at,
         };
       })

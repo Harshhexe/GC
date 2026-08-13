@@ -12,6 +12,9 @@ export type RootStackParamList = {
    *  "unread" divider without re-reading a stamp it is about to overwrite. */
   Chat: { groupId: string; unreadCount?: number; jumpToMessageId?: string };
   GroupInfo: { groupId: string };
+  PinnedMessages: { groupId: string };
+  GroupSearch: { groupId: string };
+  MediaLinksFiles: { groupId: string; initialTab?: 'media' | 'links' | 'files' };
   WhatDidIMiss: { groupId: string; groupName?: string };
   Notifications: undefined;
 };

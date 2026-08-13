@@ -1,7 +1,14 @@
-import { GestureResponderEvent, Image, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { GestureResponderEvent, StyleSheet, Text, View } from 'react-native';
+// expo-image, not RN's Image: it keeps a real memory+disk cache, so reopening
+// a chat redraws photos from disk instead of re-downloading every one of them
+// (the reason the transcript used to crawl on open), and it cross-fades in
+// rather than popping.
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { formatFileSize } from '../lib/media';
+import { useVideoPoster } from '../hooks/useVideoPoster';
 import { PressableScale } from './ui/PressableScale';
 import type { MessageMedia } from '../types';
 
@@ -68,6 +75,15 @@ export function MessageMediaView({
   }
 
   const box = boxFor(media);
+  const [imgError, setImgError] = useState(false);
+
+  // A video URL is not something an <Image> can draw — it needs a poster
+  // frame. New videos carry one captured at send time; anything sent before
+  // that existed gets one derived on the device instead, so old bubbles
+  // aren't stuck blank forever.
+  const isVideo = media.type === 'video';
+  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? media.url : null);
+  const previewUri = isVideo ? media.thumbUrl ?? derivedPoster : media.url;
 
   return (
     <PressableScale
@@ -77,9 +93,19 @@ export function MessageMediaView({
       haptic="light"
       style={[styles.mediaBox, { width: box.width, height: box.height }]}
     >
-      <Image source={{ uri: media.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      {!!previewUri && !imgError && (
+        <Image
+          source={previewUri}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={180}
+          recyclingKey={media.url}
+          onError={() => setImgError(true)}
+        />
+      )}
       {media.type === 'video' && (
-        <View style={styles.videoOverlay}>
+        <View style={[styles.videoOverlay, (!previewUri || imgError) && styles.videoPlate]}>
           <View style={styles.playCircle}>
             <Ionicons name="play" size={22} color="#FFFFFF" />
           </View>
@@ -111,6 +137,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // No poster to sit on top of — become the background rather than a scrim.
+  videoPlate: { backgroundColor: 'rgba(20, 20, 35, 0.95)' },
   playCircle: {
     width: 46,
     height: 46,

@@ -38,6 +38,7 @@ type Member = {
   username: string;
   avatar_emoji: string;
   avatar_color: string;
+  avatar_url: string | null;
   messageCount: number;
   role: Role;
 };
@@ -96,7 +97,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     const [{ data: profiles }, { data: msgs }] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_emoji, avatar_color')
+        .select('id, display_name, username, avatar_emoji, avatar_color, avatar_url')
         .in('id', ids),
       supabase.from('messages').select('author_id').eq('group_id', groupId),
     ]);
@@ -288,6 +289,33 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
             </GlassPanel>
           </Animated.View>
 
+          <Animated.View
+            entering={FadeInDown.delay(STAGGER_MS + 4)
+              .duration(duration.slow)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
+          >
+            <GlassPanel borderRadius={radius.lg} style={styles.quickLinks}>
+              <QuickLinkRow
+                icon="search"
+                label="Search"
+                onPress={() => navigation.navigate('GroupSearch', { groupId })}
+              />
+              <View style={styles.quickLinkDivider} />
+              <QuickLinkRow
+                icon="pin"
+                label="Pinned Messages"
+                onPress={() => navigation.navigate('PinnedMessages', { groupId })}
+              />
+              <View style={styles.quickLinkDivider} />
+              <QuickLinkRow
+                icon="image"
+                label="Media, Links & Files"
+                onPress={() => navigation.navigate('MediaLinksFiles', { groupId })}
+              />
+            </GlassPanel>
+          </Animated.View>
+
           {canManage && (
             <Animated.View
               entering={FadeInDown.delay(STAGGER_MS * 2)
@@ -340,6 +368,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                   <View key={m.id} style={[styles.memberRow, i > 0 && styles.memberDivider]}>
                     <Avatar
                       emoji={m.avatar_emoji}
+                      imageUrl={m.avatar_url}
                       label={m.display_name}
                       size={46}
                       ringColors={[m.avatar_color, colors.secondary]}
@@ -436,6 +465,35 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   );
 }
 
+function QuickLinkRow({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale style={quickLinkStyles.row} scaleTo={0.98} onPress={onPress}>
+      <Ionicons name={icon} size={18} color={colors.primary} />
+      <Text style={quickLinkStyles.label}>{label}</Text>
+      <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+    </PressableScale>
+  );
+}
+
+const quickLinkStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.lg,
+  },
+  label: { ...typography.bodyMedium, fontSize: 15, color: colors.onSurface, flex: 1 },
+});
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   safe: { flex: 1 },
@@ -454,6 +512,8 @@ const styles = StyleSheet.create({
     marginRight: -4,
   },
   copyButton: { marginTop: spacing.md },
+  quickLinks: { overflow: 'hidden' },
+  quickLinkDivider: { height: StyleSheet.hairlineWidth, backgroundColor: glass.stroke, marginLeft: spacing.lg + 18 + spacing.md },
   themeBlock: { gap: spacing.md },
   themeTitle: { ...typography.headline, fontSize: 20, color: colors.onSurface },
   themeGrid: { flexDirection: 'row', gap: spacing.sm },

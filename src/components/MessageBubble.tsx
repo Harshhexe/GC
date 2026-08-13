@@ -1,5 +1,5 @@
-import { memo, useEffect } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { memo, useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   FadeInDown,
@@ -42,6 +42,7 @@ const SWIPE_MAX = 84;
 function MessageBubbleImpl({
   message,
   isMessageOfTheDay,
+  isPinned,
   showAuthor,
   showAvatar = true,
   showTimestamp = true,
@@ -60,6 +61,7 @@ function MessageBubbleImpl({
 }: {
   message: Message;
   isMessageOfTheDay?: boolean;
+  isPinned?: boolean;
   /** False when this message continues a run from the same author. */
   showAuthor?: boolean;
   /** False on every row but the last in a same-author run. */
@@ -88,6 +90,7 @@ function MessageBubbleImpl({
   /** Tapping an image/video/document attachment. */
   onMediaPress?: (message: Message) => void;
 }) {
+  const [showSeenText, setShowSeenText] = useState(false);
   const mine = message.isMine;
   const theme = tint ?? groupTheme('violet');
   const hasCaption = message.text.trim().length > 0;
@@ -190,46 +193,55 @@ function MessageBubbleImpl({
       entering={FadeInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
       style={[styles.rowOuter]}
     >
-      <Animated.View style={[styles.replyIconWrap, replyIconStyle]}>
-        <View style={[styles.replyIconCircle, { backgroundColor: `${theme.accent}33` }]}>
-          <Ionicons name="arrow-undo" size={16} color={theme.accent} />
-        </View>
-      </Animated.View>
+      <View style={[styles.row, mine && styles.rowMine, highlightStyle]}>
+        {selectMode && (
+          <PressableScale
+            style={styles.selectDot}
+            scaleTo={0.85}
+            haptic="light"
+            onPress={() => onPress?.(message)}
+          >
+            <Ionicons
+              name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+              size={22}
+              color={selected ? theme.accent : colors.outline}
+            />
+          </PressableScale>
+        )}
 
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.row, mine && styles.rowMine, swipeStyle, highlightStyle]}>
-          {selectMode && (
-            <PressableScale
-              style={styles.selectDot}
-              scaleTo={0.85}
-              haptic="light"
-              onPress={() => onPress?.(message)}
-            >
-              <Ionicons
-                name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                size={22}
-                color={selected ? theme.accent : colors.outline}
-              />
-            </PressableScale>
-          )}
+        <GestureDetector gesture={panGesture}>
+          <Animated.View style={[styles.swipeWrap, swipeStyle]}>
+            <Animated.View style={[styles.replyIconWrap, replyIconStyle]}>
+              <View style={[styles.replyIconCircle, { backgroundColor: `${theme.accent}33` }]}>
+                <Ionicons name="arrow-undo" size={15} color={theme.accent} />
+              </View>
+            </Animated.View>
 
-          {!mine && (
-            <View style={styles.avatarSlot}>
-              {showAvatar && (
-                <Avatar
-                  emoji={message.authorEmoji}
-                  label={message.authorName}
-                  size={28}
-                  ringColors={[message.authorColor, theme.accent]}
-                />
-              )}
-            </View>
-          )}
+            {!mine && (
+              <View style={styles.avatarSlot}>
+                {showAvatar && (
+                  <Avatar
+                    emoji={message.authorEmoji}
+                    imageUrl={message.authorAvatarUrl}
+                    label={message.authorName}
+                    size={28}
+                    ringColors={[message.authorColor, theme.accent]}
+                  />
+                )}
+              </View>
+            )}
 
-          <View style={[styles.column, mine && styles.columnMine]}>
+            <View style={[styles.column, mine && styles.columnMine]}>
             {isMessageOfTheDay && (
               <View style={styles.motdBadge}>
                 <Text style={styles.motdText}>🏆 MESSAGE OF THE DAY</Text>
+              </View>
+            )}
+
+            {isPinned && (
+              <View style={styles.pinBadge}>
+                <Ionicons name="pin" size={10} color={colors.onSurfaceVariant} />
+                <Text style={styles.pinBadgeText}>PINNED</Text>
               </View>
             )}
 
@@ -275,6 +287,7 @@ function MessageBubbleImpl({
                         isDeleted={message.replyPreview.isDeleted}
                         isMine={message.replyPreview.authorId === message.authorId}
                         onPress={onQuotePress ? () => onQuotePress(message) : undefined}
+                        onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY)}
                       />
                     )}
                     {message.media && (
@@ -308,12 +321,19 @@ function MessageBubbleImpl({
                         isDeleted={message.replyPreview.isDeleted}
                         isMine={message.replyPreview.authorId === message.authorId}
                         onPress={onQuotePress ? () => onQuotePress(message) : undefined}
+                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
                       />
                     )}
                     {deleted ? (
                       <View style={styles.deletedRow}>
-                        <Ionicons name="ban-outline" size={14} color={colors.outline} />
-                        <Text style={styles.deletedBodyText}>This message was deleted</Text>
+                        <Ionicons
+                          name={message.deletedByAdmin ? 'shield-outline' : 'ban-outline'}
+                          size={14}
+                          color={colors.outline}
+                        />
+                        <Text style={styles.deletedBodyText}>
+                          {message.deletedByAdmin ? 'Deleted by admin' : 'This message was deleted'}
+                        </Text>
                       </View>
                     ) : (
                       <>
@@ -348,31 +368,42 @@ function MessageBubbleImpl({
             {(() => {
               const otherReaders = readers?.filter((r) => r.id !== message.authorId);
               if (!otherReaders?.length) return null;
+              const names = otherReaders.map((r) => r.displayName).join(', ');
               return (
-                <Animated.View
-                  entering={FadeInDown.duration(duration.fast).reduceMotion(reduceMotion)}
-                  style={[styles.seenRow, mine && styles.seenRowMine]}
-                >
-                  {otherReaders.slice(0, 5).map((r, i) => (
-                    <View key={r.id} style={[styles.seenAvatar, i > 0 && styles.seenOverlap]}>
-                      <Avatar
-                        emoji={r.avatarEmoji}
-                        label={r.displayName}
-                        size={20}
-                        ringColors={[r.avatarColor, r.avatarColor]}
-                      />
-                    </View>
-                  ))}
-                  {otherReaders.length > 5 && (
-                    <Text style={styles.seenMore}>+{otherReaders.length - 5}</Text>
-                  )}
-                </Animated.View>
+                <Pressable onPress={() => setShowSeenText((prev) => !prev)} hitSlop={6}>
+                  <Animated.View
+                    entering={FadeInDown.duration(duration.fast).reduceMotion(reduceMotion)}
+                    style={[styles.seenRow, mine && styles.seenRowMine]}
+                  >
+                    {showSeenText ? (
+                      <Text style={styles.seenText}>Seen by {names}</Text>
+                    ) : (
+                      <>
+                        {otherReaders.slice(0, 5).map((r, i) => (
+                          <View key={r.id} style={[styles.seenAvatar, i > 0 && styles.seenOverlap]}>
+                            <Avatar
+                              emoji={r.avatarEmoji}
+                              imageUrl={r.avatarUrl}
+                              label={r.displayName}
+                              size={20}
+                              ringColors={[r.avatarColor, r.avatarColor]}
+                            />
+                          </View>
+                        ))}
+                        {otherReaders.length > 5 && (
+                          <Text style={styles.seenMore}>+{otherReaders.length - 5}</Text>
+                        )}
+                      </>
+                    )}
+                  </Animated.View>
+                </Pressable>
               );
             })()}
           </View>
         </Animated.View>
       </GestureDetector>
-    </Animated.View>
+    </View>
+  </Animated.View>
   );
 }
 
@@ -380,17 +411,23 @@ export const MessageBubble = memo(MessageBubbleImpl);
 
 const styles = StyleSheet.create({
   rowOuter: { justifyContent: 'center' },
+  swipeWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    position: 'relative',
+  },
   replyIconWrap: {
     position: 'absolute',
-    left: spacing.lg - 4,
+    left: -36,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
-    zIndex: -1,
+    zIndex: 1,
   },
   replyIconCircle: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -411,6 +448,14 @@ const styles = StyleSheet.create({
 
   motdBadge: { marginBottom: 3, marginHorizontal: spacing.xs },
   motdText: { ...typography.label, fontSize: 9, color: colors.yellow },
+  pinBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 3,
+    marginHorizontal: spacing.xs,
+  },
+  pinBadgeText: { ...typography.label, fontSize: 9, color: colors.onSurfaceVariant },
 
   author: {
     ...typography.label,
@@ -474,4 +519,10 @@ const styles = StyleSheet.create({
   // Slight overlap so a row of readers reads as a cluster, not a list.
   seenOverlap: { marginLeft: -6 },
   seenMore: { ...typography.micro, fontSize: 10, color: colors.outline, marginLeft: 4 },
+  seenText: {
+    ...typography.micro,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    marginTop: 1,
+  },
 });

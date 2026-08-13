@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Linking,
@@ -38,10 +37,12 @@ import { MessageQuotePreview } from '../components/MessageQuotePreview';
 import { MentionSuggestions } from '../components/MentionSuggestions';
 import { MemberProfileSheet } from '../components/MemberProfileSheet';
 import { AttachmentSheet } from '../components/AttachmentSheet';
+import { AttachmentPreview } from '../components/AttachmentPreview';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { EmptyState } from '../components/EmptyState';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { AfterHoursBanner } from '../components/AfterHoursBanner';
+import { PinnedBanner } from '../components/PinnedBanner';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Chip } from '../components/ui/Glass';
@@ -50,6 +51,7 @@ import { groupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
+import { usePinnedMessages } from '../hooks/usePinnedMessages';
 import { useTyping } from '../hooks/useTyping';
 import { useAfterHours } from '../hooks/useAfterHours';
 import { useAuth } from '../context/AuthContext';
@@ -64,7 +66,6 @@ import {
   insertMentionToken,
 } from '../lib/mentions';
 import {
-  formatFileSize,
   pickDocument,
   pickFromCamera,
   pickFromLibrary,
@@ -90,7 +91,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { groupId } = route.params;
   const { profile, session } = useAuth();
-  const { messages, loading, sendMessage, editMessage, deleteMessage, toggleReaction } =
+  const { messages, loading, sendMessage, editMessage, deleteMessage, hideMessage, toggleReaction } =
     useMessages(groupId);
   const { members: groupMembers } = useGroupMembers(groupId);
   const { typingNames, notifyTyping } = useTyping(
@@ -129,7 +130,6 @@ export default function ChatScreen({ route, navigation }: Props) {
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setIsKeyboardOpen(false);
-        setTimeout(scrollToBottom, 100);
       }
     );
 
@@ -183,6 +183,8 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const readers = useReadReceipts(groupId, session?.user.id);
   const readersByMessage = useReadersByMessage(messages, readers);
+  const { pins, pin: pinMessage, unpin: unpinMessage } = usePinnedMessages(groupId);
+  const pinnedIds = useMemo(() => new Set(pins.map((p) => p.messageId)), [pins]);
 
   const [groupInfo, setGroupInfo] = useState<{
     name: string;
@@ -235,7 +237,10 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [viewingMedia, setViewingMedia] = useState<MessageMedia | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  // The whole message, not just its media — the viewer offers a reply action,
+  // which needs to know what it's replying to.
+  const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
 
   // Select mode: a lightweight multi-select overlay entered via the action
   // sheet's "Select" item.
@@ -414,8 +419,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
     if (pendingAttachment) {
       setUploading(true);
+      setUploadProgress(0);
       setAttachError(null);
-      const { url, error } = await uploadMessageMedia(groupId, pendingAttachment);
+      const { url, thumbUrl, error } = await uploadMessageMedia(
+        groupId,
+        pendingAttachment,
+        setUploadProgress
+      );
       setUploading(false);
       if (!url) {
         setAttachError(error ?? 'Upload failed — try again.');
@@ -423,6 +433,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       }
       const media: MessageMedia = {
         url,
+        thumbUrl,
         type: pendingAttachment.type,
         mime: pendingAttachment.mime,
         name: pendingAttachment.name,
@@ -461,11 +472,9 @@ export default function ChatScreen({ route, navigation }: Props) {
   function choosePicker(picker: () => Promise<PickResult | null>) {
     pendingPickerRef.current = picker;
     setAttachmentSheetVisible(false);
-    // Modal.onDismiss is iOS-only, so elsewhere fall back to a timer that
-    // comfortably outlasts the sheet's slide-out.
-    if (Platform.OS !== 'ios') {
-      pickerLaunchTimer.current = setTimeout(launchPendingPicker, 350);
-    }
+    if (pickerLaunchTimer.current) clearTimeout(pickerLaunchTimer.current);
+    // Always schedule a fallback timer so iOS never gets stuck waiting for Modal.onDismiss
+    pickerLaunchTimer.current = setTimeout(launchPendingPicker, Platform.OS === 'ios' ? 150 : 50);
   }
 
   useEffect(
@@ -504,7 +513,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       Linking.openURL(message.media.url).catch(() => { });
       return;
     }
-    setViewingMedia(message.media);
+    setViewingMessage(message);
   }, []);
 
   // The @query currently under the cursor, if any — null closes the picker.
@@ -606,21 +615,63 @@ export default function ChatScreen({ route, navigation }: Props) {
     }
   }, []);
 
-  const confirmDeleteMessage = useCallback(
+  const pinCurrentTarget = useCallback(
+    (message: Message) => {
+      setActionTarget(null);
+      setActionAnchor(null);
+      if (!session?.user.id) return;
+      pinMessage(message.id, session.user.id);
+    },
+    [pinMessage, session?.user.id]
+  );
+
+  const unpinCurrentTarget = useCallback(
+    (message: Message) => {
+      setActionTarget(null);
+      setActionAnchor(null);
+      unpinMessage(message.id);
+    },
+    [unpinMessage]
+  );
+
+  const confirmDeleteForEveryone = useCallback(
     (message: Message) => {
       setActionTarget(null);
       setActionAnchor(null);
       const go = () => deleteMessage(message.id);
+      // Deleting someone else's message is a moderator action, so say so
+      // rather than letting it read like deleting your own.
+      const body = message.isMine
+        ? 'This removes it for everyone in the GC.'
+        : `This removes ${message.authorName}'s message for everyone, and the GC will see it was deleted by an admin.`;
       if (Platform.OS === 'web') {
-        if (window.confirm('Delete this message? This cannot be undone.')) go();
+        if (window.confirm(`Delete for everyone? ${body}`)) go();
         return;
       }
-      Alert.alert('Delete this message?', 'This cannot be undone.', [
+      Alert.alert('Delete for everyone?', body, [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: go },
       ]);
     },
     [deleteMessage]
+  );
+
+  const confirmDeleteForMe = useCallback(
+    (message: Message) => {
+      setActionTarget(null);
+      setActionAnchor(null);
+      const go = () => hideMessage(message.id);
+      const body = 'It stays visible for everyone else in the GC.';
+      if (Platform.OS === 'web') {
+        if (window.confirm(`Delete for me? ${body}`)) go();
+        return;
+      }
+      Alert.alert('Delete for me?', body, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: go },
+      ]);
+    },
+    [hideMessage]
   );
 
   const enterSelectMode = useCallback((message: Message) => {
@@ -653,21 +704,43 @@ export default function ChatScreen({ route, navigation }: Props) {
     exitSelectMode();
   }, [messages, selectedIds, exitSelectMode]);
 
-  const deleteSelected = useCallback(() => {
+  const deleteSelectedForEveryone = useCallback(() => {
     const chosen = messages.filter((m) => selectedIds.has(m.id) && !m.isDeleted);
+    if (chosen.length === 0) return;
     const go = () => {
       chosen.forEach((m) => deleteMessage(m.id));
       exitSelectMode();
     };
+    const title = `Delete ${chosen.length} message${chosen.length === 1 ? '' : 's'} for everyone?`;
+    const body = 'This cannot be undone.';
     if (Platform.OS === 'web') {
-      if (window.confirm(`Delete ${chosen.length} message${chosen.length === 1 ? '' : 's'}?`)) go();
+      if (window.confirm(`${title} ${body}`)) go();
       return;
     }
-    Alert.alert(`Delete ${chosen.length} message${chosen.length === 1 ? '' : 's'}?`, 'This cannot be undone.', [
+    Alert.alert(title, body, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: go },
     ]);
   }, [messages, selectedIds, deleteMessage, exitSelectMode]);
+
+  const deleteSelectedForMe = useCallback(() => {
+    const chosen = messages.filter((m) => selectedIds.has(m.id));
+    if (chosen.length === 0) return;
+    const go = () => {
+      chosen.forEach((m) => hideMessage(m.id));
+      exitSelectMode();
+    };
+    const title = `Delete ${chosen.length} message${chosen.length === 1 ? '' : 's'} for me?`;
+    const body = 'They stay visible for everyone else in the GC.';
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title} ${body}`)) go();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: go },
+    ]);
+  }, [messages, selectedIds, hideMessage, exitSelectMode]);
 
   const jumpToMessage = useCallback(
     (id: string | undefined | null) => {
@@ -783,6 +856,12 @@ export default function ChatScreen({ route, navigation }: Props) {
         )}
 
         {afterHours && <AfterHoursBanner now={now} />}
+        <PinnedBanner
+          pins={pins}
+          accentColor={theme.accent}
+          onPressPin={(pin) => jumpToMessage(pin.messageId)}
+          onPressViewAll={() => navigation.navigate('PinnedMessages', { groupId })}
+        />
 
         <KeyboardAvoidingView
           style={styles.flex}
@@ -888,6 +967,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                       <MessageBubble
                         message={item}
                         isMessageOfTheDay={item.id === motdId}
+                        isPinned={pinnedIds.has(item.id)}
                         showAuthor={showAuthor}
                         showAvatar={showAvatar}
                         showTimestamp={showTimestamp}
@@ -956,14 +1036,14 @@ export default function ChatScreen({ route, navigation }: Props) {
                     </View>
                     <PressableScale
                       hitSlop={8}
-                      style={styles.composerPreviewClose}
+                      style={[styles.composerPreviewClose, { backgroundColor: `${theme.accent}26` }]}
                       onPress={() => {
                         setEditingMessage(null);
                         setDraft('');
                         setMentionCandidates(new Map());
                       }}
                     >
-                      <Ionicons name="close" size={16} color={colors.onSurfaceVariant} />
+                      <Ionicons name="close" size={16} color={theme.accent} />
                     </PressableScale>
                   </View>
                 ) : (
@@ -987,36 +1067,13 @@ export default function ChatScreen({ route, navigation }: Props) {
                 entering={SlideInDown.duration(duration.fast).easing(easing.out).reduceMotion(reduceMotion)}
                 style={styles.attachmentPreviewWrap}
               >
-                <View style={styles.attachmentPreviewRow}>
-                  {pendingAttachment.type === 'image' || pendingAttachment.type === 'gif' ? (
-                    <Image source={{ uri: pendingAttachment.uri }} style={styles.attachmentThumb} />
-                  ) : (
-                    <View style={styles.attachmentThumbIcon}>
-                      <Ionicons
-                        name={pendingAttachment.type === 'video' ? 'videocam' : 'document-text'}
-                        size={20}
-                        color={theme.accent}
-                      />
-                    </View>
-                  )}
-                  <View style={styles.attachmentCopy}>
-                    <Text style={styles.attachmentName} numberOfLines={1}>
-                      {pendingAttachment.name || (pendingAttachment.type === 'video' ? 'Video' : 'Photo')}
-                    </Text>
-                    <Text style={styles.attachmentMeta}>{formatFileSize(pendingAttachment.size)}</Text>
-                  </View>
-                  {uploading ? (
-                    <ActivityIndicator size="small" color={theme.accent} />
-                  ) : (
-                    <PressableScale
-                      hitSlop={8}
-                      style={styles.composerPreviewClose}
-                      onPress={() => setPendingAttachment(null)}
-                    >
-                      <Ionicons name="close" size={16} color={colors.onSurfaceVariant} />
-                    </PressableScale>
-                  )}
-                </View>
+                <AttachmentPreview
+                  attachment={pendingAttachment}
+                  uploading={uploading}
+                  progress={uploadProgress}
+                  accentColor={theme.accent}
+                  onRemove={() => setPendingAttachment(null)}
+                />
               </Animated.View>
             )}
 
@@ -1068,7 +1125,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                 onBlur={() => {
                   blurTimeoutRef.current = setTimeout(() => setComposerFocused(false), 150);
                 }}
-                placeholder={editingMessage ? 'Edit your message...' : 'Say something...'}
+                placeholder={editingMessage ? 'Edit your message...' : 'Cook Something...'}
                 placeholderTextColor={colors.outline}
                 multiline
               />
@@ -1115,6 +1172,21 @@ export default function ChatScreen({ route, navigation }: Props) {
             <Ionicons name="copy-outline" size={18} color={colors.onSurface} />
             <Text style={styles.selectBarLabel}>Copy</Text>
           </PressableScale>
+          {/* Always offered — dropping messages from your own view needs no
+              permission at all. */}
+          <PressableScale
+            style={styles.selectBarButton}
+            scaleTo={0.95}
+            haptic="medium"
+            onPress={deleteSelectedForMe}
+          >
+            <Ionicons name="eye-off-outline" size={18} color={colors.onSurface} />
+            <Text style={styles.selectBarLabel}>Delete for me</Text>
+          </PressableScale>
+
+          {/* Only when every selected message is one this user may take down
+              for the whole group — otherwise a mixed selection would silently
+              skip the ones they can't touch. */}
           {[...selectedIds].every((id) => {
             const m = messages.find((msg) => msg.id === id);
             return m && canDeleteMessage(m) && !m.isDeleted;
@@ -1123,10 +1195,10 @@ export default function ChatScreen({ route, navigation }: Props) {
                 style={styles.selectBarButton}
                 scaleTo={0.95}
                 haptic="medium"
-                onPress={deleteSelected}
+                onPress={deleteSelectedForEveryone}
               >
                 <Ionicons name="trash-outline" size={18} color={colors.error} />
-                <Text style={[styles.selectBarLabel, { color: colors.error }]}>Delete</Text>
+                <Text style={[styles.selectBarLabel, { color: colors.error }]}>Delete for everyone</Text>
               </PressableScale>
             )}
         </Animated.View>
@@ -1150,6 +1222,8 @@ export default function ChatScreen({ route, navigation }: Props) {
             text: actionTarget.text,
             isMine: actionTarget.isMine,
             canModerate,
+            isPinned: pinnedIds.has(actionTarget.id),
+            media: actionTarget.media,
           }
         }
         anchor={actionAnchor}
@@ -1167,8 +1241,11 @@ export default function ChatScreen({ route, navigation }: Props) {
         onCopy={() => actionTarget && copyMessage(actionTarget)}
         onShare={() => actionTarget && shareMessage(actionTarget)}
         onEdit={() => actionTarget && startEdit(actionTarget)}
-        onDelete={() => actionTarget && confirmDeleteMessage(actionTarget)}
+        onDeleteForEveryone={() => actionTarget && confirmDeleteForEveryone(actionTarget)}
+        onDeleteForMe={() => actionTarget && confirmDeleteForMe(actionTarget)}
         onSelect={() => actionTarget && enterSelectMode(actionTarget)}
+        onPin={() => actionTarget && pinCurrentTarget(actionTarget)}
+        onUnpin={() => actionTarget && unpinCurrentTarget(actionTarget)}
         onClose={() => {
           setActionTarget(null);
           setActionAnchor(null);
@@ -1190,7 +1267,15 @@ export default function ChatScreen({ route, navigation }: Props) {
         onClosed={launchPendingPicker}
       />
 
-      <MediaViewerModal media={viewingMedia} onClose={() => setViewingMedia(null)} />
+      <MediaViewerModal
+        media={viewingMessage?.media ?? null}
+        onClose={() => setViewingMessage(null)}
+        onReply={() => {
+          const target = viewingMessage;
+          setViewingMessage(null);
+          if (target) startReply(target);
+        }}
+      />
     </View>
   );
 }
@@ -1255,26 +1340,6 @@ const styles = StyleSheet.create({
   },
   composerPreviewWrap: { marginBottom: spacing.xs },
   attachmentPreviewWrap: { marginBottom: spacing.xs },
-  attachmentPreviewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: radius.md,
-    padding: spacing.sm,
-  },
-  attachmentThumb: { width: 40, height: 40, borderRadius: radius.sm },
-  attachmentThumbIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.sm,
-    backgroundColor: 'rgba(129, 140, 248, 0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  attachmentCopy: { flex: 1, gap: 1 },
-  attachmentName: { ...typography.bodyMedium, fontSize: 13.5, color: colors.onSurface },
-  attachmentMeta: { ...typography.micro, fontSize: 11, color: colors.onSurfaceVariant },
   attachErrorRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1331,7 +1396,7 @@ const styles = StyleSheet.create({
   selectBarLabel: { ...typography.bodyMedium, fontSize: 14, color: colors.onSurface },
   composer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: 'rgba(19, 19, 29, 0.95)',
     borderRadius: radius.pill,

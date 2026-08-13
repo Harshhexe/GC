@@ -32,6 +32,7 @@
     },
     "plugins": [
       "./plugins/withIosDeploymentTarget",
+      "./plugins/withSceneDelegate",
       "expo-font",
       "expo-splash-screen",
       "expo-video",

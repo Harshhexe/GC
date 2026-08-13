@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +9,8 @@ import { duration, easing, reduceMotion } from '../theme/motion';
 import { reactionCatalog } from '../data/reactions';
 import { PressableScale } from './ui/PressableScale';
 import { selectFeedback } from '../utils/haptics';
+import { useVideoPoster } from '../hooks/useVideoPoster';
+import type { MessageMedia } from '../types';
 
 /** Reactions people actually reach for most — the rest live behind "+". */
 const QUICK_REACTIONS = reactionCatalog.slice(0, 6);
@@ -19,6 +22,8 @@ export type MessageActionTarget = {
   isMine: boolean;
   /** Owner/admin moderation rights, independent of authorship. */
   canModerate: boolean;
+  isPinned: boolean;
+  media?: MessageMedia | null;
 };
 
 /** Where the long-pressed bubble was, so the menu opens right next to it
@@ -46,8 +51,11 @@ export function MessageActionSheet({
   onCopy,
   onShare,
   onEdit,
-  onDelete,
+  onDeleteForEveryone,
+  onDeleteForMe,
   onSelect,
+  onPin,
+  onUnpin,
   onClose,
 }: {
   visible: boolean;
@@ -59,27 +67,23 @@ export function MessageActionSheet({
   onCopy: () => void;
   onShare: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  /** Tombstones the message for every member. Only offered when the viewer
+   *  is the author or a moderator — RLS enforces the same rule. */
+  onDeleteForEveryone: () => void;
+  /** Hides it for this viewer only. Always available. */
+  onDeleteForMe: () => void;
   onSelect: () => void;
+  onPin: () => void;
+  onUnpin: () => void;
   onClose: () => void;
 }) {
-  const layout = useMemo(() => {
-    if (!anchor) return null;
-    const screenHeight = Dimensions.get('window').height;
-    const estimatedHeight = 330;
-    
-    const invert = anchor.y + estimatedHeight > screenHeight - 40;
-    
-    const top = invert ? undefined : Math.max(anchor.y - 46, 56);
-    const bottom = invert ? Math.max(screenHeight - anchor.y - 16, 20) : undefined;
-    
-    const alignItems: 'flex-end' | 'flex-start' = anchor.mine ? 'flex-end' : 'flex-start';
-    return { top, bottom, alignItems, invert };
-  }, [anchor]);
+  const alignItems: 'flex-end' | 'flex-start' = anchor?.mine ? 'flex-end' : 'flex-start';
 
-  if (!target || !layout) return null;
+  if (!target) return null;
 
-  const canDelete = target.isMine || target.canModerate;
+  // Anyone can drop a message from their own view; taking it down for the
+  // whole group is the author's call, or a moderator's.
+  const canDeleteForEveryone = target.isMine || target.canModerate;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -96,18 +100,7 @@ export function MessageActionSheet({
           </Pressable>
         </Animated.View>
 
-        <View 
-          style={[
-            styles.stack, 
-            { 
-              top: layout.top, 
-              bottom: layout.bottom,
-              alignItems: layout.alignItems,
-              flexDirection: layout.invert ? 'column-reverse' : 'column'
-            }
-          ]} 
-          pointerEvents="box-none"
-        >
+        <View style={[styles.stack, { alignItems }]} pointerEvents="box-none">
           <Animated.View
             entering={ZoomIn.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
             exiting={ZoomOut.duration(duration.fast).reduceMotion(reduceMotion)}
@@ -148,9 +141,41 @@ export function MessageActionSheet({
             <Text style={styles.previewAuthor} numberOfLines={1}>
               {target.isMine ? 'You' : target.authorName}
             </Text>
-            <Text style={styles.previewText} numberOfLines={3}>
-              {target.text}
-            </Text>
+
+            {target.media && (
+              <View style={styles.previewMediaWrap}>
+                {target.media.type === 'file' ? (
+                  <View style={styles.previewFileRow}>
+                    <Ionicons name="document-text" size={20} color={colors.primary} />
+                    <Text style={styles.previewFileName} numberOfLines={1}>
+                      {target.media.name || 'Document'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.previewImageContainer}>
+                    <MediaThumb media={target.media} />
+                    {target.media.type === 'video' && (
+                      <View style={styles.previewPlayOverlay}>
+                        <View style={styles.previewPlayIcon}>
+                          <Ionicons name="play" size={16} color="#FFFFFF" />
+                        </View>
+                      </View>
+                    )}
+                    {target.media.type === 'gif' && (
+                      <View style={styles.previewGifBadge}>
+                        <Text style={styles.previewGifText}>GIF</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {!!target.text && (
+              <Text style={styles.previewText} numberOfLines={2}>
+                {target.text}
+              </Text>
+            )}
           </Animated.View>
 
           <Animated.View
@@ -162,23 +187,54 @@ export function MessageActionSheet({
               <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
             )}
             <View style={styles.menuInner}>
-              <MenuRow icon="arrow-undo-outline" label="Reply" onPress={onReply} />
+              {/* Quick actions top bar */}
+              <View style={styles.quickActionsRow}>
+                <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onReply}>
+                  <Ionicons name="arrow-undo-outline" size={19} color={colors.onSurface} />
+                  <Text style={styles.quickActionLabel}>Reply</Text>
+                </PressableScale>
+
+
+                {target.isMine && (
+                  <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onEdit}>
+                    <Ionicons name="pencil-outline" size={19} color={colors.onSurface} />
+                    <Text style={styles.quickActionLabel}>Edit</Text>
+                  </PressableScale>
+                )}
+
+                <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onShare}>
+                  <Ionicons name="share-outline" size={19} color={colors.onSurface} />
+                  <Text style={styles.quickActionLabel}>Share</Text>
+                </PressableScale>
+              </View>
+
               <Divider />
+
               <MenuRow icon="copy-outline" label="Copy" onPress={onCopy} />
-              <Divider />
-              <MenuRow icon="share-outline" label="Share" onPress={onShare} />
-              {target.isMine && (
+              {target.canModerate && (
                 <>
                   <Divider />
-                  <MenuRow icon="pencil-outline" label="Edit" onPress={onEdit} />
+                  {target.isPinned ? (
+                    <MenuRow icon="pin" label="Unpin message" onPress={onUnpin} />
+                  ) : (
+                    <MenuRow icon="pin-outline" label="Pin message" onPress={onPin} />
+                  )}
                 </>
               )}
               <Divider />
               <MenuRow icon="checkmark-circle-outline" label="Select" onPress={onSelect} />
-              {canDelete && (
+
+              <Divider />
+              <MenuRow icon="eye-off-outline" label="Delete for me" onPress={onDeleteForMe} destructive />
+              {canDeleteForEveryone && (
                 <>
                   <Divider />
-                  <MenuRow icon="trash-outline" label="Delete" onPress={onDelete} destructive />
+                  <MenuRow
+                    icon="trash-outline"
+                    label="Delete for everyone"
+                    onPress={onDeleteForEveryone}
+                    destructive
+                  />
                 </>
               )}
             </View>
@@ -186,6 +242,26 @@ export function MessageActionSheet({
         </View>
       </View>
     </Modal>
+  );
+}
+
+/** Same rule as everywhere else media is drawn: a video URL isn't something
+ *  an <Image> can render, so use its poster — stored for newer messages,
+ *  derived on the device for ones sent before posters existed. */
+function MediaThumb({ media }: { media: MessageMedia }) {
+  const isVideo = media.type === 'video';
+  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? media.url : null);
+  const previewUri = isVideo ? media.thumbUrl ?? derivedPoster : media.url;
+
+  if (!previewUri) return <View style={styles.previewImage} />;
+  return (
+    <Image
+      source={previewUri}
+      style={styles.previewImage}
+      contentFit="cover"
+      cachePolicy="memory-disk"
+      transition={120}
+    />
   );
 }
 
@@ -215,12 +291,16 @@ function MenuRow({
 const MENU_WIDTH = 232;
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: 50,
+    paddingBottom: 30,
+  },
   backdrop: { flex: 1, backgroundColor: colors.scrim },
   stack: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
+    width: '100%',
     gap: spacing.sm + 2,
   },
 
@@ -269,6 +349,67 @@ const styles = StyleSheet.create({
   },
   previewAuthor: { ...typography.label, fontSize: 10, color: colors.onSurfaceVariant, marginBottom: 2 },
   previewText: { ...typography.body, fontSize: 14, color: colors.onSurface },
+  previewMediaWrap: {
+    marginVertical: spacing.xs,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  previewImageContainer: {
+    width: MENU_WIDTH - 20,
+    height: 105,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewPlayIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  previewGifBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  previewGifText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  previewFileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  previewFileName: {
+    ...typography.caption,
+    fontSize: 12.5,
+    color: colors.onSurface,
+    flex: 1,
+  },
 
   menu: {
     width: MENU_WIDTH,
@@ -282,6 +423,25 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 10,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.xs,
+  },
+  quickActionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    flex: 1,
+    paddingVertical: 2,
+  },
+  quickActionLabel: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
   },
   menuInner: {},
   row: {
