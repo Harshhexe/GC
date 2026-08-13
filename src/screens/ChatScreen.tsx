@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
+import { Image } from 'expo-image';
 import {
   HIT_TARGET,
   colors,
@@ -41,7 +42,6 @@ import { AttachmentPreview } from '../components/AttachmentPreview';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { EmptyState } from '../components/EmptyState';
 import { TypingIndicator } from '../components/TypingIndicator';
-import { AfterHoursBanner } from '../components/AfterHoursBanner';
 import { PinnedBanner } from '../components/PinnedBanner';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
@@ -53,7 +53,6 @@ import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
 import { usePinnedMessages } from '../hooks/usePinnedMessages';
 import { useTyping } from '../hooks/useTyping';
-import { useAfterHours } from '../hooks/useAfterHours';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { markGroupRead } from '../lib/readState';
@@ -73,7 +72,7 @@ import {
   type PickResult,
 } from '../lib/media';
 import { uploadMessageMedia } from '../lib/uploadMessageMedia';
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import type { GroupMember, Mention, Message, MessageMedia } from '../types';
@@ -87,6 +86,8 @@ const MOTD_MIN_REACTIONS = 3;
 /** Lets the web fallback locate the divider to scroll to. */
 const UNREAD_DIVIDER_ID = 'gc-unread-divider';
 
+const CHAT_BG = require('../../assets/ChatBG.png');
+
 export default function ChatScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { groupId } = route.params;
@@ -99,7 +100,6 @@ export default function ChatScreen({ route, navigation }: Props) {
     session?.user.id ?? '',
     profile?.display_name ?? 'someone'
   );
-  const { afterHours, now } = useAfterHours();
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
@@ -185,6 +185,11 @@ export default function ChatScreen({ route, navigation }: Props) {
   const readersByMessage = useReadersByMessage(messages, readers);
   const { pins, pin: pinMessage, unpin: unpinMessage } = usePinnedMessages(groupId);
   const pinnedIds = useMemo(() => new Set(pins.map((p) => p.messageId)), [pins]);
+  const bannerPins = useMemo(() => {
+    const now = Date.now();
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    return pins.filter((p) => now - new Date(p.pinnedAt).getTime() <= TWENTY_FOUR_HOURS);
+  }, [pins]);
 
   const [groupInfo, setGroupInfo] = useState<{
     name: string;
@@ -366,7 +371,13 @@ export default function ChatScreen({ route, navigation }: Props) {
   const motdId = useMemo(() => {
     let bestId: string | null = null;
     let bestCount = MOTD_MIN_REACTIONS - 1;
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
     for (const m of messages) {
+      const createdAtTime = new Date(m.createdAt).getTime();
+      if (createdAtTime < startOfToday) continue; // Resets after 12:00 AM midnight
+
       const total = m.reactions.reduce((sum, r) => sum + r.count, 0);
       if (total > bestCount) {
         bestCount = total;
@@ -376,30 +387,62 @@ export default function ChatScreen({ route, navigation }: Props) {
     return bestId;
   }, [messages]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadGroup() {
-      const [{ data: group }, { count }] = await Promise.all([
-        supabase.from('groups').select('name, emoji, theme').eq('id', groupId).single(),
-        supabase
-          .from('group_members')
-          .select('user_id', { count: 'exact', head: true })
-          .eq('group_id', groupId),
-      ]);
-      if (!cancelled && group) {
-        setGroupInfo({
-          name: group.name,
-          emoji: group.emoji,
-          memberCount: count ?? 0,
-          theme: group.theme,
-        });
-      }
+  const loadGroup = useCallback(async () => {
+    if (!groupId) return;
+    const [{ data: group }, { count }] = await Promise.all([
+      supabase.from('groups').select('name, emoji, theme').eq('id', groupId).single(),
+      supabase
+        .from('group_members')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('group_id', groupId),
+    ]);
+    if (group) {
+      setGroupInfo({
+        name: group.name,
+        emoji: group.emoji,
+        memberCount: count ?? 0,
+        theme: group.theme,
+      });
     }
-    loadGroup();
-    return () => {
-      cancelled = true;
-    };
   }, [groupId]);
+
+  useEffect(() => {
+    loadGroup();
+
+    // Subscribe to realtime updates on this group row (theme, name, emoji changes)
+    const channel = supabase
+      .channel(`group-info-${groupId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${groupId}` },
+        (payload) => {
+          if (payload.new) {
+            setGroupInfo((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    name: payload.new.name ?? prev.name,
+                    emoji: payload.new.emoji ?? prev.emoji,
+                    theme: payload.new.theme ?? prev.theme,
+                  }
+                : null
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [groupId, loadGroup]);
+
+  // Re-fetch group info whenever ChatScreen gains focus (e.g. popping back from GroupInfoScreen)
+  useFocusEffect(
+    useCallback(() => {
+      loadGroup();
+    }, [loadGroup])
+  );
 
   async function handleSend() {
     if (uploading) return;
@@ -656,11 +699,22 @@ export default function ChatScreen({ route, navigation }: Props) {
     [deleteMessage]
   );
 
+  /** A hide that didn't stick puts the message straight back on screen, which
+   *  looks like the tap did nothing. Say what happened instead. */
+  const notifyHideFailed = useCallback((reason: string) => {
+    const body = `Couldn't hide that message — ${reason}`;
+    if (Platform.OS === 'web') window.alert(body);
+    else Alert.alert('Delete for me failed', body);
+  }, []);
+
   const confirmDeleteForMe = useCallback(
     (message: Message) => {
       setActionTarget(null);
       setActionAnchor(null);
-      const go = () => hideMessage(message.id);
+      const go = async () => {
+        const { error } = await hideMessage(message.id);
+        if (error) notifyHideFailed(error);
+      };
       const body = 'It stays visible for everyone else in the GC.';
       if (Platform.OS === 'web') {
         if (window.confirm(`Delete for me? ${body}`)) go();
@@ -671,7 +725,7 @@ export default function ChatScreen({ route, navigation }: Props) {
         { text: 'Delete', style: 'destructive', onPress: go },
       ]);
     },
-    [hideMessage]
+    [hideMessage, notifyHideFailed]
   );
 
   const enterSelectMode = useCallback((message: Message) => {
@@ -726,9 +780,13 @@ export default function ChatScreen({ route, navigation }: Props) {
   const deleteSelectedForMe = useCallback(() => {
     const chosen = messages.filter((m) => selectedIds.has(m.id));
     if (chosen.length === 0) return;
-    const go = () => {
-      chosen.forEach((m) => hideMessage(m.id));
+    const go = async () => {
       exitSelectMode();
+      const results = await Promise.all(chosen.map((m) => hideMessage(m.id)));
+      // One message is enough — a failure here is almost always the same
+      // cause for every row in the batch.
+      const failure = results.find((r) => r.error);
+      if (failure?.error) notifyHideFailed(failure.error);
     };
     const title = `Delete ${chosen.length} message${chosen.length === 1 ? '' : 's'} for me?`;
     const body = 'They stay visible for everyone else in the GC.';
@@ -740,7 +798,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: go },
     ]);
-  }, [messages, selectedIds, hideMessage, exitSelectMode]);
+  }, [messages, selectedIds, hideMessage, exitSelectMode, notifyHideFailed]);
 
   const jumpToMessage = useCallback(
     (id: string | undefined | null) => {
@@ -804,7 +862,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <AmbientBackground tint={theme.accent} />
+      <Image
+        source={CHAT_BG}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+      />
+      <AmbientBackground tint={theme.accent} hideBaseBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {selectMode ? (
           <View style={styles.header}>
@@ -855,9 +919,8 @@ export default function ChatScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {afterHours && <AfterHoursBanner now={now} />}
         <PinnedBanner
-          pins={pins}
+          pins={bannerPins}
           accentColor={theme.accent}
           onPressPin={(pin) => jumpToMessage(pin.messageId)}
           onPressViewAll={() => navigation.navigate('PinnedMessages', { groupId })}
@@ -1169,38 +1232,34 @@ export default function ChatScreen({ route, navigation }: Props) {
           style={[styles.selectBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
         >
           <PressableScale style={styles.selectBarButton} scaleTo={0.95} haptic="light" onPress={copySelected}>
-            <Ionicons name="copy-outline" size={18} color={colors.onSurface} />
-            <Text style={styles.selectBarLabel}>Copy</Text>
+            <Ionicons name="copy-outline" size={16} color={colors.onSurface} />
+            <Text style={styles.selectBarLabel} numberOfLines={1}>Copy</Text>
           </PressableScale>
-          {/* Always offered — dropping messages from your own view needs no
-              permission at all. */}
+
           <PressableScale
             style={styles.selectBarButton}
             scaleTo={0.95}
             haptic="medium"
             onPress={deleteSelectedForMe}
           >
-            <Ionicons name="eye-off-outline" size={18} color={colors.onSurface} />
-            <Text style={styles.selectBarLabel}>Delete for me</Text>
+            <Ionicons name="eye-off-outline" size={16} color={colors.onSurface} />
+            <Text style={styles.selectBarLabel} numberOfLines={1}>Delete for me</Text>
           </PressableScale>
 
-          {/* Only when every selected message is one this user may take down
-              for the whole group — otherwise a mixed selection would silently
-              skip the ones they can't touch. */}
           {[...selectedIds].every((id) => {
             const m = messages.find((msg) => msg.id === id);
             return m && canDeleteMessage(m) && !m.isDeleted;
           }) && (
-              <PressableScale
-                style={styles.selectBarButton}
-                scaleTo={0.95}
-                haptic="medium"
-                onPress={deleteSelectedForEveryone}
-              >
-                <Ionicons name="trash-outline" size={18} color={colors.error} />
-                <Text style={[styles.selectBarLabel, { color: colors.error }]}>Delete for everyone</Text>
-              </PressableScale>
-            )}
+            <PressableScale
+              style={styles.selectBarButton}
+              scaleTo={0.95}
+              haptic="medium"
+              onPress={deleteSelectedForEveryone}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <Text style={[styles.selectBarLabel, { color: colors.error }]} numberOfLines={1}>Delete for all</Text>
+            </PressableScale>
+          )}
         </Animated.View>
       )}
 
@@ -1376,24 +1435,27 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     flexDirection: 'row',
-    gap: spacing.md,
-    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs + 2,
+    justifyContent: 'space-evenly',
     paddingTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     backgroundColor: 'rgba(12, 12, 18, 0.96)',
     borderTopWidth: 1,
     borderTopColor: glass.stroke,
   },
   selectBarButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 5,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xs + 2,
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
-  selectBarLabel: { ...typography.bodyMedium, fontSize: 14, color: colors.onSurface },
+  selectBarLabel: { ...typography.bodyMedium, fontSize: 12, color: colors.onSurface },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',

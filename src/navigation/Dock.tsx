@@ -1,6 +1,5 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -103,12 +102,6 @@ export default function Dock({ state, navigation }: BottomTabBarProps) {
       style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, spacing.md), pointerEvents: 'box-none' }]}
     >
       <View style={styles.dock}>
-        {Platform.OS !== 'web' && (
-          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-        )}
-        <View style={[styles.dockFill, { pointerEvents: 'none' }]} />
-        <LinearGradient colors={gradients.sheen} style={[styles.dockSheen, { pointerEvents: 'none' }]} />
-
         {state.routes.map((route, index) => {
           const focused = state.index === index;
           return (
@@ -146,15 +139,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radius.xl,
-    borderWidth: glass.borderWidth,
-    borderColor: glass.stroke,
+    backgroundColor: 'rgba(22, 20, 32, 0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
-    overflow: 'hidden',
     ...shadows.soft,
   },
-  dockFill: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12, 12, 18, 0.88)' },
-  dockSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: 40 },
   item: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },
   iconSlot: {
     width: 44,

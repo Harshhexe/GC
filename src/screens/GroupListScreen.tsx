@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,13 +23,13 @@ import { EmptyState } from '../components/EmptyState';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { GlassPanel } from '../components/ui/Glass';
+import { GCButton } from '../components/ui/Buttons';
 import { Avatar } from '../components/ui/Avatar';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { timeAgo } from '../utils/time';
 import { Group } from '../types';
 import { useGroups } from '../hooks/useGroups';
 import { useNotifications } from '../hooks/useNotifications';
-import { useAfterHours } from '../hooks/useAfterHours';
 import { useAuth } from '../context/AuthContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -42,6 +43,7 @@ type Props = CompositeScreenProps<
 >;
 
 const DEAD_CHAT_MS = 1000 * 60 * 60 * 24;
+const GROUP_LIST_BG = require('../../assets/GroupListBG.png');
 
 function isDeadChat(group: Group) {
   if (!group.lastMessageAt) return false;
@@ -62,6 +64,7 @@ function GroupCard({
   onCrew: () => void;
 }) {
   const dead = isDeadChat(group);
+  const theme = groupTheme(group.theme);
 
   return (
     <Animated.View
@@ -76,7 +79,7 @@ function GroupCard({
           <Avatar
             emoji={dead ? '🪦' : group.emoji}
             imageUrl={dead ? undefined : group.avatarUrl}
-            ringColors={groupTheme(group.theme).colors}
+            ringColors={theme.colors}
             size={58}
             status={dead ? 'offline' : 'online'}
           />
@@ -87,7 +90,9 @@ function GroupCard({
                 {group.name}
               </Text>
               {!!group.lastMessageAt && (
-                <Text style={styles.time}>{timeAgo(group.lastMessageAt)}</Text>
+                <Text style={[styles.time, { color: theme.accent }]}>
+                  {timeAgo(group.lastMessageAt)}
+                </Text>
               )}
             </View>
 
@@ -107,7 +112,7 @@ function GroupCard({
                 )}
               </Text>
               {group.unreadCount > 0 && (
-                <View style={styles.badge}>
+                <View style={[styles.badge, { backgroundColor: theme.accent }]}>
                   <Text style={styles.badgeText}>
                     {group.unreadCount > 99 ? '99+' : group.unreadCount}
                   </Text>
@@ -120,7 +125,7 @@ function GroupCard({
         <View style={styles.actionRow}>
           <PressableScale style={styles.summaryWrap} haptic="medium" onPress={onSummary}>
             <LinearGradient
-              colors={gradients.cta}
+              colors={theme.colors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[styles.summaryButton, shadows.glow]}
@@ -130,10 +135,17 @@ function GroupCard({
             </LinearGradient>
           </PressableScale>
 
-          <PressableScale style={styles.crewButton} scaleTo={0.94} onPress={onCrew}>
-            <Ionicons name="people" size={15} color={colors.primary} />
-            <Text style={styles.crewText}>{group.memberCount}</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.outline} />
+          <PressableScale
+            style={[
+              styles.crewButton,
+              { backgroundColor: `${theme.accent}1A`, borderColor: `${theme.accent}4D` },
+            ]}
+            scaleTo={0.94}
+            onPress={onCrew}
+          >
+            <Ionicons name="people" size={15} color={theme.accent} />
+            <Text style={[styles.crewText, { color: theme.accent }]}>{group.memberCount}</Text>
+            <Ionicons name="chevron-forward" size={14} color={theme.accent} />
           </PressableScale>
         </View>
       </GlassPanel>
@@ -144,7 +156,6 @@ function GroupCard({
 export default function GroupListScreen({ navigation }: Props) {
   const { groups, loading, refetch } = useGroups();
   const { profile, session } = useAuth();
-  const { afterHours } = useAfterHours();
   const { unreadCount: unreadNotifications } = useNotifications(session?.user.id);
 
   const [emptyText] = useState(() => pick(copy.emptyGroups));
@@ -160,10 +171,17 @@ export default function GroupListScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <AmbientBackground />
+      <Image
+        source={GROUP_LIST_BG}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+      />
+      <AmbientBackground hideBaseBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
-          wordmark
+          title="GC"
+          subtitle="group chat with personality"
           right={
             <View style={styles.headerRight}>
               <PressableScale
@@ -184,11 +202,10 @@ export default function GroupListScreen({ navigation }: Props) {
 
               <PressableScale scaleTo={0.9} onPress={() => navigation.navigate('Profile')}>
                 <Avatar
-                  emoji={profile?.avatar_emoji}
+                  emoji={profile?.avatar_emoji ?? '😎'}
                   imageUrl={profile?.avatar_url}
-                  label={profile?.display_name}
-                  size={38}
-                  status="online"
+                  label={profile?.display_name ?? 'Me'}
+                  size={32}
                 />
               </PressableScale>
             </View>
@@ -196,23 +213,44 @@ export default function GroupListScreen({ navigation }: Props) {
         />
 
         <Animated.View
-          entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+          entering={FadeInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
           style={styles.titleBlock}
         >
           <Text style={styles.title}>Your GCs</Text>
           <Text style={styles.subtitle}>
-            {afterHours
-              ? 'you should be asleep 🌚'
-              : profile
-                ? `hey ${profile.display_name} 👋`
-                : 'where the group chat has a life of its own'}
+            {profile
+              ? `hey ${profile.display_name} 👋`
+              : 'where the group chat has a life of its own'}
           </Text>
         </Animated.View>
 
         {loading ? (
           <EmptyState emoji="⏳" text={loadingText} />
         ) : groups.length === 0 ? (
-          <EmptyState emoji="👻" text={emptyText} />
+          // An empty list is the first thing a new account sees, so it has to
+          // do more than shrug — the two things they can actually do next are
+          // right here rather than hidden behind a tab they haven't found.
+          <View style={styles.emptyWrap}>
+            <EmptyState emoji="👻" text={emptyText} />
+            <Animated.View
+              entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+              style={styles.emptyActions}
+            >
+              <GCButton
+                label="Create a GC"
+                variant="gradient"
+                neo
+                onPress={() => navigation.navigate('AddGC', { mode: 'create' })}
+                icon={<Ionicons name="add" size={19} color="#FFFFFF" />}
+              />
+              <GCButton
+                label="Join with a code"
+                variant="ghost"
+                onPress={() => navigation.navigate('AddGC', { mode: 'join' })}
+                icon={<Ionicons name="key-outline" size={18} color={colors.primary} />}
+              />
+            </Animated.View>
+          </View>
         ) : (
           <FlatList
             data={groups}
@@ -282,6 +320,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
     gap: spacing.lg,
+  },
+  emptyWrap: { flex: 1 },
+  emptyActions: {
+    gap: spacing.md,
+    paddingHorizontal: CONTAINER_MARGIN,
+    paddingBottom: DOCK_HEIGHT + spacing.xl,
   },
   cardWrap: { borderRadius: radius.lg },
   cardTop: { flexDirection: 'row', gap: spacing.lg, padding: spacing.lg, alignItems: 'center' },

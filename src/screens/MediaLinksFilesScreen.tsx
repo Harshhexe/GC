@@ -41,7 +41,7 @@ type LinkRow = {
   text: string;
 };
 
-const URL_RE = /https?:\/\/[^\s]+/gi;
+const URL_RE = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(?:com|org|net|io|co|dev|app|ai|me)\b[^\s]*)/gi;
 
 function domainFor(url: string) {
   try {
@@ -123,7 +123,7 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
           .select('id, author_id, created_at, text')
           .eq('group_id', groupId)
           .eq('is_deleted', false)
-          .ilike('text', '%http%')
+          .or('text.ilike.%http%,text.ilike.%www.%,text.ilike.%.com%,text.ilike.%.org%,text.ilike.%.io%')
           .order('created_at', { ascending: false })
           .limit(150),
       ]);
@@ -171,7 +171,8 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
       for (const row of linkMsgs ?? []) {
         const matches = row.text.match(URL_RE);
         if (!matches) continue;
-        for (const url of matches) {
+        for (const rawUrl of matches) {
+          const url = rawUrl.toLowerCase().startsWith('http') ? rawUrl : `https://${rawUrl}`;
           links.push({
             messageId: row.id,
             authorId: row.author_id,

@@ -22,15 +22,27 @@ export function AmbientBackground({
   variant = 'default',
   /** A group's accent colour, so each GC tints its own screen. */
   tint,
+  hideBaseBackground,
+  style,
 }: {
   variant?: 'default' | 'vivid';
   tint?: string;
+  hideBaseBackground?: boolean;
+  style?: any;
 }) {
   const glow = tint ?? '#6366F1';
   const strength = variant === 'vivid' ? 0.14 : 0.09;
 
   return (
-    <View style={[StyleSheet.absoluteFill, styles.base, { pointerEvents: 'none' }]}>
+    <View
+      style={[
+        StyleSheet.absoluteFill,
+        styles.base,
+        hideBaseBackground && { backgroundColor: 'transparent' },
+        style,
+        { pointerEvents: 'none' },
+      ]}
+    >
       {/* Top glow, coloured by the active theme */}
       <View style={styles.topGlow}>
         <LinearGradient

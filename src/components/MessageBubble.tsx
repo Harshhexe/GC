@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -26,6 +26,7 @@ import { PressableScale } from './ui/PressableScale';
 import { Avatar } from './ui/Avatar';
 import { MessageQuotePreview } from './MessageQuotePreview';
 import { MessageMediaView } from './MessageMediaView';
+import { LinkPreviewCard, extractFirstUrl } from './LinkPreviewCard';
 import { tapFeedback } from '../utils/haptics';
 import { segmentMentionText } from '../lib/mentions';
 
@@ -94,6 +95,7 @@ function MessageBubbleImpl({
   const mine = message.isMine;
   const theme = tint ?? groupTheme('violet');
   const hasCaption = message.text.trim().length > 0;
+  const detectedUrl = useMemo(() => extractFirstUrl(message.text), [message.text]);
 
   const textSegments = segmentMentionText(message.text, message.mentions, message.mentionEveryone);
   const renderedText =
@@ -193,45 +195,44 @@ function MessageBubbleImpl({
       entering={FadeInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
       style={[styles.rowOuter]}
     >
-      <View style={[styles.row, mine && styles.rowMine, highlightStyle]}>
-        {selectMode && (
-          <PressableScale
-            style={styles.selectDot}
-            scaleTo={0.85}
-            haptic="light"
-            onPress={() => onPress?.(message)}
-          >
-            <Ionicons
-              name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-              size={22}
-              color={selected ? theme.accent : colors.outline}
-            />
-          </PressableScale>
-        )}
+      <Animated.View style={[styles.replyIconWrap, replyIconStyle]}>
+        <View style={[styles.replyIconCircle, { backgroundColor: `${theme.accent}33` }]}>
+          <Ionicons name="arrow-undo" size={16} color={theme.accent} />
+        </View>
+      </Animated.View>
 
-        <GestureDetector gesture={panGesture}>
-          <Animated.View style={[styles.swipeWrap, swipeStyle]}>
-            <Animated.View style={[styles.replyIconWrap, replyIconStyle]}>
-              <View style={[styles.replyIconCircle, { backgroundColor: `${theme.accent}33` }]}>
-                <Ionicons name="arrow-undo" size={15} color={theme.accent} />
-              </View>
-            </Animated.View>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.row, mine && styles.rowMine, swipeStyle, highlightStyle]}>
+          {selectMode && (
+            <PressableScale
+              style={styles.selectDot}
+              scaleTo={0.85}
+              haptic="light"
+              onPress={() => onPress?.(message)}
+            >
+              <Ionicons
+                name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                size={22}
+                color={selected ? theme.accent : colors.outline}
+              />
+            </PressableScale>
+          )}
 
-            {!mine && (
-              <View style={styles.avatarSlot}>
-                {showAvatar && (
-                  <Avatar
-                    emoji={message.authorEmoji}
-                    imageUrl={message.authorAvatarUrl}
-                    label={message.authorName}
-                    size={28}
-                    ringColors={[message.authorColor, theme.accent]}
-                  />
-                )}
-              </View>
-            )}
+          {!mine && (
+            <View style={styles.avatarSlot}>
+              {showAvatar && (
+                <Avatar
+                  emoji={message.authorEmoji}
+                  imageUrl={message.authorAvatarUrl}
+                  label={message.authorName}
+                  size={28}
+                  ringColors={[message.authorColor, theme.accent]}
+                />
+              )}
+            </View>
+          )}
 
-            <View style={[styles.column, mine && styles.columnMine]}>
+          <View style={[styles.column, mine && styles.columnMine]}>
             {isMessageOfTheDay && (
               <View style={styles.motdBadge}>
                 <Text style={styles.motdText}>🏆 MESSAGE OF THE DAY</Text>
@@ -300,6 +301,9 @@ function MessageBubbleImpl({
                     {hasCaption && (
                       <View style={message.media && styles.captionPad}>{renderedText}</View>
                     )}
+                    {!!detectedUrl && !deleted && (
+                      <LinkPreviewCard url={detectedUrl} accentColor={theme.accent} />
+                    )}
                   </LinearGradient>
                 ) : (
                   <View
@@ -346,6 +350,9 @@ function MessageBubbleImpl({
                         )}
                         {hasCaption && (
                           <View style={message.media && styles.captionPad}>{renderedText}</View>
+                        )}
+                        {!!detectedUrl && !deleted && (
+                          <LinkPreviewCard url={detectedUrl} accentColor={theme.accent} />
                         )}
                       </>
                     )}
@@ -402,8 +409,7 @@ function MessageBubbleImpl({
           </View>
         </Animated.View>
       </GestureDetector>
-    </View>
-  </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -411,23 +417,17 @@ export const MessageBubble = memo(MessageBubbleImpl);
 
 const styles = StyleSheet.create({
   rowOuter: { justifyContent: 'center' },
-  swipeWrap: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 6,
-    position: 'relative',
-  },
   replyIconWrap: {
     position: 'absolute',
-    left: -36,
+    left: spacing.lg - 4,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
-    zIndex: 1,
+    zIndex: -1,
   },
   replyIconCircle: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
     gap: 6,
-    backgroundColor: colors.bg,
+    backgroundColor: 'transparent',
   },
   rowMine: { justifyContent: 'flex-end' },
   selectDot: { width: 26, alignItems: 'center', justifyContent: 'center', marginRight: -2 },

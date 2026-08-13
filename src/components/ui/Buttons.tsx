@@ -15,6 +15,7 @@ export function GCButton({
   onPress,
   variant = 'primary',
   icon,
+  iconRight,
   disabled,
   neo = false,
   style,
@@ -25,6 +26,9 @@ export function GCButton({
   onPress?: () => void;
   variant?: Variant;
   icon?: ReactNode;
+  /** Trailing icon. A forward arrow belongs after the label, not before it —
+   *  "→ Continue" reads like a back button. */
+  iconRight?: ReactNode;
   disabled?: boolean;
   neo?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -37,6 +41,7 @@ export function GCButton({
       <Text style={[styles.label, variantText[variant], disabled && styles.labelDisabled, textStyle]}>
         {label}
       </Text>
+      {iconRight}
     </View>
   );
 

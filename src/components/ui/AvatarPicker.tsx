@@ -42,49 +42,57 @@ export function AvatarPicker({
 }) {
   return (
     <View style={styles.container}>
-      <View style={styles.previewRow}>
-        <View>
+      {/* Big Centered PFP */}
+      <View style={styles.avatarCenterWrapper}>
+        <PressableScale
+          scaleTo={0.95}
+          haptic="medium"
+          onPress={onPickPhoto}
+          style={styles.avatarPressable}
+        >
           <Avatar
             emoji={emoji}
             imageUrl={photoUri}
             label={label}
-            size={88}
+            size={104}
             ringColors={[color, color]}
             glow
           />
-          <PressableScale
-            style={styles.cameraBadge}
-            scaleTo={0.85}
-            haptic="medium"
-            onPress={photoUri ? onClearPhoto : onPickPhoto}
-          >
+          {/* Edit icon badge on bottom-left */}
+          <View style={styles.editBadgeBottomLeft}>
             <LinearGradient
               colors={photoUri ? ['#5A5566', '#3A3542'] : [color, color]}
-              style={styles.cameraFill}
+              style={styles.editBadgeFill}
             >
               <Ionicons
-                name={photoUri ? 'close' : 'camera'}
-                size={15}
+                name={photoUri ? 'close' : 'pencil'}
+                size={16}
                 color={photoUri ? colors.onSurface : '#1B1424'}
               />
             </LinearGradient>
-          </PressableScale>
-        </View>
+          </View>
+        </PressableScale>
 
-        <View style={styles.previewCopy}>
-          <Text style={styles.previewTitle}>Your face</Text>
-          <Text style={styles.previewHelp}>
-            {photoUri ? 'Nice. Tap ✕ to go back to emoji.' : 'Upload a photo, or pick an emoji.'}
+        {/* Upload / Remove Photo Button */}
+        <PressableScale
+          style={styles.photoActionButton}
+          scaleTo={0.96}
+          onPress={photoUri ? onClearPhoto : onPickPhoto}
+        >
+          <Ionicons
+            name={photoUri ? 'close-circle-outline' : 'image-outline'}
+            size={16}
+            color={colors.primary}
+          />
+          <Text style={styles.photoActionText}>
+            {photoUri ? 'Remove Custom Photo' : 'Upload Custom Photo'}
           </Text>
-          <PressableScale style={styles.uploadButton} scaleTo={0.96} onPress={onPickPhoto}>
-            <Ionicons name="image-outline" size={15} color={colors.primary} />
-            <Text style={styles.uploadText}>{photoUri ? 'Change photo' : 'Upload photo'}</Text>
-          </PressableScale>
-        </View>
+        </PressableScale>
       </View>
 
       {!photoUri && (
-        <Animated.View entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}>
+        <Animated.View entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)} style={styles.selectorSection}>
+          <Text style={styles.sectionTitle}>CHOOSE EMOJI</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -96,13 +104,14 @@ export function AvatarPicker({
                 scaleTo={0.85}
                 haptic="medium"
                 onPress={() => onPickEmoji(e)}
-                style={[styles.emojiChip, emoji === e && { borderColor: color, backgroundColor: `${color}24` }]}
+                style={[styles.emojiChip, emoji === e && { borderColor: color, backgroundColor: `${color}28` }]}
               >
                 <Text style={styles.emojiText}>{e}</Text>
               </PressableScale>
             ))}
           </ScrollView>
 
+          <Text style={styles.sectionTitle}>RING COLOR</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -128,35 +137,59 @@ export function AvatarPicker({
 }
 
 const styles = StyleSheet.create({
-  container: { gap: spacing.md },
-  previewRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  previewCopy: { flex: 1, gap: 3 },
-  previewTitle: { ...typography.titleMd, fontSize: 17, color: colors.onSurface },
-  previewHelp: { ...typography.micro, color: colors.onSurfaceVariant, lineHeight: 16 },
-  uploadButton: {
+  container: { gap: spacing.md, alignItems: 'center' },
+  avatarCenterWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    width: '100%',
+    paddingVertical: spacing.xs,
+  },
+  avatarPressable: {
+    position: 'relative',
+  },
+  editBadgeBottomLeft: {
+    position: 'absolute',
+    left: -2,
+    bottom: -2,
+    borderRadius: radius.pill,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  editBadgeFill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: colors.bg,
+  },
+  photoActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    alignSelf: 'flex-start',
-    marginTop: 6,
+    marginTop: 4,
     borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: 'rgba(208,188,255,0.4)',
-    backgroundColor: 'rgba(208,188,255,0.10)',
-    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(208,188,255,0.3)',
+    backgroundColor: 'rgba(208,188,255,0.08)',
+    paddingVertical: 7,
     paddingHorizontal: spacing.md,
   },
-  uploadText: { ...typography.micro, color: colors.primary },
-  cameraBadge: { position: 'absolute', right: -2, bottom: -2, borderRadius: radius.pill },
-  cameraFill: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.bg,
+  photoActionText: { ...typography.micro, color: colors.primary, fontWeight: '600' },
+  selectorSection: { width: '100%', gap: 6, marginTop: 4 },
+  sectionTitle: {
+    ...typography.micro,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: colors.onSurfaceVariant,
+    marginLeft: 4,
+    marginTop: 6,
   },
   strip: { gap: spacing.sm, paddingVertical: 4, paddingRight: spacing.sm },
   emojiChip: {
@@ -179,7 +212,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  colorChipActive: { borderColor: 'rgba(255,255,255,0.55)' },
+  colorChipActive: { borderColor: 'rgba(255,255,255,0.65)' },
   colorDot: { width: 24, height: 24, borderRadius: 12 },
   colorTick: { position: 'absolute' },
 });

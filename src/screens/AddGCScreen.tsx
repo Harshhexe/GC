@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -77,9 +77,17 @@ function StepRail({ step }: { step: number }) {
   );
 }
 
-export default function AddGCScreen({ navigation }: Props) {
+export default function AddGCScreen({ navigation, route }: Props) {
   const { session, profile } = useAuth();
-  const [mode, setMode] = useState<'create' | 'join'>('create');
+  const [mode, setMode] = useState<'create' | 'join'>(route.params?.mode ?? 'create');
+
+  // The empty chat list links here with a mode already chosen. This is a tab,
+  // so it stays mounted between visits — without this it would keep whichever
+  // mode was last used instead of the one just asked for.
+  const requestedMode = route.params?.mode;
+  useEffect(() => {
+    if (requestedMode) setMode(requestedMode);
+  }, [requestedMode]);
 
   // ── create wizard ──────────────────────────────────────────────────
   const [step, setStep] = useState(0);

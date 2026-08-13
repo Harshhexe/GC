@@ -142,6 +142,11 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
       )
       .on(
         'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'groups' },
+        () => fetchGroups()
+      )
+      .on(
+        'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',

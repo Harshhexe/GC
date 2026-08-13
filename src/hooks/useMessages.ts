@@ -500,21 +500,24 @@ export function useMessages(groupId: string) {
 
   /** Delete for me: hides the message for this viewer only. The message
    *  itself is untouched, so everyone else still sees it. */
-  async function hideMessage(messageId: string) {
-    if (!myId) return;
+  async function hideMessage(messageId: string): Promise<{ error: string | null }> {
+    if (!myId) return { error: 'Not signed in.' };
     setHiddenIds((prev) => new Set(prev).add(messageId));
     const { error } = await supabase
       .from('hidden_messages')
       .insert({ message_id: messageId, user_id: myId });
     if (error) {
       // Put it back rather than leaving it hidden on this device only — a
-      // hide that didn't persist would reappear on the next load anyway.
+      // hide that didn't persist would reappear on the next load anyway, and
+      // a message silently returning with no explanation reads as a bug.
       setHiddenIds((prev) => {
         const next = new Set(prev);
         next.delete(messageId);
         return next;
       });
+      return { error: error.message };
     }
+    return { error: null };
   }
 
   async function toggleReaction(messageId: string, emoji: string, label?: string) {

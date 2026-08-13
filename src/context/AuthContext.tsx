@@ -36,6 +36,13 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** True from a successful sign-up until the welcome screen is dismissed.
+   *  Signing up puts a session in place immediately, which swaps the whole
+   *  navigator over to the app — this is what lets the welcome moment land
+   *  in between instead of dumping a brand-new user straight into an empty
+   *  chat list. */
+  justSignedUp: boolean;
+  clearJustSignedUp: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -44,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [justSignedUp, setJustSignedUp] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -101,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     if (error) return friendlySignUpError(error.message);
+    setJustSignedUp(true);
 
     // A picked photo can only be uploaded once a session exists — storage
     // policies key off auth.uid(). With email confirmation on there's no
@@ -127,12 +136,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    setJustSignedUp(false);
     await supabase.auth.signOut();
   }
 
+  const clearJustSignedUp = useCallback(() => setJustSignedUp(false), []);
+
   return (
     <AuthContext.Provider
-      value={{ session, profile, loading, signUp, signIn, signOut, refreshProfile }}
+      value={{
+        session,
+        profile,
+        loading,
+        signUp,
+        signIn,
+        signOut,
+        refreshProfile,
+        justSignedUp,
+        clearJustSignedUp,
+      }}
     >
       {children}
     </AuthContext.Provider>

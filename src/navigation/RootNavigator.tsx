@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import AuthScreen from '../screens/AuthScreen';
 import MainTabs from './MainTabs';
 import ChatScreen from '../screens/ChatScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
 import GroupInfoScreen from '../screens/GroupInfoScreen';
 import PinnedMessagesScreen from '../screens/PinnedMessagesScreen';
 import GroupSearchScreen from '../screens/GroupSearchScreen';
@@ -29,7 +30,7 @@ const navTheme = {
 };
 
 export default function RootNavigator() {
-  const { session, loading } = useAuth();
+  const { session, loading, justSignedUp } = useAuth();
 
   if (loading) {
     return (
@@ -42,6 +43,7 @@ export default function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
+        initialRouteName={session && justSignedUp ? 'Welcome' : 'MainTabs'}
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
@@ -51,7 +53,12 @@ export default function RootNavigator() {
       >
         {session ? (
           <>
-            <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
+            <Stack.Screen
+              name="Welcome"
+              component={WelcomeScreen}
+              options={{ animation: 'fade', animationDuration: 500 }}
+            />
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="GroupInfo" component={GroupInfoScreen} />
             <Stack.Screen name="PinnedMessages" component={PinnedMessagesScreen} />
