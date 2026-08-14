@@ -9,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { formatFileSize } from '../lib/media';
 import { useVideoPoster } from '../hooks/useVideoPoster';
+import { VoiceNoteView } from './VoiceNoteView';
+import { ViewOnceCard } from './ViewOnceCard';
 import { PressableScale } from './ui/PressableScale';
 import type { MessageMedia } from '../types';
 
@@ -42,15 +44,40 @@ function formatDuration(ms: number | null) {
  *  caption text (if any). */
 export function MessageMediaView({
   media,
+  isMine,
+  tint,
   onPress,
   onLongPress,
 }: {
   media: MessageMedia;
+  isMine: boolean;
+  /** The group's accent, so voice waveforms and view-once cards pick up the
+   *  same colour as everything else in this GC. */
+  tint: string;
   onPress: () => void;
   /** So long-pressing the media itself still opens the message action menu,
    *  anchored at the real touch position. */
   onLongPress?: (e: GestureResponderEvent) => void;
 }) {
+  // Checked before anything that could draw the media: a view-once attachment
+  // must never render a thumbnail in the transcript, since that would already
+  // be the look it's supposed to cost.
+  if (media.viewOnce) {
+    return (
+      <ViewOnceCard
+        media={media}
+        isMine={isMine}
+        tint={tint}
+        onPress={onPress}
+        onLongPress={onLongPress}
+      />
+    );
+  }
+
+  if (media.type === 'voice') {
+    return <VoiceNoteView media={media} tint={tint} onLongPress={onLongPress} />;
+  }
+
   if (media.type === 'file') {
     return (
       <PressableScale

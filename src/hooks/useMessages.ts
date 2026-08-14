@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
-import { Mention, Message, MessageKind, MessageMedia, Reaction, ReplyPreview } from '../types';
+import { MediaType, Mention, MediaViewerProfile, Message, MessageKind, MessageMedia, Reaction, ReplyPreview } from '../types';
 import { labelFor } from '../data/reactions';
 
 type ProfileLite = {
@@ -26,7 +27,8 @@ type MessageRow = {
   mention_everyone: boolean;
   media_url: string | null;
   media_thumb_url: string | null;
-  media_type: 'image' | 'video' | 'gif' | 'file' | null;
+  media_type: MediaType | null;
+  media_view_once: boolean;
   media_mime: string | null;
   media_name: string | null;
   media_size: number | null;
@@ -36,7 +38,7 @@ type MessageRow = {
 };
 
 const MESSAGE_COLUMNS =
-  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms';
+  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once';
 
 function mediaFor(row: MessageRow): MessageMedia | null {
   if (!row.media_url || !row.media_type) return null;
@@ -50,6 +52,7 @@ function mediaFor(row: MessageRow): MessageMedia | null {
     width: row.media_width,
     height: row.media_height,
     durationMs: row.media_duration_ms,
+    viewOnce: row.media_view_once,
   };
 }
 
@@ -91,6 +94,9 @@ function aggregateReactions(rows: ReactionRow[], messageId: string, myUserId: st
 export function useMessages(groupId: string) {
   const { session } = useAuth();
   const myId = session?.user.id ?? '';
+  const myIdRef = useRef(myId);
+  myIdRef.current = myId;
+
   const [allMessages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   // Messages this viewer has "deleted for me". They still exist for everyone
@@ -103,6 +109,10 @@ export function useMessages(groupId: string) {
   );
   const profilesRef = useRef<Map<string, ProfileLite>>(new Map());
   const reactionRowsRef = useRef<ReactionRow[]>([]);
+  // messageId -> everyone who has burned their one look at it. Holds every
+  // group member's views, not just mine: the sender's own bubble needs to know
+  // whether *anyone* has opened it to show "Opened".
+  const viewsRef = useRef<Map<string, Set<string>>>(new Map());
   // Every message row seen so far, keyed by id — lets a reply preview resolve
   // synchronously from what's already loaded instead of a query per bubble.
   const rowsRef = useRef<Map<string, MessageRow>>(new Map());
@@ -147,6 +157,36 @@ export function useMessages(groupId: string) {
     [authorNameFor]
   );
 
+  const getViewerProfiles = useCallback((messageId: string): MediaViewerProfile[] => {
+    const viewerIds = Array.from(viewsRef.current.get(messageId) ?? []);
+    return viewerIds.map((id) => {
+      const p = profilesRef.current.get(id);
+      return {
+        id,
+        name: p?.display_name ?? 'someone',
+        avatarColor: p?.avatar_color ?? '#B98CFF',
+        avatarEmoji: p?.avatar_emoji ?? '👤',
+        avatarUrl: p?.avatar_url ?? null,
+      };
+    });
+  }, []);
+
+  /** Folds the per-viewer view state onto a view-once attachment. Kept out of
+   *  mediaFor() so that stays a pure row→media mapping. */
+  const withViewState = useCallback(
+    (media: MessageMedia | null, messageId: string): MessageMedia | null => {
+      if (!media?.viewOnce) return media;
+      const viewers = viewsRef.current.get(messageId);
+      return {
+        ...media,
+        viewed: !!viewers?.has(myIdRef.current),
+        viewedByAnyone: !!viewers && viewers.size > 0,
+        viewers: getViewerProfiles(messageId),
+      };
+    },
+    [getViewerProfiles]
+  );
+
   const buildMessages = useCallback(
     (rows: MessageRow[]) => {
       // Populate the row cache first so a reply pointing at another row in
@@ -154,7 +194,7 @@ export function useMessages(groupId: string) {
       for (const row of rows) rowsRef.current.set(row.id, row);
 
       return rows.map((row) => {
-        const reactions = aggregateReactions(reactionRowsRef.current, row.id, myId);
+        const reactions = aggregateReactions(reactionRowsRef.current, row.id, myIdRef.current);
         const replyPreview = buildReplyPreview(row.reply_to_message_id);
         const displayText = row.is_deleted ? '' : row.text;
 
@@ -180,7 +220,7 @@ export function useMessages(groupId: string) {
             replyPreview,
             mentions: row.mentions ?? [],
             mentionEveryone: row.mention_everyone,
-            media: row.is_deleted ? null : mediaFor(row),
+            media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
             isMine: false,
             reactions,
           };
@@ -206,14 +246,14 @@ export function useMessages(groupId: string) {
           replyPreview,
           mentions: row.mentions ?? [],
           mentionEveryone: row.mention_everyone,
-          media: row.is_deleted ? null : mediaFor(row),
-          isMine: row.author_id === myId,
+          media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
+          isMine: row.author_id === myIdRef.current,
           reactions,
         };
         return message;
       });
     },
-    [myId, buildReplyPreview]
+    [buildReplyPreview, withViewState]
   );
 
   /** Fills in a reply preview that came back unresolved because its target
@@ -274,15 +314,30 @@ export function useMessages(groupId: string) {
     [authorNameFor]
   );
 
+  const PAGE_SIZE = 35;
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const oldestCreatedAtRef = useRef<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const { data: messageRows } = await supabase
       .from('messages')
       .select(MESSAGE_COLUMNS)
       .eq('group_id', groupId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE);
 
-    const rows = (messageRows ?? []) as MessageRow[];
+    const rawRows = (messageRows ?? []) as MessageRow[];
+    setHasMore(rawRows.length === PAGE_SIZE);
+
+    const rows = [...rawRows].reverse();
+    if (rows.length > 0) {
+      oldestCreatedAtRef.current = rows[0].created_at;
+    } else {
+      oldestCreatedAtRef.current = null;
+    }
+
     const authorIds = Array.from(
       new Set(rows.map((r) => r.author_id).filter((id): id is string => id !== null))
     );
@@ -299,27 +354,216 @@ export function useMessages(groupId: string) {
     if (messageIds.length > 0) {
       // Scoped to this page of messages rather than every hide the user has
       // ever made, so the query stays proportional to what's on screen.
-      const [{ data: reactionRows }, { data: hiddenRows }] = await Promise.all([
+      const [{ data: reactionRows }, { data: hiddenRows }, { data: viewRows }] = await Promise.all([
         supabase
           .from('message_reactions')
           .select('message_id, user_id, emoji, label')
           .in('message_id', messageIds),
         supabase.from('hidden_messages').select('message_id').in('message_id', messageIds),
+        supabase.from('media_views').select('message_id, user_id').in('message_id', messageIds),
       ]);
       reactionRowsRef.current = reactionRows ?? [];
       setHiddenIds(new Set((hiddenRows ?? []).map((r) => r.message_id)));
+
+      const views = new Map<string, Set<string>>();
+      const viewerUserIds = new Set<string>();
+      for (const v of viewRows ?? []) {
+        const set = views.get(v.message_id) ?? new Set<string>();
+        set.add(v.user_id);
+        views.set(v.message_id, set);
+        viewerUserIds.add(v.user_id);
+      }
+      viewsRef.current = views;
+
+      const missingProfileIds = Array.from(viewerUserIds).filter((id) => !profilesRef.current.has(id));
+      if (missingProfileIds.length > 0) {
+        const { data: viewerProfileRows } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
+          .in('id', missingProfileIds);
+        for (const p of viewerProfileRows ?? []) profilesRef.current.set(p.id, p);
+      }
     } else {
       reactionRowsRef.current = [];
       setHiddenIds(new Set());
+      viewsRef.current = new Map();
     }
 
     setMessages(buildMessages(rows));
     setLoading(false);
   }, [groupId, buildMessages]);
 
+  const fetchOlderMessages = useCallback(async () => {
+    if (loadingMore || !hasMore || !oldestCreatedAtRef.current) return;
+    setLoadingMore(true);
+
+    try {
+      const oldest = oldestCreatedAtRef.current;
+      const { data: messageRows } = await supabase
+        .from('messages')
+        .select(MESSAGE_COLUMNS)
+        .eq('group_id', groupId)
+        .lt('created_at', oldest)
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE);
+
+      const rawRows = (messageRows ?? []) as MessageRow[];
+      if (rawRows.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      setHasMore(rawRows.length === PAGE_SIZE);
+      const rows = [...rawRows].reverse();
+      oldestCreatedAtRef.current = rows[0].created_at;
+
+      const authorIds = Array.from(
+        new Set(rows.map((r) => r.author_id).filter((id): id is string => id !== null))
+      );
+      const missingProfileIds = authorIds.filter((id) => !profilesRef.current.has(id));
+
+      if (missingProfileIds.length > 0) {
+        const { data: profileRows } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
+          .in('id', missingProfileIds);
+        for (const p of profileRows ?? []) profilesRef.current.set(p.id, p);
+      }
+
+      const messageIds = rows.map((r) => r.id);
+      if (messageIds.length > 0) {
+        const [{ data: reactionRows }, { data: hiddenRows }, { data: viewRows }] = await Promise.all([
+          supabase
+            .from('message_reactions')
+            .select('message_id, user_id, emoji, label')
+            .in('message_id', messageIds),
+          supabase.from('hidden_messages').select('message_id').in('message_id', messageIds),
+          supabase.from('media_views').select('message_id, user_id').in('message_id', messageIds),
+        ]);
+
+        if (reactionRows && reactionRows.length > 0) {
+          reactionRowsRef.current = [...reactionRowsRef.current, ...reactionRows];
+        }
+        if (hiddenRows && hiddenRows.length > 0) {
+          setHiddenIds((prev) => {
+            const next = new Set(prev);
+            for (const r of hiddenRows) next.add(r.message_id);
+            return next;
+          });
+        }
+        for (const v of viewRows ?? []) {
+          const set = viewsRef.current.get(v.message_id) ?? new Set<string>();
+          set.add(v.user_id);
+          viewsRef.current.set(v.message_id, set);
+        }
+      }
+
+      const olderBuiltMessages = buildMessages(rows);
+      setMessages((prev) => {
+        const existing = new Set(prev.map((m) => m.id));
+        const uniqueOlder = olderBuiltMessages.filter((m) => !existing.has(m.id));
+        if (uniqueOlder.length === 0) return prev;
+        return [...uniqueOlder, ...prev];
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [groupId, hasMore, loadingMore, buildMessages]);
+
+  const loadUntilMessage = useCallback(
+    async (targetMessageId: string): Promise<boolean> => {
+      if (allMessages.some((m) => m.id === targetMessageId)) {
+        return true;
+      }
+
+      try {
+        const { data: targetRow } = await supabase
+          .from('messages')
+          .select('id, created_at')
+          .eq('id', targetMessageId)
+          .eq('group_id', groupId)
+          .maybeSingle();
+
+        if (!targetRow) return false;
+
+        const oldest = oldestCreatedAtRef.current ?? new Date().toISOString();
+
+        const { data: messageRows } = await supabase
+          .from('messages')
+          .select(MESSAGE_COLUMNS)
+          .eq('group_id', groupId)
+          .lte('created_at', oldest)
+          .gte('created_at', targetRow.created_at)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        const rawRows = (messageRows ?? []) as MessageRow[];
+        if (rawRows.length === 0) return false;
+
+        const rows = [...rawRows].reverse();
+        oldestCreatedAtRef.current = rows[0].created_at;
+
+        const authorIds = Array.from(
+          new Set(rows.map((r) => r.author_id).filter((id): id is string => id !== null))
+        );
+        const missingProfileIds = authorIds.filter((id) => !profilesRef.current.has(id));
+
+        if (missingProfileIds.length > 0) {
+          const { data: profileRows } = await supabase
+            .from('profiles')
+            .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
+            .in('id', missingProfileIds);
+          for (const p of profileRows ?? []) profilesRef.current.set(p.id, p);
+        }
+
+        const messageIds = rows.map((r) => r.id);
+        if (messageIds.length > 0) {
+          const [{ data: reactionRows }, { data: hiddenRows }, { data: viewRows }] = await Promise.all([
+            supabase
+              .from('message_reactions')
+              .select('message_id, user_id, emoji, label')
+              .in('message_id', messageIds),
+            supabase.from('hidden_messages').select('message_id').in('message_id', messageIds),
+            supabase.from('media_views').select('message_id, user_id').in('message_id', messageIds),
+          ]);
+
+          if (reactionRows && reactionRows.length > 0) {
+            reactionRowsRef.current = [...reactionRowsRef.current, ...reactionRows];
+          }
+          if (hiddenRows && hiddenRows.length > 0) {
+            setHiddenIds((prev) => {
+              const next = new Set(prev);
+              for (const r of hiddenRows) next.add(r.message_id);
+              return next;
+            });
+          }
+          for (const v of viewRows ?? []) {
+            const set = viewsRef.current.get(v.message_id) ?? new Set<string>();
+            set.add(v.user_id);
+            viewsRef.current.set(v.message_id, set);
+          }
+        }
+
+        const olderBuiltMessages = buildMessages(rows);
+        setMessages((prev) => {
+          const existing = new Set(prev.map((m) => m.id));
+          const uniqueOlder = olderBuiltMessages.filter((m) => !existing.has(m.id));
+          if (uniqueOlder.length === 0) return prev;
+          return [...uniqueOlder, ...prev];
+        });
+
+        return true;
+      } catch (err) {
+        console.error('loadUntilMessage error:', err);
+        return false;
+      }
+    },
+    [groupId, allMessages, buildMessages]
+  );
+
   useEffect(() => {
     load();
-  }, [load]);
+  }, [groupId]);
 
   const refreshReactions = useCallback(async () => {
     const currentIds = messagesRef.current.map((m) => m.id);
@@ -376,7 +620,7 @@ export function useMessages(groupId: string) {
                     ...m,
                     text: row.is_deleted ? '' : row.text,
                     kind: row.is_deleted ? 'text' : kindFor(row),
-                    media: row.is_deleted ? null : mediaFor(row),
+                    media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
                     editedAt: row.edited_at,
                     isDeleted: row.is_deleted,
                     deletedByAdmin: deletedByAdminFor(row),
@@ -407,12 +651,49 @@ export function useMessages(groupId: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, () => {
         refreshReactions();
       })
-      .subscribe();
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'media_views' },
+        async (payload) => {
+          const row = payload.new as { message_id: string; user_id: string };
+          const viewers = viewsRef.current.get(row.message_id) ?? new Set<string>();
+          if (!viewers.has(row.user_id)) {
+            viewers.add(row.user_id);
+            viewsRef.current.set(row.message_id, viewers);
+          }
+
+          if (!profilesRef.current.has(row.user_id)) {
+            const { data: p } = await supabase
+              .from('profiles')
+              .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
+              .eq('id', row.user_id)
+              .maybeSingle();
+            if (p) profilesRef.current.set(p.id, p);
+          }
+
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === row.message_id && m.media
+                ? {
+                    ...m,
+                    media: {
+                      ...m.media,
+                      viewed: viewers.has(myId),
+                      viewedByAnyone: true,
+                      viewers: getViewerProfiles(row.message_id),
+                    },
+                  }
+                : m
+            )
+          );
+        }
+      )
+      .subscribe(onChannelStatus('chat'));
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId, myId, buildMessages, refreshReactions, resolveReplyPreview, authorNameFor]);
+  }, [groupId, myId, buildMessages, refreshReactions, resolveReplyPreview, authorNameFor, getViewerProfiles]);
 
   // Any bubble whose reply preview came back unresolved (target not in the
   // loaded page yet) gets a one-shot lookup so it fills itself in.
@@ -450,6 +731,7 @@ export function useMessages(groupId: string) {
       media_width: media?.width ?? null,
       media_height: media?.height ?? null,
       media_duration_ms: media?.durationMs ?? null,
+      media_view_once: media?.viewOnce ?? false,
     });
   }
 
@@ -474,6 +756,42 @@ export function useMessages(groupId: string) {
       .from('messages')
       .update({ text: trimmed, edited_at: new Date().toISOString(), mentions, mention_everyone: mentionEveryone })
       .eq('id', messageId);
+  }
+
+  /**
+   * Burns this viewer's single look at a view-once attachment. Called when
+   * the fullscreen viewer *closes* rather than when it opens — opening and
+   * immediately losing the photo to a mis-tap would be the worst possible
+   * version of this feature.
+   *
+   * Recorded locally first so the bubble flips instantly; the insert ignores
+   * a duplicate-key conflict because a second view is a no-op by definition.
+   */
+  async function markMediaViewed(messageId: string) {
+    if (!myId) return;
+    const viewers = viewsRef.current.get(messageId) ?? new Set<string>();
+    if (!viewers.has(myId)) {
+      viewers.add(myId);
+      viewsRef.current.set(messageId, viewers);
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.media
+          ? {
+              ...m,
+              media: {
+                ...m.media,
+                viewed: true,
+                viewedByAnyone: true,
+                viewers: getViewerProfiles(messageId),
+              },
+            }
+          : m
+      )
+    );
+
+    await supabase.from('media_views').insert({ message_id: messageId, user_id: myId });
   }
 
   /** Delete for everyone: the message becomes a tombstone for every member.
@@ -568,5 +886,18 @@ export function useMessages(groupId: string) {
     refreshReactions();
   }
 
-  return { messages, loading, sendMessage, editMessage, deleteMessage, hideMessage, toggleReaction };
+  return {
+    messages,
+    loading,
+    hasMore,
+    loadingMore,
+    fetchOlderMessages,
+    loadUntilMessage,
+    sendMessage,
+    editMessage,
+    deleteMessage,
+    hideMessage,
+    markMediaViewed,
+    toggleReaction,
+  };
 }

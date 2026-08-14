@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { Group, MediaType } from '../types';
 import { describeMedia } from '../lib/media';
@@ -10,7 +11,7 @@ function previewFor(text: string | null | undefined, mediaType: MediaType | null
   if (text) return text;
   if (!mediaType) return null;
   const { label } = describeMedia(mediaType, null);
-  const emoji = { image: '📷', gif: '🎞️', video: '🎥', file: '📄' }[mediaType];
+  const emoji = { image: '📷', gif: '🎞️', video: '🎥', file: '📄', voice: '🎙️' }[mediaType];
   return `${emoji} ${label}`;
 }
 
@@ -155,7 +156,7 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
         },
         () => fetchGroups()
       )
-      .subscribe();
+      .subscribe(onChannelStatus('group-list'));
 
     return () => {
       supabase.removeChannel(channel);

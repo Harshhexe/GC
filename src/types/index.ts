@@ -6,16 +6,31 @@ export type Reaction = {
 };
 
 /** What kind of content the message is, for the reply-preview icon/label and
- *  for choosing how MessageBubble renders it. 'voice' isn't sendable yet
- *  (no recorder built), kept here so replies won't need a rework once it is. */
+ *  for choosing how MessageBubble renders it. */
 export type MessageKind = 'text' | 'image' | 'video' | 'gif' | 'file' | 'voice';
 
-export type MediaType = 'image' | 'video' | 'gif' | 'file';
+export type MediaType = 'image' | 'video' | 'gif' | 'file' | 'voice';
+
+export type MediaViewerProfile = {
+  id: string;
+  name: string;
+  avatarColor: string;
+  avatarEmoji: string;
+  avatarUrl?: string | null;
+};
 
 /** A message's attachment. A message can be media-only (empty `text`) or
  *  carry both — media plus a caption. */
 export type MessageMedia = {
   url: string;
+  /** Burn-after-reading: each recipient may open it exactly once. */
+  viewOnce?: boolean;
+  /** Whether *this* viewer has already used their one look. */
+  viewed?: boolean;
+  /** Anyone has opened it — what the sender sees on their own bubble. */
+  viewedByAnyone?: boolean;
+  /** Profiles of members who opened this view-once attachment. */
+  viewers?: MediaViewerProfile[];
   /** Videos only: a poster frame grabbed from the clip at send time. An
    *  <Image> pointed at a video URL renders nothing, so this is what a bubble
    *  and the media grid actually draw. */

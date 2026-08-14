@@ -50,7 +50,10 @@ function isDeadChat(group: Group) {
   return Date.now() - new Date(group.lastMessageAt).getTime() > DEAD_CHAT_MS;
 }
 
-function GroupCard({
+import { memo } from 'react';
+import { Platform } from 'react-native';
+
+const GroupCard = memo(function GroupCardImpl({
   group,
   index,
   onOpen,
@@ -151,7 +154,7 @@ function GroupCard({
       </GlassPanel>
     </Animated.View>
   );
-}
+});
 
 export default function GroupListScreen({ navigation }: Props) {
   const { groups, loading, refetch } = useGroups();
@@ -167,6 +170,26 @@ export default function GroupListScreen({ navigation }: Props) {
     useCallback(() => {
       refetch();
     }, [refetch])
+  );
+
+  const renderGroupItem = useCallback(
+    ({ item, index }: { item: Group; index: number }) => (
+      <GroupCard
+        group={item}
+        index={index}
+        onOpen={() =>
+          navigation.navigate('Chat', {
+            groupId: item.id,
+            unreadCount: item.unreadCount,
+          })
+        }
+        onSummary={() =>
+          navigation.navigate('WhatDidIMiss', { groupId: item.id, groupName: item.name })
+        }
+        onCrew={() => navigation.navigate('GroupInfo', { groupId: item.id })}
+      />
+    ),
+    [navigation]
   );
 
   return (
@@ -227,9 +250,6 @@ export default function GroupListScreen({ navigation }: Props) {
         {loading ? (
           <EmptyState emoji="⏳" text={loadingText} />
         ) : groups.length === 0 ? (
-          // An empty list is the first thing a new account sees, so it has to
-          // do more than shrug — the two things they can actually do next are
-          // right here rather than hidden behind a tab they haven't found.
           <View style={styles.emptyWrap}>
             <EmptyState emoji="👻" text={emptyText} />
             <Animated.View
@@ -257,22 +277,11 @@ export default function GroupListScreen({ navigation }: Props) {
             keyExtractor={(g) => g.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
-            renderItem={({ item, index }) => (
-              <GroupCard
-                group={item}
-                index={index}
-                onOpen={() =>
-                  navigation.navigate('Chat', {
-                    groupId: item.id,
-                    unreadCount: item.unreadCount,
-                  })
-                }
-                onSummary={() =>
-                  navigation.navigate('WhatDidIMiss', { groupId: item.id, groupName: item.name })
-                }
-                onCrew={() => navigation.navigate('GroupInfo', { groupId: item.id })}
-              />
-            )}
+            removeClippedSubviews={Platform.OS !== 'web'}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={9}
+            renderItem={renderGroupItem}
           />
         )}
       </SafeAreaView>

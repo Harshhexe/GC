@@ -17,7 +17,14 @@ import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import {
   HIT_TARGET,
@@ -39,6 +46,7 @@ import { MentionSuggestions } from '../components/MentionSuggestions';
 import { MemberProfileSheet } from '../components/MemberProfileSheet';
 import { AttachmentSheet } from '../components/AttachmentSheet';
 import { AttachmentPreview } from '../components/AttachmentPreview';
+import { VoiceRecorder } from '../components/VoiceRecorder';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { EmptyState } from '../components/EmptyState';
 import { TypingIndicator } from '../components/TypingIndicator';
@@ -92,8 +100,20 @@ export default function ChatScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { groupId } = route.params;
   const { profile, session } = useAuth();
-  const { messages, loading, sendMessage, editMessage, deleteMessage, hideMessage, toggleReaction } =
-    useMessages(groupId);
+  const {
+    messages,
+    loading,
+    hasMore,
+    loadingMore,
+    fetchOlderMessages,
+    loadUntilMessage,
+    sendMessage,
+    editMessage,
+    deleteMessage,
+    hideMessage,
+    markMediaViewed,
+    toggleReaction,
+  } = useMessages(groupId);
   const { members: groupMembers } = useGroupMembers(groupId);
   const { typingNames, notifyTyping } = useTyping(
     groupId,
@@ -104,20 +124,11 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   useEffect(() => {
-    const scrollToBottom = () => {
-      if (flatListRef.current && messages.length > 0) {
-        flatListRef.current.scrollToEnd({ animated: true });
-      }
-    };
-
     const onShow = () => {
       setIsKeyboardOpen(true);
-      // Only follow the keyboard down to the newest message if that's where
-      // the user already was. Reading history shouldn't get yanked to the
-      // bottom just because the composer took focus.
-      if (!nearBottomRef.current) return;
-      scrollToBottom();
-      setTimeout(scrollToBottom, 120);
+      if (!showScrollDownRef.current) {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }
     };
 
     const showSub1 = Keyboard.addListener(
@@ -144,18 +155,9 @@ export default function ChatScreen({ route, navigation }: Props) {
   const flatListRef = useRef<FlatList>(null);
   const initialScrollDone = useRef(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
-  /** Whether the transcript is scrolled near the newest message. */
-  const nearBottomRef = useRef(true);
-  /** True until the opening scroll position has stabilised. */
-  const settlingRef = useRef(true);
-  /** Which group we've already run the opening scroll for. */
-  const positionedForGroup = useRef<string | null>(null);
+  const showScrollDownRef = useRef(false);
 
-  // How many messages were unread when this screen opened. Taken from the
-  // chat list rather than re-read here: opening the chat immediately stamps
-  // `last_read_at`, so anything reading that column would race its own write
-  // and the divider would flicker or vanish. Frozen for the whole visit so the
-  // divider stays put while you read.
+  // How many messages were unread when this screen opened.
   const [openedWithUnread] = useState(() => route.params.unreadCount ?? 0);
 
   // Reading the chat is what clears the badge: stamp on open, and again on each
@@ -180,6 +182,37 @@ export default function ChatScreen({ route, navigation }: Props) {
   }, [messages, openedWithUnread]);
 
   const unreadCount = firstUnreadIndex >= 0 ? openedWithUnread : 0;
+  const firstUnreadId =
+    unreadCount > 0 && firstUnreadIndex >= 0 ? messages[firstUnreadIndex]?.id : null;
+
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
+  // Scroll to unread divider on initial open if there are unread messages
+  useEffect(() => {
+    if (loading || messages.length === 0) return;
+    if (initialScrollDone.current) return;
+    initialScrollDone.current = true;
+
+    if (firstUnreadIndex >= 0 && firstUnreadIndex < messages.length) {
+      const invIndex = messages.length - 1 - firstUnreadIndex;
+      if (invIndex > 0) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: invIndex,
+            viewPosition: 0.3,
+            animated: false,
+          });
+        }, 60);
+      }
+    }
+  }, [loading, messages.length, firstUnreadIndex]);
+
+  useEffect(() => {
+    initialScrollDone.current = false;
+  }, [groupId]);
 
   const readers = useReadReceipts(groupId, session?.user.id);
   const readersByMessage = useReadersByMessage(messages, readers);
@@ -200,59 +233,36 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [myRole, setMyRole] = useState<'owner' | 'admin' | 'member' | null>(null);
   const canModerate = myRole === 'owner' || myRole === 'admin';
 
-  // Recomputing this on every render would hand MessageBubble a brand-new
-  // `tint` object every time the composer draft changes, which — even with
-  // memo() — would force every visible bubble to re-render on each keystroke.
   const theme = useMemo(() => groupTheme(groupInfo?.theme), [groupInfo?.theme]);
   const [draft, setDraft] = useState('');
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
 
-  // Reply / edit composer modes — mutually exclusive, driven by the message
-  // action sheet or a right-swipe on a bubble.
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [actionTarget, setActionTarget] = useState<Message | null>(null);
   const [actionAnchor, setActionAnchor] = useState<MessageActionAnchor | null>(null);
 
-  // @mentions — `selection` tracks the composer's cursor so an active "@query"
-  // can be detected as you type; `mentionCandidates` accumulates every member
-  // ever inserted via the picker this compose/edit session (keyed by id, so
-  // re-picking someone doesn't duplicate them) — the *final* mentions sent
-  // are derived from whichever of these still appear in the text, so manually
-  // deleting an "@Name " drops it same as never having picked them.
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(undefined);
   const [composerFocused, setComposerFocused] = useState(false);
   const [mentionCandidates, setMentionCandidates] = useState<Map<string, Mention>>(new Map());
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
-  // Tapping a suggestion blurs the composer (closing the picker) an instant
-  // before the tap's onPress fires — the classic web autocomplete race.
-  // Debouncing the blur gives that tap time to land before we actually hide.
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Attachments — pick now, upload only at send time (so backing out costs
-  // nothing) . `uploading` guards against a double-send while the request is
-  // in flight; the attachment survives an upload failure so retrying doesn't
-  // mean re-picking.
   const [attachmentSheetVisible, setAttachmentSheetVisible] = useState(false);
-  // Which picker the user chose, held until the sheet has finished dismissing
-  // (see choosePicker) so the native presentation can't collide with it.
   const pendingPickerRef = useRef<(() => Promise<PickResult | null>) | null>(null);
   const pickerLaunchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [pendingViewOnce, setPendingViewOnce] = useState(false);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  // The whole message, not just its media — the viewer offers a reply action,
-  // which needs to know what it's replying to.
   const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
 
-  // Select mode: a lightweight multi-select overlay entered via the action
-  // sheet's "Select" item.
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Briefly pulses the target bubble after "jump to original" lands.
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -272,98 +282,6 @@ export default function ChatScreen({ route, navigation }: Props) {
       cancelled = true;
     };
   }, [groupId, session?.user.id]);
-
-  /**
-   * Opening position: land on the first thing you haven't seen, or at the
-   * bottom when you're already caught up.
-   *
-   * Driven from both an effect and onContentSizeChange because the two race —
-   * rows are variable height and aren't measured until drawn, so a single
-   * one-shot scroll on mount lands at the wrong offset (or nowhere). The ref
-   * makes it idempotent: whichever fires first with real content wins.
-   */
-  // Read through refs so the retry timers below always use current values
-  // instead of whatever was captured when the sequence started.
-  const firstUnreadRef = useRef(firstUnreadIndex);
-  firstUnreadRef.current = firstUnreadIndex;
-
-  const positionInitial = useCallback(() => {
-    const list = flatListRef.current;
-    if (!list || !settlingRef.current) return;
-    initialScrollDone.current = true;
-
-    if (firstUnreadRef.current > 0) {
-      list.scrollToIndex({ index: firstUnreadRef.current, viewPosition: 0.18, animated: false });
-    } else {
-      list.scrollToEnd({ animated: false });
-    }
-
-    // react-native-web's FlatList ignores scrollToEnd/scrollToIndex entirely —
-    // it doesn't throw, it just doesn't move — so drive the underlying DOM
-    // node instead. Native handles the calls above correctly.
-    if (Platform.OS !== 'web') return;
-    const node = list.getScrollableNode?.() as HTMLElement | undefined;
-    if (!node || typeof node.scrollTop !== 'number') return;
-
-    if (firstUnreadRef.current > 0) {
-      const divider = document.getElementById(UNREAD_DIVIDER_ID);
-      if (divider) {
-        // Measure against the scroller rather than using offsetTop — the
-        // divider's offsetParent isn't the scrolling node, so offsetTop is
-        // relative to the wrong box.
-        const delta =
-          divider.getBoundingClientRect().top - node.getBoundingClientRect().top;
-        node.scrollTop = Math.max(0, node.scrollTop + delta - node.clientHeight * 0.18);
-        return;
-      }
-    }
-    node.scrollTop = node.scrollHeight;
-  }, []);
-
-  useEffect(() => {
-    // Wait for the list to actually exist — while `loading` is true the
-    // FlatList isn't rendered at all, so the ref is null and every jump is a
-    // silent no-op.
-    if (loading || messages.length === 0) return;
-    if (positionedForGroup.current === groupId) return;
-    positionedForGroup.current = groupId;
-    settlingRef.current = true;
-
-    // Rows are variable height and keep growing as fonts and emoji resolve, so
-    // one jump lands short. Re-assert across a short settle window, then hand
-    // control back to the user.
-    // Virtualisation mounts rows in windows, so every jump reveals more content
-    // below and the previous "end" stops being the end. Re-assert on a tick
-    // until the target position holds steady twice in a row, with a hard cap so
-    // this can never spin forever.
-    let stable = 0;
-    let elapsed = 0;
-    let lastTarget = -1;
-
-    const tick = () => {
-      positionInitial();
-      const node = flatListRef.current?.getScrollableNode?.() as HTMLElement | undefined;
-      const target =
-        node && typeof node.scrollHeight === 'number' ? node.scrollHeight : -1;
-
-      stable = target === lastTarget ? stable + 1 : 0;
-      lastTarget = target;
-      elapsed += 110;
-
-      if (stable >= 2 || elapsed > 2500) {
-        clearInterval(timer);
-        settlingRef.current = false;
-      }
-    };
-
-    positionInitial();
-    const timer = setInterval(tick, 110);
-
-    return () => {
-      clearInterval(timer);
-      settlingRef.current = false;
-    };
-  }, [loading, messages.length, groupId, positionInitial]);
 
   const [emptyText] = useState(() => pick(copy.emptyChat));
   const [loadingText] = useState(() => pick(copy.loading));
@@ -420,11 +338,11 @@ export default function ChatScreen({ route, navigation }: Props) {
             setGroupInfo((prev) =>
               prev
                 ? {
-                    ...prev,
-                    name: payload.new.name ?? prev.name,
-                    emoji: payload.new.emoji ?? prev.emoji,
-                    theme: payload.new.theme ?? prev.theme,
-                  }
+                  ...prev,
+                  name: payload.new.name ?? prev.name,
+                  emoji: payload.new.emoji ?? prev.emoji,
+                  theme: payload.new.theme ?? prev.theme,
+                }
                 : null
             );
           }
@@ -484,9 +402,11 @@ export default function ChatScreen({ route, navigation }: Props) {
         width: pendingAttachment.width,
         height: pendingAttachment.height,
         durationMs: pendingAttachment.durationMs,
+        viewOnce: pendingViewOnce,
       };
       sendMessage(draft, replyTo?.id ?? null, mentions, mentionEveryone, media);
       setPendingAttachment(null);
+      setPendingViewOnce(false);
     } else {
       sendMessage(draft, replyTo?.id ?? null, mentions, mentionEveryone);
     }
@@ -801,36 +721,33 @@ export default function ChatScreen({ route, navigation }: Props) {
   }, [messages, selectedIds, hideMessage, exitSelectMode, notifyHideFailed]);
 
   const jumpToMessage = useCallback(
-    (id: string | undefined | null) => {
+    async (id: string | undefined | null) => {
       if (!id) return;
-      const index = messages.findIndex((m) => m.id === id);
-      if (index < 0) return; // not currently loaded — nothing to jump to yet
-      flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
-      if (highlightTimer.current) clearTimeout(highlightTimer.current);
-      setHighlightedId(id);
-      highlightTimer.current = setTimeout(() => setHighlightedId(null), 1000);
+
+      let index = invertedMessages.findIndex((m) => m.id === id);
+      if (index < 0) {
+        const loaded = await loadUntilMessage(id);
+        if (!loaded) return;
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(true)));
+        index = messagesRef.current.slice().reverse().findIndex((m) => m.id === id);
+      }
+
+      if (index >= 0) {
+        flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
+        if (highlightTimer.current) clearTimeout(highlightTimer.current);
+        setHighlightedId(id);
+        highlightTimer.current = setTimeout(() => setHighlightedId(null), 1200);
+      }
     },
-    [messages]
+    [invertedMessages, loadUntilMessage]
   );
 
-  // Arriving here from a notification tap — wait for the initial scroll
-  // position to settle (same race as the unread-divider landing above) before
-  // jumping, otherwise the two fight over where the list ends up.
   const pendingJumpId = useRef(route.params.jumpToMessageId ?? null);
   useEffect(() => {
     if (!pendingJumpId.current || loading || messages.length === 0) return;
     const id = pendingJumpId.current;
-    let elapsed = 0;
-    const tick = () => {
-      elapsed += 110;
-      if (!settlingRef.current || elapsed > 3000) {
-        clearInterval(timer);
-        pendingJumpId.current = null;
-        jumpToMessage(id);
-      }
-    };
-    const timer = setInterval(tick, 110);
-    return () => clearInterval(timer);
+    pendingJumpId.current = null;
+    jumpToMessage(id);
   }, [loading, messages.length, jumpToMessage]);
 
   // ── Stable per-row callbacks handed to every MessageBubble ───────────────
@@ -859,6 +776,90 @@ export default function ChatScreen({ route, navigation }: Props) {
   );
 
   const handleMentionPress = useCallback((userId: string) => setViewingProfileId(userId), []);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: Message; index: number }) => {
+      const olderMsg = index < invertedMessages.length - 1 ? invertedMessages[index + 1] : null;
+      const newerMsg = index > 0 ? invertedMessages[index - 1] : null;
+
+      const newDay = !olderMsg || dayLabel(olderMsg.createdAt) !== dayLabel(item.createdAt);
+      const showAuthor = newDay || !olderMsg || olderMsg.authorId !== item.authorId;
+
+      const nextIsNewDay = newerMsg ? dayLabel(item.createdAt) !== dayLabel(newerMsg.createdAt) : true;
+      const showAvatar = nextIsNewDay || !newerMsg || newerMsg.authorId !== item.authorId;
+
+      const isFollowedWithinOneMin =
+        newerMsg &&
+        newerMsg.authorId === item.authorId &&
+        new Date(newerMsg.createdAt).getTime() - new Date(item.createdAt).getTime() < 60000;
+      const showTimestamp = !isFollowedWithinOneMin;
+
+      const isFirstUnread = item.id === firstUnreadId;
+
+      return (
+        <View nativeID={`msg-${item.id}`}>
+          {newDay && (
+            <View style={styles.dayRow}>
+              <Chip style={styles.dayChip}>
+                <Text style={styles.dayText}>{dayLabel(item.createdAt)}</Text>
+              </Chip>
+            </View>
+          )}
+
+          {isFirstUnread && unreadCount > 0 && (
+            <View nativeID={UNREAD_DIVIDER_ID} style={styles.unreadRow}>
+              <View style={[styles.unreadLine, { backgroundColor: `${theme.accent}66` }]} />
+              <Text style={[styles.unreadText, { color: theme.accent }]}>
+                {unreadCount} unread message{unreadCount === 1 ? '' : 's'}
+              </Text>
+              <View style={[styles.unreadLine, { backgroundColor: `${theme.accent}66` }]} />
+            </View>
+          )}
+          <MessageBubble
+            message={item}
+            isMessageOfTheDay={item.id === motdId}
+            isPinned={pinnedIds.has(item.id)}
+            showAuthor={showAuthor}
+            showAvatar={showAvatar}
+            showTimestamp={showTimestamp}
+            readers={readersByMessage.get(item.id)}
+            tint={theme}
+            highlighted={item.id === highlightedId}
+            selectMode={selectMode}
+            selected={selectedIds.has(item.id)}
+            onLongPress={handleLongPress}
+            onPress={selectMode ? handleBubblePress : undefined}
+            onToggleReaction={handleToggleReaction}
+            onSwipeReply={item.isDeleted ? undefined : handleSwipeReply}
+            onQuotePress={
+              item.replyPreview && !item.replyPreview.isDeleted ? handleQuotePress : undefined
+            }
+            onMentionPress={selectMode ? undefined : handleMentionPress}
+            onMediaPress={handleMediaPress}
+          />
+        </View>
+      );
+    },
+    [
+      invertedMessages,
+      firstUnreadId,
+      unreadCount,
+      theme,
+      motdId,
+      pinnedIds,
+      readersByMessage,
+      highlightedId,
+      selectMode,
+      selectedIds,
+      handleLongPress,
+      handleBubblePress,
+      handleToggleReaction,
+      handleSwipeReply,
+      handleQuotePress,
+      handleMentionPress,
+      handleMediaPress,
+    ]
+  );
 
   return (
     <View style={styles.root}>
@@ -900,7 +901,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             <PressableScale
               style={[
                 styles.missedButton,
-                { borderColor: `${theme.accent}66`, backgroundColor: `${theme.accent}24` },
+                { backgroundColor: `${theme.accent}1A`, borderColor: `${theme.accent}4D` },
               ]}
               scaleTo={0.90}
               haptic="medium"
@@ -939,119 +940,53 @@ export default function ChatScreen({ route, navigation }: Props) {
             <View style={styles.flex}>
               <FlatList
                 ref={flatListRef}
-                data={messages}
+                inverted
+                data={invertedMessages}
                 keyExtractor={(m) => m.id}
                 contentContainerStyle={styles.list}
                 showsVerticalScrollIndicator={false}
-                // `interactive` is the iOS drag-the-keyboard-down gesture;
-                // Android only supports dismissing once a drag starts.
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 keyboardShouldPersistTaps="handled"
-                // On web the virtualised window never expands: RNW's FlatList
-                // ignores scrollToEnd/scrollToIndex, and scrolling the DOM node
-                // directly doesn't feed VirtualizedList's offset tracking — so it
-                // keeps rendering only the first window and the newest messages
-                // never mount. Rendering the whole (already fully-fetched)
-                // transcript there makes scroll position deterministic.
-                initialNumToRender={
-                  Platform.OS === 'web' ? Math.max(messages.length, 20) : 25
-                }
-                windowSize={Platform.OS === 'web' ? 51 : 21}
-                maxToRenderPerBatch={20}
-                onScroll={(e) => {
-                  if (settlingRef.current) return;
-                  const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-                  const distanceToBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-                  nearBottomRef.current = distanceToBottom < 120;
-
-                  if (distanceToBottom > 350) {
-                    setShowScrollDown(true);
-                  } else {
-                    setShowScrollDown(false);
+                initialNumToRender={20}
+                maxToRenderPerBatch={10}
+                windowSize={9}
+                onEndReached={() => {
+                  if (hasMore && !loadingMore) {
+                    fetchOlderMessages();
                   }
                 }}
-                scrollEventThrottle={64}
-                // Variable-height rows aren't measured until drawn, so a jump to
-                // an off-screen index can miss; retry once the list has settled.
-                onScrollToIndexFailed={({ index }) => {
+                onEndReachedThreshold={0.4}
+                ListFooterComponent={
+                  loadingMore ? (
+                    <View style={styles.historyLoader}>
+                      <ActivityIndicator size="small" color={theme.accent} />
+                      <Text style={styles.historyLoaderText}>Loading earlier messages...</Text>
+                    </View>
+                  ) : null
+                }
+                onScroll={(e) => {
+                  const y = e.nativeEvent.contentOffset.y;
+                  const shouldShow = y > 300;
+                  if (shouldShow !== showScrollDownRef.current) {
+                    showScrollDownRef.current = shouldShow;
+                    setShowScrollDown(shouldShow);
+                  }
+                }}
+                scrollEventThrottle={32}
+                onScrollToIndexFailed={({ index, highestMeasuredFrameIndex }) => {
+                  flatListRef.current?.scrollToIndex({
+                    index: Math.max(0, Math.min(index, highestMeasuredFrameIndex)),
+                    animated: false,
+                  });
                   setTimeout(() => {
                     flatListRef.current?.scrollToIndex({
                       index,
-                      viewPosition: 0.18,
+                      viewPosition: 0.35,
                       animated: false,
                     });
-                  }, 120);
+                  }, 50);
                 }}
-                onContentSizeChange={() => {
-                  if (settlingRef.current) {
-                    positionInitial();
-                    return;
-                  }
-                  // Only follow new messages when the user is already at the
-                  // bottom — otherwise reading history would keep getting yanked.
-                  if (nearBottomRef.current) {
-                    flatListRef.current?.scrollToEnd({ animated: true });
-                  }
-                }}
-                renderItem={({ item, index }) => {
-                  const prev = index > 0 ? messages[index - 1] : null;
-                  const next = index < messages.length - 1 ? messages[index + 1] : null;
-                  const newDay = !prev || dayLabel(prev.createdAt) !== dayLabel(item.createdAt);
-                  const showAuthor = newDay || !prev || prev.authorId !== item.authorId;
-
-                  const nextIsNewDay = next ? dayLabel(item.createdAt) !== dayLabel(next.createdAt) : true;
-                  const showAvatar = nextIsNewDay || !next || next.authorId !== item.authorId;
-
-                  const isFollowedWithinOneMin =
-                    next &&
-                    next.authorId === item.authorId &&
-                    new Date(next.createdAt).getTime() - new Date(item.createdAt).getTime() < 60000;
-                  const showTimestamp = !isFollowedWithinOneMin;
-
-                  return (
-                    <>
-                      {newDay && (
-                        <View style={styles.dayRow}>
-                          <Chip style={styles.dayChip}>
-                            <Text style={styles.dayText}>{dayLabel(item.createdAt)}</Text>
-                          </Chip>
-                        </View>
-                      )}
-
-                      {index === firstUnreadIndex && unreadCount > 0 && (
-                        <View nativeID={UNREAD_DIVIDER_ID} style={styles.unreadRow}>
-                          <View style={[styles.unreadLine, { backgroundColor: `${theme.accent}66` }]} />
-                          <Text style={[styles.unreadText, { color: theme.accent }]}>
-                            {unreadCount} unread message{unreadCount === 1 ? '' : 's'}
-                          </Text>
-                          <View style={[styles.unreadLine, { backgroundColor: `${theme.accent}66` }]} />
-                        </View>
-                      )}
-                      <MessageBubble
-                        message={item}
-                        isMessageOfTheDay={item.id === motdId}
-                        isPinned={pinnedIds.has(item.id)}
-                        showAuthor={showAuthor}
-                        showAvatar={showAvatar}
-                        showTimestamp={showTimestamp}
-                        readers={readersByMessage.get(item.id)}
-                        tint={theme}
-                        highlighted={item.id === highlightedId}
-                        selectMode={selectMode}
-                        selected={selectedIds.has(item.id)}
-                        onLongPress={handleLongPress}
-                        onPress={selectMode ? handleBubblePress : undefined}
-                        onToggleReaction={handleToggleReaction}
-                        onSwipeReply={item.isDeleted ? undefined : handleSwipeReply}
-                        onQuotePress={
-                          item.replyPreview && !item.replyPreview.isDeleted ? handleQuotePress : undefined
-                        }
-                        onMentionPress={selectMode ? undefined : handleMentionPress}
-                        onMediaPress={handleMediaPress}
-                      />
-                    </>
-                  );
-                }}
+                renderItem={renderItem}
               />
               {showScrollDown && (
                 <Animated.View
@@ -1063,7 +998,11 @@ export default function ChatScreen({ route, navigation }: Props) {
                     style={styles.scrollDownButton}
                     scaleTo={0.9}
                     haptic="light"
-                    onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    onPress={() => {
+                      showScrollDownRef.current = false;
+                      setShowScrollDown(false);
+                      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                    }}
                   >
                     <Ionicons name="chevron-down" size={20} color={colors.onSurface} />
                   </PressableScale>
@@ -1132,10 +1071,15 @@ export default function ChatScreen({ route, navigation }: Props) {
               >
                 <AttachmentPreview
                   attachment={pendingAttachment}
+                  viewOnce={pendingViewOnce}
+                  onToggleViewOnce={() => setPendingViewOnce((v) => !v)}
                   uploading={uploading}
                   progress={uploadProgress}
                   accentColor={theme.accent}
-                  onRemove={() => setPendingAttachment(null)}
+                  onRemove={() => {
+                    setPendingAttachment(null);
+                    setPendingViewOnce(false);
+                  }}
                 />
               </Animated.View>
             )}
@@ -1171,6 +1115,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                 />
               </PressableScale>
 
+              {!isRecordingVoice && (
               <TextInput
                 ref={inputRef}
                 style={styles.input}
@@ -1192,7 +1137,27 @@ export default function ChatScreen({ route, navigation }: Props) {
                 placeholderTextColor={colors.outline}
                 multiline
               />
+              )}
+              {isRecordingVoice && <View style={styles.input} />}
 
+              {/* The mic takes the send button's place when there's nothing
+                  to send — the same slot, so the composer never grows a
+                  fourth control, and the swap itself signals which action is
+                  live. Hidden while editing, where a voice note makes no
+                  sense. */}
+              {!canSend && !editingMessage ? (
+                <VoiceRecorder
+                  accentColor={theme.accent}
+                  disabled={uploading}
+                  onRecorded={(attachment) => {
+                    setAttachError(null);
+                    setPendingViewOnce(false);
+                    setPendingAttachment(attachment);
+                  }}
+                  onError={setAttachError}
+                  onRecordingChange={setIsRecordingVoice}
+                />
+              ) : (
               <PressableScale
                 style={styles.sendWrap}
                 scaleTo={0.85}
@@ -1221,6 +1186,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                   )}
                 </LinearGradient>
               </PressableScale>
+              )}
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
@@ -1250,16 +1216,16 @@ export default function ChatScreen({ route, navigation }: Props) {
             const m = messages.find((msg) => msg.id === id);
             return m && canDeleteMessage(m) && !m.isDeleted;
           }) && (
-            <PressableScale
-              style={styles.selectBarButton}
-              scaleTo={0.95}
-              haptic="medium"
-              onPress={deleteSelectedForEveryone}
-            >
-              <Ionicons name="trash-outline" size={16} color={colors.error} />
-              <Text style={[styles.selectBarLabel, { color: colors.error }]} numberOfLines={1}>Delete for all</Text>
-            </PressableScale>
-          )}
+              <PressableScale
+                style={styles.selectBarButton}
+                scaleTo={0.95}
+                haptic="medium"
+                onPress={deleteSelectedForEveryone}
+              >
+                <Ionicons name="trash-outline" size={16} color={colors.error} />
+                <Text style={[styles.selectBarLabel, { color: colors.error }]} numberOfLines={1}>Delete for all</Text>
+              </PressableScale>
+            )}
         </Animated.View>
       )}
 
@@ -1328,7 +1294,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
       <MediaViewerModal
         media={viewingMessage?.media ?? null}
-        onClose={() => setViewingMessage(null)}
+        onClose={() => {
+          const target = viewingMessage;
+          setViewingMessage(null);
+          if (target?.media?.viewOnce && !target.media.viewed && !target.isMine) {
+            markMediaViewed(target.id);
+          }
+        }}
         onReply={() => {
           const target = viewingMessage;
           setViewingMessage(null);
@@ -1508,5 +1480,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
+  },
+  historyLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: spacing.md,
+  },
+  historyLoaderText: {
+    ...typography.micro,
+    color: colors.outline,
   },
 });

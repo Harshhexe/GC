@@ -37,12 +37,19 @@
       "expo-splash-screen",
       "expo-video",
       [
+        "expo-audio",
+        {
+          "microphonePermission": "Let GC use your mic so you can send voice notes to the group."
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Let GC access your photos so you can send them to the group.",
           "cameraPermission": "Let GC use your camera so you can snap something for the group."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "eas": {

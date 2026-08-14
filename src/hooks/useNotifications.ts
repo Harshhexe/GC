@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
 
 export type NotificationItem = {
   id: string;
@@ -107,7 +108,7 @@ export function useNotifications(userId: string | undefined) {
         { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
         () => load()
       )
-      .subscribe();
+      .subscribe(onChannelStatus('notifications'));
     return () => {
       supabase.removeChannel(channel);
     };

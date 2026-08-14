@@ -294,6 +294,8 @@ function MessageBubbleImpl({
                     {message.media && (
                       <MessageMediaView
                         media={message.media}
+                        isMine={mine}
+                        tint={theme.accent}
                         onPress={() => onMediaPress?.(message)}
                         onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
                       />
@@ -344,6 +346,8 @@ function MessageBubbleImpl({
                         {message.media && (
                           <MessageMediaView
                             media={message.media}
+                            isMine={mine}
+                            tint={theme.accent}
                             onPress={() => onMediaPress?.(message)}
                             onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
                           />
@@ -413,7 +417,30 @@ function MessageBubbleImpl({
   );
 }
 
-export const MessageBubble = memo(MessageBubbleImpl);
+function arePropsEqual(prev: any, next: any) {
+  return (
+    prev.message === next.message &&
+    prev.isMessageOfTheDay === next.isMessageOfTheDay &&
+    prev.isPinned === next.isPinned &&
+    prev.showAuthor === next.showAuthor &&
+    prev.showAvatar === next.showAvatar &&
+    prev.showTimestamp === next.showTimestamp &&
+    prev.readers === next.readers &&
+    prev.tint === next.tint &&
+    prev.highlighted === next.highlighted &&
+    prev.selectMode === next.selectMode &&
+    prev.selected === next.selected &&
+    prev.onLongPress === next.onLongPress &&
+    prev.onPress === next.onPress &&
+    prev.onToggleReaction === next.onToggleReaction &&
+    prev.onSwipeReply === next.onSwipeReply &&
+    prev.onQuotePress === next.onQuotePress &&
+    prev.onMentionPress === next.onMentionPress &&
+    prev.onMediaPress === next.onMediaPress
+  );
+}
+
+export const MessageBubble = memo(MessageBubbleImpl, arePropsEqual);
 
 const styles = StyleSheet.create({
   rowOuter: { justifyContent: 'center' },

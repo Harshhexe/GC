@@ -42,6 +42,9 @@ const SIZE_LIMITS: Record<MediaType, number> = {
   gif: 15 * 1024 * 1024,
   video: 45 * 1024 * 1024,
   file: 20 * 1024 * 1024,
+  // AAC at 128kbps is ~1MB/min, so this is far above the 5-minute recording
+  // ceiling — it's a backstop against a corrupt file, not a real limit.
+  voice: 15 * 1024 * 1024,
 };
 
 function mediaTypeFor(mime: string): MediaType {

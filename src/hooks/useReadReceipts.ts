@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
 import { Message } from '../types';
 
 export type Reader = {
@@ -79,7 +80,7 @@ export function useReadReceipts(groupId: string, myUserId: string | undefined) {
         },
         () => load()
       )
-      .subscribe();
+      .subscribe(onChannelStatus('reads'));
 
     return () => {
       supabase.removeChannel(channel);

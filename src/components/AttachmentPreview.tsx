@@ -30,6 +30,8 @@ export function AttachmentPreview({
   uploading,
   progress,
   accentColor,
+  viewOnce,
+  onToggleViewOnce,
   onRemove,
 }: {
   attachment: PendingAttachment;
@@ -37,6 +39,8 @@ export function AttachmentPreview({
   /** 0–1. Stays 0 until the first progress event lands. */
   progress: number;
   accentColor: string;
+  viewOnce: boolean;
+  onToggleViewOnce: () => void;
   onRemove: () => void;
 }) {
   const translateY = useSharedValue(0);
@@ -70,6 +74,7 @@ export function AttachmentPreview({
   }));
 
   const isImage = attachment.type === 'image' || attachment.type === 'gif';
+  const canBeViewOnce = attachment.type === 'image' || attachment.type === 'video';
   // A video's poster is generated at pick time; documents never have one.
   const previewUri = isImage ? attachment.uri : attachment.thumbUri;
 
@@ -82,7 +87,13 @@ export function AttachmentPreview({
           ) : (
             <View style={styles.thumbIcon}>
               <Ionicons
-                name={attachment.type === 'video' ? 'videocam' : 'document-text'}
+                name={
+                  attachment.type === 'video'
+                    ? 'videocam'
+                    : attachment.type === 'voice'
+                      ? 'mic'
+                      : 'document-text'
+                }
                 size={20}
                 color={accentColor}
               />
@@ -97,16 +108,39 @@ export function AttachmentPreview({
 
           <View style={styles.copy}>
             <Text style={styles.name} numberOfLines={1}>
-              {attachment.name || (attachment.type === 'video' ? 'Video' : 'Photo')}
+              {attachment.type === 'voice'
+                ? 'Voice note'
+                : attachment.name || (attachment.type === 'video' ? 'Video' : 'Photo')}
             </Text>
             <Text style={styles.meta}>
               {uploading
                 ? progress > 0
                   ? `Sending… ${Math.round(progress * 100)}%`
                   : 'Sending…'
-                : formatFileSize(attachment.size)}
+                : viewOnce
+                  ? 'View once · they get one look'
+                  : formatFileSize(attachment.size)}
             </Text>
           </View>
+
+          {/* Offered for photos and videos only — "view once" is meaningless
+              for a document you could just re-download, and for a voice note
+              there's nothing to look at. */}
+          {!uploading && canBeViewOnce && (
+            <PressableScale
+              hitSlop={6}
+              style={[
+                styles.onceButton,
+                viewOnce
+                  ? { backgroundColor: accentColor, borderColor: accentColor }
+                  : { borderColor: 'rgba(255, 255, 255, 0.18)' },
+              ]}
+              haptic="light"
+              onPress={onToggleViewOnce}
+            >
+              <Text style={[styles.onceText, viewOnce && styles.onceTextActive]}>1</Text>
+            </PressableScale>
+          )}
 
           {!uploading && (
             <PressableScale
@@ -200,6 +234,16 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 1 },
   name: { ...typography.bodyMedium, fontSize: 13.5, color: colors.onSurface },
   meta: { ...typography.micro, fontSize: 11, color: colors.onSurfaceVariant },
+  onceButton: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onceText: { ...typography.label, fontSize: 12, color: colors.onSurfaceVariant },
+  onceTextActive: { color: '#FFFFFF' },
   closeButton: {
     width: 26,
     height: 26,

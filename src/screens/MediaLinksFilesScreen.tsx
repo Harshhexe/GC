@@ -105,6 +105,9 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
           .eq('group_id', groupId)
           .eq('is_deleted', false)
           .in('media_type', ['image', 'gif', 'video'])
+          // A view-once photo listed here would be permanently re-viewable,
+          // which is exactly the thing it promises not to be.
+          .eq('media_view_once', false)
           .order('created_at', { ascending: false })
           .limit(150),
         supabase

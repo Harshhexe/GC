@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
 import type { PinnedMessage } from '../types';
 
 type PinnedRow = { message_id: string; group_id: string; pinned_by: string | null; pinned_at: string };
@@ -89,7 +90,7 @@ export function usePinnedMessages(groupId: string) {
         { event: '*', schema: 'public', table: 'pinned_messages', filter: `group_id=eq.${groupId}` },
         () => load()
       )
-      .subscribe();
+      .subscribe(onChannelStatus('pinned'));
 
     return () => {
       supabase.removeChannel(channel);

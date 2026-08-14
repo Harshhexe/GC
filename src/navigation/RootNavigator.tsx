@@ -43,11 +43,11 @@ export default function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator
-        initialRouteName={session && justSignedUp ? 'Welcome' : 'MainTabs'}
+        initialRouteName={session ? (justSignedUp ? 'Welcome' : 'MainTabs') : 'Auth'}
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
-          animationDuration: 320,
+          animationDuration: 220,
           contentStyle: { backgroundColor: colors.bg },
         }}
       >

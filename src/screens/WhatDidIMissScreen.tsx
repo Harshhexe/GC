@@ -17,6 +17,7 @@ import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
+import { PressableScale } from '../components/ui/PressableScale';
 import { useMessages } from '../hooks/useMessages';
 import { useGroupRecap } from '../hooks/useGroupRecap';
 import { useAuth } from '../context/AuthContext';
@@ -77,6 +78,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   const { profile } = useAuth();
   const { messages, loading } = useMessages(groupId);
   const recap = useGroupRecap(messages, {
+    userId: profile?.id,
     username: profile?.username,
     displayName: profile?.display_name,
   });
@@ -187,7 +189,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           <Section
             icon="at"
             iconColor={colors.secondary}
-            title="Mentioned You"
+            title="Mentioned You Today"
             delay={STAGGER_MS * 4}
             trailing={
               recap.mentions.length > 0 ? (
@@ -199,13 +201,21 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           >
             {recap.mentions.length === 0 ? (
               <Text style={styles.emptyMentions}>
-                Nobody @'d you. Free of obligations, free of relevance.
+                Nobody @'d you today. Free of obligations, free of relevance.
               </Text>
             ) : (
               recap.mentions.map((m) => (
-                <View key={m.id} style={styles.mention}>
+                <PressableScale
+                  key={m.id}
+                  style={styles.mention}
+                  scaleTo={0.98}
+                  haptic="light"
+                  onPress={() => navigation.navigate('Chat', { groupId, jumpToMessageId: m.id })}
+                >
                   <View style={styles.mentionHead}>
                     <Avatar
+                      emoji={m.authorEmoji}
+                      imageUrl={m.authorAvatarUrl}
                       label={m.authorName}
                       size={26}
                       ring={false}
@@ -216,17 +226,78 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                     </Text>
                     <View style={styles.spacer} />
                     <Text style={styles.mentionTime}>{clockTime(m.createdAt)}</Text>
+                    <Ionicons name="chevron-forward" size={14} color={colors.outline} />
                   </View>
                   <Text style={styles.mentionText} numberOfLines={3}>
                     {m.text}
                   </Text>
+                </PressableScale>
+              ))
+            )}
+          </Section>
+
+          {/* Who Missed 11:11 */}
+          <Section
+            icon="alarm-outline"
+            iconColor={colors.yellow}
+            title="Who Missed 11:11 Today"
+            delay={STAGGER_MS * 4.5}
+            trailing={
+              recap.missedElevenEleven.length > 0 ? (
+                <View style={[styles.countBadge, { backgroundColor: colors.yellow }]}>
+                  <Text style={[styles.countBadgeText, { color: colors.bg }]}>
+                    {recap.missedElevenEleven.length}
+                  </Text>
+                </View>
+              ) : undefined
+            }
+          >
+            {recap.missedElevenEleven.length === 0 ? (
+              <Text style={styles.emptyMentions}>
+                Nobody got caught typing at 11:11 today! Everyone either made a wish or stayed quiet.
+              </Text>
+            ) : (
+              recap.missedElevenEleven.map((item) => (
+                <View key={item.id} style={styles.missedCard}>
+                  <View style={styles.missedHead}>
+                    <Avatar
+                      emoji={item.authorEmoji}
+                      imageUrl={item.authorAvatarUrl}
+                      label={item.authorName}
+                      size={32}
+                      ring={false}
+                      ringColors={[item.authorColor, item.authorColor]}
+                    />
+                    <View style={styles.missedAuthorInfo}>
+                      <Text style={[styles.mentionName, { color: item.authorColor }]}>
+                        {item.authorName}
+                      </Text>
+                      <Text style={styles.missedSubtitle}>
+                        Too busy typing at {item.timeLabel} today
+                      </Text>
+                    </View>
+                    <View style={styles.spacer} />
+                    <View style={styles.timeTag}>
+                      <Text style={styles.timeTagText}>{item.timeLabel}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.missedQuoteBox}>
+                    <Ionicons name="chatbox-ellipses-outline" size={14} color={colors.yellow} />
+                    <Text style={styles.missedMessageText} numberOfLines={2}>
+                      "{item.text}"
+                    </Text>
+                  </View>
+                  <View style={styles.roastBox}>
+                    <Ionicons name="flame" size={13} color="#FF6B6B" />
+                    <Text style={styles.roastText}>{item.roast}</Text>
+                  </View>
                 </View>
               ))
             )}
           </Section>
 
           <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS * 5)
+            entering={FadeInDown.delay(STAGGER_MS * 5.5)
               .duration(duration.slow)
               .easing(easing.out)
               .reduceMotion(reduceMotion)}
@@ -334,5 +405,60 @@ const styles = StyleSheet.create({
   mentionName: { ...typography.label, fontSize: 13 },
   mentionTime: { ...typography.micro, color: colors.outline },
   mentionText: { ...typography.body, color: colors.onSurfaceVariant },
+  missedCard: {
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  missedHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  missedAuthorInfo: { flex: 1, gap: 1 },
+  missedSubtitle: { ...typography.micro, fontSize: 11, color: colors.onSurfaceVariant },
+  timeTag: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  timeTagText: { ...typography.label, fontSize: 10.5, color: colors.yellow },
+  missedQuoteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 10,
+    borderRadius: radius.sm,
+  },
+  missedMessageText: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.onSurface,
+    fontStyle: 'italic',
+    flex: 1,
+  },
+  roastBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  roastText: {
+    ...typography.micro,
+    fontSize: 11.5,
+    color: '#FF6B6B',
+    fontWeight: '600',
+  },
   ctaWrap: { marginTop: spacing.sm },
 });

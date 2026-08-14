@@ -1,18 +1,16 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
   interpolate,
+  Easing,
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { colors, glass, gradients, radius, shadows, spacing, typography } from '../theme/theme';
-import { reduceMotion, springBouncy, timingFast } from '../theme/motion';
 import { PressableScale } from '../components/ui/PressableScale';
 import { selectFeedback } from '../utils/haptics';
 
@@ -23,92 +21,115 @@ const ICONS: Record<string, { on: keyof typeof Ionicons.glyphMap; off: keyof typ
   Profile: { on: 'settings', off: 'settings-outline', label: 'Profile' },
 };
 
-function DockItem({
+const ITEM_WIDTH = 76;
+
+function SpotlightDockItem({
   routeName,
   focused,
   onPress,
+  activeIndex,
+  position,
 }: {
   routeName: string;
   focused: boolean;
   onPress: () => void;
+  activeIndex: number;
+  position: number;
 }) {
   const icon = ICONS[routeName] ?? { on: 'ellipse', off: 'ellipse-outline', label: routeName };
+  const distance = Math.abs(activeIndex - position);
+  const spotlightOpacity = focused ? 1 : Math.max(0, 1 - distance * 0.6);
+
   const active = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    active.value = focused ? withTiming(1, timingFast) : withTiming(0, timingFast);
+    active.value = withTiming(focused ? 1 : 0, { duration: 300, easing: Easing.bezier(0.4, 0, 0.2, 1) });
   }, [focused, active]);
 
-  // The active tab lifts into a glowing pill; the label fades in under it.
-  const bubbleStyle = useAnimatedStyle(() => ({
-    opacity: active.value,
-    transform: [
-      { scale: interpolate(active.value, [0, 1], [0.5, 1]) },
-    ],
+  const spotlightStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(spotlightOpacity, { duration: 300 }),
   }));
 
   const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(active.value, [0, 1], [0, -2]) }],
-  }));
-
-  const labelStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(active.value, [0, 1], [0.55, 1]),
+    transform: [{ scale: interpolate(active.value, [0, 1], [1, 1.25]) }],
   }));
 
   return (
     <PressableScale
       style={styles.item}
-      scaleTo={0.88}
+      scaleTo={0.92}
       haptic="none"
       onPress={() => {
         if (!focused) selectFeedback();
         onPress();
       }}
     >
-      <View style={styles.iconSlot}>
-        <Animated.View style={[StyleSheet.absoluteFill, bubbleStyle]}>
-          <LinearGradient
-            colors={gradients.cta}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.bubble, shadows.glow]}
-          />
-        </Animated.View>
-        <Animated.View style={iconStyle}>
-          <Ionicons
-            name={focused ? icon.on : icon.off}
-            size={focused ? 23 : 22}
-            color={focused ? '#FFFFFF' : colors.outline}
-          />
-        </Animated.View>
-      </View>
-      <Animated.Text
-        style={[styles.label, focused && styles.labelActive, labelStyle]}
-        numberOfLines={1}
-      >
-        {icon.label}
-      </Animated.Text>
+      {/* Spotlight beam background */}
+      <Animated.View style={[styles.spotlightWrapper, spotlightStyle]} pointerEvents="none">
+        <LinearGradient
+          colors={['rgba(255, 255, 255, 0.40)', 'rgba(255, 255, 255, 0.10)', 'transparent']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.spotlightBeam}
+        />
+      </Animated.View>
+
+      <Animated.View style={iconStyle}>
+        <Ionicons
+          name={focused ? icon.on : icon.off}
+          size={28}
+          color={focused ? '#FFFFFF' : 'rgba(255, 255, 255, 0.45)'}
+        />
+      </Animated.View>
     </PressableScale>
   );
 }
 
-/** Floating glass dock. Sits above the content rather than docking to the
- *  screen edge, per the design — screens pad their scroll content to clear it. */
+/**
+ * Floating Spotlight Navigation Dock
+ * Replaces app dock with rounded, floated spotlight dock design keeping all original items.
+ */
 export default function Dock({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const activeIndex = state.index;
+
+  const indicatorPos = useSharedValue(activeIndex * ITEM_WIDTH);
+
+  useEffect(() => {
+    indicatorPos.value = withTiming(activeIndex * ITEM_WIDTH, {
+      duration: 350,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    });
+  }, [activeIndex, indicatorPos]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: indicatorPos.value }],
+  }));
 
   return (
     <View
-      style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, spacing.md), pointerEvents: 'box-none' }]}
+      style={[
+        styles.wrap,
+        { paddingBottom: Math.max(insets.bottom, 20) },
+      ]}
+      pointerEvents="box-none"
     >
       <View style={styles.dock}>
+        {/* Top active indicator line */}
+        <Animated.View style={[styles.indicatorContainer, indicatorStyle]} pointerEvents="none">
+          <View style={styles.indicator} />
+        </Animated.View>
+
+        {/* Dock Items */}
         {state.routes.map((route, index) => {
-          const focused = state.index === index;
+          const focused = activeIndex === index;
           return (
-            <DockItem
+            <SpotlightDockItem
               key={route.key}
               routeName={route.name}
               focused={focused}
+              position={index}
+              activeIndex={activeIndex}
               onPress={() => {
                 const event = navigation.emit({
                   type: 'tabPress',
@@ -133,27 +154,65 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
   },
   dock: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radius.xl,
-    backgroundColor: 'rgba(22, 20, 32, 0.4)',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(25, 25, 43, 0.9)',
+    borderRadius: 9999, // Floating & rounded shape
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    ...shadows.soft,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 68,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 18,
   },
-  item: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },
-  iconSlot: {
-    width: 44,
-    height: 36,
+  indicatorContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 16,
+    width: ITEM_WIDTH,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  indicator: {
+    width: 48,
+    height: 3,
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+  },
+  item: {
+    width: ITEM_WIDTH,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
-  bubble: { flex: 1, borderRadius: radius.pill },
-  label: { ...typography.micro, fontSize: 11, color: colors.outline },
-  labelActive: { color: colors.primary, fontFamily: typography.label.fontFamily },
+  spotlightWrapper: {
+    position: 'absolute',
+    top: 0,
+    width: 52,
+    height: 54,
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+  },
+  spotlightBeam: {
+    width: 48,
+    height: 60,
+    borderRadius: 24,
+  },
 });

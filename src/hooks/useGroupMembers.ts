@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
 import type { GroupMember } from '../types';
 
 type Role = 'owner' | 'admin' | 'member';
@@ -62,7 +63,7 @@ export function useGroupMembers(groupId: string) {
         { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` },
         () => load()
       )
-      .subscribe();
+      .subscribe(onChannelStatus('members'));
 
     return () => {
       supabase.removeChannel(channel);
