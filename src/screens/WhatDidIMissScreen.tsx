@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -19,9 +19,16 @@ import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { useMessages } from '../hooks/useMessages';
+import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useGroupRecap } from '../hooks/useGroupRecap';
+import { useWhatDidIMiss } from '../hooks/useWhatDidIMiss';
+import { useMissedRecapHistory, type MissedRecapEntry } from '../hooks/useMissedRecapHistory';
+import { useDailyRecapHistory } from '../hooks/useDailyRecapHistory';
+import { AIThinking, AIErrorState } from '../components/ui/AIState';
+import { DailyRecapModal } from '../components/DailyRecapModal';
 import { useAuth } from '../context/AuthContext';
-import { clockTime } from '../utils/time';
+import { clockTime, timeAgo } from '../utils/time';
+import type { MissedCategory, MissedHighlight, DailyRecapResult } from '../lib/ai';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -34,6 +41,8 @@ function Section({
   trailing,
   children,
   delay,
+  onLayout,
+  highlighted,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
@@ -41,15 +50,31 @@ function Section({
   trailing?: ReactNode;
   children: ReactNode;
   delay: number;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  highlighted?: boolean;
 }) {
   return (
     <Animated.View
+      onLayout={onLayout}
       entering={FadeInDown.delay(delay)
         .duration(duration.slow)
         .easing(easing.out)
         .reduceMotion(reduceMotion)}
     >
-      <GlassPanel borderRadius={radius.lg} style={styles.card}>
+      <GlassPanel
+        borderRadius={radius.lg}
+        style={[
+          styles.card,
+          highlighted && {
+            borderColor: colors.yellow,
+            borderWidth: 1.5,
+            shadowColor: colors.yellow,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.35,
+            shadowRadius: 10,
+          },
+        ]}
+      >
         <View style={styles.cardHeader}>
           <Ionicons name={icon} size={18} color={iconColor} />
           <Text style={styles.cardTitle}>{title}</Text>
@@ -60,6 +85,114 @@ function Section({
         {children}
       </GlassPanel>
     </Animated.View>
+  );
+}
+
+/** Category → the badge the highlight wears. Kept in one place so the AI's
+ *  vocabulary and the UI's can't drift apart. */
+const CATEGORY_STYLE: Record<MissedCategory, { emoji: string; color: string }> = {
+  tea: { emoji: '🍵', color: colors.secondary },
+  plan: { emoji: '📅', color: colors.tertiary },
+  info: { emoji: '📢', color: colors.primary },
+  funny: { emoji: '💀', color: colors.yellow },
+  convo: { emoji: '💬', color: colors.onSurfaceVariant },
+  pinned: { emoji: '📌', color: colors.yellow },
+  mention: { emoji: '👀', color: colors.secondary },
+};
+
+function HighlightCard({
+  highlight,
+  onJump,
+}: {
+  highlight: MissedHighlight;
+  onJump: (messageId: string) => void;
+}) {
+  const style = CATEGORY_STYLE[highlight.category] ?? CATEGORY_STYLE.convo;
+  // The server drops any highlight whose citations didn't survive validation,
+  // so a card on screen always has at least one real message to jump to.
+  const target = highlight.messageIds[0];
+
+  return (
+    <View style={[styles.highlight, { borderColor: `${style.color}44` }]}>
+      <View style={styles.highlightHead}>
+        <Text style={styles.highlightEmoji}>{style.emoji}</Text>
+        <Text style={[styles.highlightTitle, { color: style.color }]}>
+          {highlight.title.toUpperCase()}
+        </Text>
+      </View>
+      <Text style={styles.highlightBody}>{highlight.summary}</Text>
+      {!!target && (
+        <PressableScale
+          style={styles.viewMessage}
+          scaleTo={0.97}
+          haptic="light"
+          onPress={() => onJump(target)}
+        >
+          <Ionicons name="arrow-forward-circle-outline" size={15} color={style.color} />
+          <Text style={[styles.viewMessageText, { color: style.color }]}>
+            View message{highlight.messageIds.length > 1 ? 's' : ''}
+          </Text>
+        </PressableScale>
+      )}
+    </View>
+  );
+}
+
+function RecapCard({
+  entry,
+  onJump,
+  isLast,
+}: {
+  entry: MissedRecapEntry;
+  onJump: (messageId: string) => void;
+  isLast: boolean;
+}) {
+  return (
+    <View style={[styles.recapCard, isLast && styles.recapCardLast]}>
+      <View style={styles.recapCardHead}>
+        <Text style={styles.aiHeadline}>{entry.headline}</Text>
+        <Text style={styles.recapTime}>{timeAgo(entry.createdAt)}</Text>
+      </View>
+      <Text style={styles.aiSummary}>{entry.summary}</Text>
+
+      {entry.highlights.map((h, i) => (
+        <HighlightCard key={`${entry.id}-${h.category}-${i}`} highlight={h} onJump={onJump} />
+      ))}
+
+      {/* Said out loud rather than hidden — a recap of part of a range
+          shouldn't look like a recap of all of it. */}
+      {entry.truncated && (
+        <Text style={styles.aiFootnote}>
+          You missed more than this — showing the most recent {entry.messageCount} messages.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function dateRowLabel(date: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function DailyRecapRow({ entry, onPress }: { entry: DailyRecapResult; onPress: () => void }) {
+  return (
+    <PressableScale style={styles.dailyRow} scaleTo={0.98} haptic="light" onPress={onPress}>
+      <View style={styles.dailyRowDate}>
+        <Text style={styles.dailyRowDateText}>{dateRowLabel(entry.date)}</Text>
+      </View>
+      <View style={styles.dailyRowCopy}>
+        <Text style={styles.dailyRowWord}>{entry.oneWord}</Text>
+        <Text style={styles.dailyRowMeta}>
+          {entry.totalMessages} message{entry.totalMessages === 1 ? '' : 's'}
+          {entry.userOfTheDay ? ` · ${entry.userOfTheDay.name}` : ''}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+    </PressableScale>
   );
 }
 
@@ -74,14 +207,55 @@ function StatRow({ label, value, meta }: { label: string; value: string; meta: s
 }
 
 export default function WhatDidIMissScreen({ route, navigation }: Props) {
-  const { groupId, groupName } = route.params;
+  const { groupId, groupName, focusSection } = route.params;
   const { profile } = useAuth();
   const { messages, loading } = useMessages(groupId);
-  const recap = useGroupRecap(messages, {
-    userId: profile?.id,
-    username: profile?.username,
-    displayName: profile?.display_name,
-  });
+  const { members } = useGroupMembers(groupId);
+  const recap = useGroupRecap(
+    messages,
+    {
+      userId: profile?.id,
+      username: profile?.username,
+      displayName: profile?.display_name,
+    },
+    members
+  );
+  const history = useMissedRecapHistory(groupId);
+  const dailyHistory = useDailyRecapHistory(groupId);
+  const [openDailyRecap, setOpenDailyRecap] = useState<DailyRecapResult | null>(null);
+  const ai = useWhatDidIMiss(groupId);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const elevenElevenYRef = useRef<number | null>(null);
+  const [highlight1111, setHighlight1111] = useState(focusSection === 'missedElevenEleven');
+
+  useEffect(() => {
+    if (focusSection === 'missedElevenEleven') {
+      const timer = setTimeout(() => {
+        if (elevenElevenYRef.current != null) {
+          scrollRef.current?.scrollTo({ y: Math.max(0, elevenElevenYRef.current - 40), animated: true });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [focusSection]);
+
+  // The AI check runs in the background against the persisted stack: it never
+  // blocks or replaces what's already on screen, it only ever adds to it. A
+  // fresh generation appends a row server-side (see toHistoryRow), so once the
+  // check settles cleanly we just re-read the stack to pick that row up. A
+  // cache hit or "nothing new" appends nothing, and the refresh is then a
+  // no-op — which is the common case once you've already caught up today.
+  const checkedRef = useRef(false);
+  useEffect(() => {
+    if (ai.loading || ai.error || checkedRef.current) return;
+    checkedRef.current = true;
+    history.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ai.loading, ai.error]);
+
+  const jumpTo = (messageId: string) =>
+    navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
 
   return (
     <View style={styles.root}>
@@ -94,7 +268,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           right={<Avatar emoji={profile?.avatar_emoji} imageUrl={profile?.avatar_url} label={profile?.display_name} size={36} />}
         />
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <Animated.View
             entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
             style={styles.hero}
@@ -121,34 +295,69 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
             </GlassPanel>
           </Animated.View>
 
-          {/* Key takeaways — the one part that genuinely needs a model. */}
+          {/* The recap stack — every distinct thing you've missed today,
+              newest first. Old cards never disappear just because a new one
+              showed up; they age out after 24h on the server. */}
           <Section
-            icon="list"
-            iconColor={colors.secondary}
-            title="Key Takeaways"
+            icon="sparkles"
+            iconColor={colors.primary}
+            title="What You Missed"
             delay={STAGGER_MS * 2}
+            trailing={
+              // A quiet "checking" pulse rather than the full thinking state —
+              // there's already content on screen, this shouldn't feel like a
+              // reload of it.
+              ai.loading ? <Ionicons name="sync" size={14} color={colors.outline} /> : undefined
+            }
           >
-            <View style={styles.pendingRow}>
-              <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
-              <View style={styles.pendingCopy}>
-                <Text style={styles.pendingTitle}>AI recap not switched on yet</Text>
-                <Text style={styles.pendingMeta}>
-                  Summarising the actual storyline needs the OpenAI key — that's Phase 4.
-                  Everything else on this screen is counted from real messages.
-                </Text>
+            {history.loading ? (
+              <AIThinking />
+            ) : history.entries.length > 0 ? (
+              <View style={styles.aiBody}>
+                {history.entries.map((entry, i) => (
+                  <RecapCard
+                    key={entry.id}
+                    entry={entry}
+                    onJump={jumpTo}
+                    isLast={i === history.entries.length - 1}
+                  />
+                ))}
               </View>
-            </View>
-            {recap.longestMessage && (
-              <View style={styles.takeaway}>
-                <Ionicons name="flash" size={18} color={colors.primary} />
-                <View style={styles.takeawayCopy}>
-                  <Text style={styles.takeawayTitle} numberOfLines={2}>
-                    {recap.longestMessage.text}
-                  </Text>
-                  <Text style={styles.takeawayMeta}>
-                    longest message · {recap.longestMessage.authorName}
-                  </Text>
-                </View>
+            ) : ai.loading ? (
+              <AIThinking />
+            ) : ai.error ? (
+              <AIErrorState error={ai.error} onRetry={ai.retry} />
+            ) : (
+              <Text style={styles.emptyMentions}>
+                Nothing missed in the last 24h. You're all caught up.
+              </Text>
+            )}
+          </Section>
+
+          {/* Every day this group has had a recap for, not just today's —
+              the chat-feed card disappears after an hour, this is where a
+              day's recap lives permanently. */}
+          <Section
+            icon="calendar"
+            iconColor={colors.tertiary}
+            title="Recaps"
+            delay={STAGGER_MS * 2.5}
+          >
+            {dailyHistory.loading ? (
+              <AIThinking />
+            ) : dailyHistory.entries.length === 0 ? (
+              <Text style={styles.emptyMentions}>
+                No daily recaps yet — check back after the day's first one lands.
+              </Text>
+            ) : (
+              <View style={styles.dailyList}>
+                {dailyHistory.entries.map((entry) => (
+                  <DailyRecapRow
+                    key={entry.date}
+                    entry={entry}
+                    onPress={() => setOpenDailyRecap(entry)}
+                  />
+                ))}
               </View>
             )}
           </Section>
@@ -242,6 +451,10 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
             iconColor={colors.yellow}
             title="Who Missed 11:11 Today"
             delay={STAGGER_MS * 4.5}
+            onLayout={(e) => {
+              elevenElevenYRef.current = e.nativeEvent.layout.y;
+            }}
+            highlighted={highlight1111}
             trailing={
               recap.missedElevenEleven.length > 0 ? (
                 <View style={[styles.countBadge, { backgroundColor: colors.yellow }]}>
@@ -254,7 +467,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           >
             {recap.missedElevenEleven.length === 0 ? (
               <Text style={styles.emptyMentions}>
-                Nobody got caught typing at 11:11 today! Everyone either made a wish or stayed quiet.
+                Everyone made a wish at 11:11 today! ✨ Pure perfection.
               </Text>
             ) : (
               recap.missedElevenEleven.map((item) => (
@@ -273,20 +486,39 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                         {item.authorName}
                       </Text>
                       <Text style={styles.missedSubtitle}>
-                        Too busy typing at {item.timeLabel} today
+                        {item.status === 'yapping'
+                          ? `Too busy typing at ${item.timeLabel} today`
+                          : `Didn't make a wish today 💤`}
                       </Text>
                     </View>
                     <View style={styles.spacer} />
-                    <View style={styles.timeTag}>
-                      <Text style={styles.timeTagText}>{item.timeLabel}</Text>
+                    <View
+                      style={[
+                        styles.timeTag,
+                        item.status === 'silent' && {
+                          backgroundColor: 'rgba(255, 107, 107, 0.15)',
+                          borderColor: 'rgba(255, 107, 107, 0.35)',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.timeTagText,
+                          item.status === 'silent' && { color: '#FF6B6B' },
+                        ]}
+                      >
+                        {item.status === 'yapping' ? item.timeLabel : 'MISSED'}
+                      </Text>
                     </View>
                   </View>
-                  <View style={styles.missedQuoteBox}>
-                    <Ionicons name="chatbox-ellipses-outline" size={14} color={colors.yellow} />
-                    <Text style={styles.missedMessageText} numberOfLines={2}>
-                      "{item.text}"
-                    </Text>
-                  </View>
+                  {item.status === 'yapping' && !!item.text && (
+                    <View style={styles.missedQuoteBox}>
+                      <Ionicons name="chatbox-ellipses-outline" size={14} color={colors.yellow} />
+                      <Text style={styles.missedMessageText} numberOfLines={2}>
+                        "{item.text}"
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.roastBox}>
                     <Ionicons name="flame" size={13} color="#FF6B6B" />
                     <Text style={styles.roastText}>{item.roast}</Text>
@@ -312,6 +544,16 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
+
+      <DailyRecapModal
+        visible={openDailyRecap !== null}
+        recap={openDailyRecap}
+        onClose={() => setOpenDailyRecap(null)}
+        onJumpToMessage={(messageId) => {
+          setOpenDailyRecap(null);
+          navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+        }}
+      />
     </View>
   );
 }
@@ -350,29 +592,51 @@ const styles = StyleSheet.create({
   cardTitle: { ...typography.title, fontSize: 20, color: colors.onSurface },
   spacer: { flex: 1 },
   divider: { height: 1, backgroundColor: glass.stroke, marginVertical: spacing.md },
-  pendingRow: {
-    flexDirection: 'row',
+  aiBody: { gap: spacing.lg },
+  recapCard: {
     gap: spacing.md,
-    backgroundColor: 'rgba(208,188,255,0.08)',
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: glass.stroke,
+  },
+  recapCardLast: { paddingBottom: 0, borderBottomWidth: 0 },
+  recapCardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  recapTime: { ...typography.micro, color: colors.outline, paddingTop: 4 },
+  aiHeadline: { ...typography.title, fontSize: 22, color: colors.onSurface, flex: 1 },
+  aiSummary: { ...typography.body, color: colors.onSurfaceVariant, lineHeight: 21 },
+  highlight: {
+    backgroundColor: 'rgba(0,0,0,0.22)',
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(208,188,255,0.25)',
     padding: spacing.md,
+    gap: spacing.sm,
   },
-  pendingCopy: { flex: 1, gap: 3 },
-  pendingTitle: { ...typography.bodyMedium, color: colors.onSurface },
-  pendingMeta: { ...typography.micro, color: colors.onSurfaceVariant, lineHeight: 17 },
-  takeaway: {
+  highlightHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  highlightEmoji: { fontSize: 15 },
+  highlightTitle: { ...typography.label, fontSize: 12, flex: 1 },
+  highlightBody: { ...typography.body, color: colors.onSurface, lineHeight: 20 },
+  viewMessage: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
+  viewMessageText: { ...typography.label, fontSize: 11 },
+  aiFootnote: { ...typography.micro, color: colors.outline, fontStyle: 'italic' },
+  dailyList: { gap: spacing.sm },
+  dailyRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
     backgroundColor: 'rgba(0,0,0,0.22)',
     borderRadius: radius.md,
     padding: spacing.md,
-    marginTop: spacing.md,
   },
-  takeawayCopy: { flex: 1, gap: 3 },
-  takeawayTitle: { ...typography.body, color: colors.onSurface },
-  takeawayMeta: { ...typography.micro, color: colors.outline },
+  dailyRowDate: {
+    backgroundColor: `${colors.tertiary}1F`,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  dailyRowDateText: { ...typography.label, fontSize: 11, color: colors.tertiary },
+  dailyRowCopy: { flex: 1, gap: 1 },
+  dailyRowWord: { ...typography.bodyMedium, color: colors.onSurface, textTransform: 'lowercase' },
+  dailyRowMeta: { ...typography.micro, color: colors.onSurfaceVariant },
   statRow: {
     backgroundColor: 'rgba(0,0,0,0.22)',
     borderRadius: radius.md,

@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { Reaction } from '../types';
 import { PressableScale } from './ui/PressableScale';
@@ -15,24 +16,30 @@ import { PressableScale } from './ui/PressableScale';
 export function ReactionPill({ reaction, onPress }: { reaction: Reaction; onPress: () => void }) {
   const pop = useSharedValue(1);
   const prevCount = useRef(reaction.count);
+  const prevReacted = useRef(reaction.reactedByMe);
 
   useEffect(() => {
-    if (reaction.count !== prevCount.current) {
+    if (reaction.count !== prevCount.current || reaction.reactedByMe !== prevReacted.current) {
       prevCount.current = reaction.count;
+      prevReacted.current = reaction.reactedByMe;
       pop.value = withSequence(
-        withTiming(1.18, { duration: duration.instant, easing: easing.out, reduceMotion }),
-        withTiming(1, { duration: duration.fast, easing: easing.out, reduceMotion })
+        withTiming(1.24, { duration: duration.instant, easing: easing.out, reduceMotion }),
+        withSpring(1, { damping: 12, stiffness: 240 })
       );
     }
-  }, [reaction.count, pop]);
+  }, [reaction.count, reaction.reactedByMe, pop]);
 
   const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
 
   return (
-    <Animated.View entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)} style={popStyle}>
+    <Animated.View
+      entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
+      style={popStyle}
+    >
       <PressableScale
         onPress={onPress}
-        scaleTo={0.85}
+        scaleTo={0.88}
+        haptic="light"
         style={[styles.pill, reaction.reactedByMe && styles.pillActive]}
       >
         <Text style={styles.emoji}>{reaction.emoji}</Text>
@@ -51,8 +58,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingHorizontal: 2,
-    paddingVertical: 1,
+    paddingHorizontal: 3,
+    paddingVertical: 1.5,
     backgroundColor: 'transparent',
   },
   pillActive: {
@@ -61,10 +68,11 @@ const styles = StyleSheet.create({
   emoji: { fontSize: 14 },
   count: {
     ...typography.micro,
-    fontSize: 9.5,
+    fontSize: 10,
     fontFamily: typography.label.fontFamily,
     color: colors.onSurfaceVariant,
     marginLeft: 1,
+    fontWeight: '700',
   },
   countActive: { color: colors.primary },
 });

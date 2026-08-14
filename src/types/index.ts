@@ -1,3 +1,5 @@
+import type { DailyRecapResult } from '../lib/ai';
+
 export type Reaction = {
   emoji: string;
   label: string;
@@ -94,6 +96,14 @@ export type Message = {
   media: MessageMedia | null;
   reactions: Reaction[];
   isMine: boolean;
+  /**
+   * Set only on the synthetic "daily recap" entry ChatScreen weaves into the
+   * message array at its chronological slot (right after midnight) so it
+   * scrolls and ages out of view exactly like a real message — never present
+   * on anything that actually round-trips through Supabase.
+   */
+  isDailyRecapCard?: true;
+  dailyRecapData?: DailyRecapResult;
 };
 
 export type Member = {

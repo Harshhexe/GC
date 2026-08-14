@@ -19,6 +19,6 @@ export type RootStackParamList = {
   PinnedMessages: { groupId: string };
   GroupSearch: { groupId: string };
   MediaLinksFiles: { groupId: string; initialTab?: 'media' | 'links' | 'files' };
-  WhatDidIMiss: { groupId: string; groupName?: string };
+  WhatDidIMiss: { groupId: string; groupName?: string; focusSection?: 'missedElevenEleven' | string };
   Notifications: undefined;
 };

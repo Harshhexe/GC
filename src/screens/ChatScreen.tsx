@@ -51,6 +51,9 @@ import { MediaViewerModal } from '../components/MediaViewerModal';
 import { EmptyState } from '../components/EmptyState';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { PinnedBanner } from '../components/PinnedBanner';
+import { ElevenElevenBanner } from '../components/ElevenElevenBanner';
+import { DailyRecapMessageCard } from '../components/DailyRecapMessageCard';
+import { DailyRecapModal } from '../components/DailyRecapModal';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Chip } from '../components/ui/Glass';
@@ -61,10 +64,13 @@ import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
 import { usePinnedMessages } from '../hooks/usePinnedMessages';
 import { useTyping } from '../hooks/useTyping';
+import { useElevenEleven } from '../hooks/useElevenEleven';
+import { useDailyRecap } from '../hooks/useDailyRecap';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { markGroupRead } from '../lib/readState';
 import { dayLabel } from '../utils/time';
+import { warningFeedback } from '../utils/haptics';
 import {
   EVERYONE_TOKEN,
   deriveMentionsFromText,
@@ -120,6 +126,13 @@ export default function ChatScreen({ route, navigation }: Props) {
     session?.user.id ?? '',
     profile?.display_name ?? 'someone'
   );
+  const elevenEleven = useElevenEleven();
+  const {
+    recap: dailyRecap,
+    showInline: showDailyRecapInline,
+    boundary: dailyRecapBoundary,
+  } = useDailyRecap(groupId);
+  const [dailyRecapOpen, setDailyRecapOpen] = useState(false);
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
@@ -188,16 +201,55 @@ export default function ChatScreen({ route, navigation }: Props) {
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
-  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+  // The recap, as a message-shaped entry sorted into its real chronological
+  // slot (right after midnight) rather than pinned to either end — that's
+  // what makes it scroll and age out of view exactly like a real message
+  // instead of behaving like a fixed header. Built fresh each time `messages`
+  // changes so its position among genuinely new arrivals stays correct.
+  const dailyRecapItem: Message | null = useMemo(() => {
+    if (!showDailyRecapInline || !dailyRecap || !dailyRecapBoundary) return null;
+    return {
+      id: `daily-recap-${groupId}-${dailyRecap.date}`,
+      groupId,
+      authorId: null,
+      authorName: 'GC AI',
+      authorColor: colors.tertiary,
+      text: '',
+      kind: 'text',
+      // The exact local-midnight boundary the recap covers up to — sorts it
+      // as if sent the moment the day ended, after everything from that day
+      // and before anything from today.
+      createdAt: dailyRecapBoundary,
+      mentions: [],
+      mentionEveryone: false,
+      media: null,
+      reactions: [],
+      isMine: false,
+      isDailyRecapCard: true,
+      dailyRecapData: dailyRecap,
+    };
+  }, [showDailyRecapInline, dailyRecap, dailyRecapBoundary, groupId]);
 
-  // Scroll to unread divider on initial open if there are unread messages
+  const invertedMessages = useMemo(() => {
+    if (!dailyRecapItem) return [...messages].reverse();
+    const merged = [...messages, dailyRecapItem].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    return merged.reverse();
+  }, [messages, dailyRecapItem]);
+
+  // Scroll to unread divider on initial open if there are unread messages.
+  // Looked up by id rather than derived arithmetically — `invertedMessages`
+  // is not always a plain reversal of `messages` (the recap card can sit
+  // between them), so an index computed from `messages.length` alone would
+  // land one short whenever the card falls before the unread boundary.
   useEffect(() => {
     if (loading || messages.length === 0) return;
     if (initialScrollDone.current) return;
     initialScrollDone.current = true;
 
-    if (firstUnreadIndex >= 0 && firstUnreadIndex < messages.length) {
-      const invIndex = messages.length - 1 - firstUnreadIndex;
+    if (firstUnreadId) {
+      const invIndex = invertedMessages.findIndex((m) => m.id === firstUnreadId);
       if (invIndex > 0) {
         setTimeout(() => {
           flatListRef.current?.scrollToIndex({
@@ -208,7 +260,7 @@ export default function ChatScreen({ route, navigation }: Props) {
         }, 60);
       }
     }
-  }, [loading, messages.length, firstUnreadIndex]);
+  }, [loading, messages.length, firstUnreadId, invertedMessages]);
 
   useEffect(() => {
     initialScrollDone.current = false;
@@ -328,8 +380,9 @@ export default function ChatScreen({ route, navigation }: Props) {
     loadGroup();
 
     // Subscribe to realtime updates on this group row (theme, name, emoji changes)
+    const channelId = `group-info-${groupId}-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel(`group-info-${groupId}`)
+      .channel(channelId)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${groupId}` },
@@ -416,6 +469,36 @@ export default function ChatScreen({ route, navigation }: Props) {
     setMentionCandidates(new Map());
     setSelection(undefined);
   }
+
+  const sendMediaDirectly = useCallback(async (attachment: PendingAttachment) => {
+    setUploading(true);
+    setUploadProgress(0);
+    setAttachError(null);
+    const { url, thumbUrl, error } = await uploadMessageMedia(
+      groupId,
+      attachment,
+      setUploadProgress
+    );
+    setUploading(false);
+    if (!url) {
+      setAttachError(error ?? 'Upload failed — try again.');
+      return;
+    }
+    const media: MessageMedia = {
+      url,
+      thumbUrl,
+      type: attachment.type,
+      mime: attachment.mime,
+      name: attachment.name,
+      size: attachment.size,
+      width: attachment.width,
+      height: attachment.height,
+      durationMs: attachment.durationMs,
+      viewOnce: false,
+    };
+    sendMessage('', replyTo?.id ?? null, [], false, media);
+    setReplyTo(null);
+  }, [groupId, replyTo, sendMessage]);
 
   const canSend = draft.trim().length > 0 || !!pendingAttachment;
 
@@ -601,7 +684,10 @@ export default function ChatScreen({ route, navigation }: Props) {
     (message: Message) => {
       setActionTarget(null);
       setActionAnchor(null);
-      const go = () => deleteMessage(message.id);
+      const go = () => {
+        warningFeedback();
+        deleteMessage(message.id);
+      };
       // Deleting someone else's message is a moderator action, so say so
       // rather than letting it read like deleting your own.
       const body = message.isMine
@@ -632,6 +718,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       setActionTarget(null);
       setActionAnchor(null);
       const go = async () => {
+        warningFeedback();
         const { error } = await hideMessage(message.id);
         if (error) notifyHideFailed(error);
       };
@@ -682,6 +769,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     const chosen = messages.filter((m) => selectedIds.has(m.id) && !m.isDeleted);
     if (chosen.length === 0) return;
     const go = () => {
+      warningFeedback();
       chosen.forEach((m) => deleteMessage(m.id));
       exitSelectMode();
     };
@@ -701,6 +789,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     const chosen = messages.filter((m) => selectedIds.has(m.id));
     if (chosen.length === 0) return;
     const go = async () => {
+      warningFeedback();
       exitSelectMode();
       const results = await Promise.all(chosen.map((m) => hideMessage(m.id)));
       // One message is enough — a failure here is almost always the same
@@ -795,6 +884,29 @@ export default function ChatScreen({ route, navigation }: Props) {
       const showTimestamp = !isFollowedWithinOneMin;
 
       const isFirstUnread = item.id === firstUnreadId;
+
+      // The recap card is a real entry in the array (so it scrolls and ages
+      // like one), but it never went through Supabase — no reactions, no
+      // reply state, none of what MessageBubble expects. Short-circuit before
+      // any of that.
+      if (item.isDailyRecapCard && item.dailyRecapData) {
+        return (
+          <View nativeID={`msg-${item.id}`}>
+            {newDay && (
+              <View style={styles.dayRow}>
+                <Chip style={styles.dayChip}>
+                  <Text style={styles.dayText}>{dayLabel(item.createdAt)}</Text>
+                </Chip>
+              </View>
+            )}
+            <DailyRecapMessageCard
+              recap={item.dailyRecapData}
+              themeGradient={theme.colors}
+              onPress={() => setDailyRecapOpen(true)}
+            />
+          </View>
+        );
+      }
 
       return (
         <View nativeID={`msg-${item.id}`}>
@@ -919,6 +1031,24 @@ export default function ChatScreen({ route, navigation }: Props) {
             />
           </View>
         )}
+
+        <ElevenElevenBanner
+          isWishTime={elevenEleven.isWishTime}
+          secondsRemaining={elevenEleven.secondsRemaining}
+          isTimesUp={elevenEleven.isTimesUp}
+          onPressWish={() => {
+            setDraft('11:11 ✨ ');
+            inputRef.current?.focus();
+          }}
+          onPressTimesUp={() => {
+            navigation.navigate('WhatDidIMiss', {
+              groupId,
+              groupName: groupInfo?.name,
+              focusSection: 'missedElevenEleven',
+            });
+          }}
+          onDismissTimesUp={elevenEleven.dismissTimesUp}
+        />
 
         <PinnedBanner
           pins={bannerPins}
@@ -1149,43 +1279,44 @@ export default function ChatScreen({ route, navigation }: Props) {
                 <VoiceRecorder
                   accentColor={theme.accent}
                   disabled={uploading}
+                  uploading={uploading}
                   onRecorded={(attachment) => {
-                    setAttachError(null);
-                    setPendingViewOnce(false);
-                    setPendingAttachment(attachment);
+                    sendMediaDirectly(attachment);
                   }}
                   onError={setAttachError}
                   onRecordingChange={setIsRecordingVoice}
                 />
               ) : (
-              <PressableScale
-                style={styles.sendWrap}
-                scaleTo={0.85}
-                haptic="medium"
-                onPress={handleSend}
-                disabled={!canSend || uploading}
-              >
-                <LinearGradient
-                  colors={canSend ? theme.colors : [colors.surfaceHigh, colors.surfaceHigh]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[
-                    styles.sendButton,
-                    canSend && shadows.glow,
-                    canSend && { shadowColor: theme.accent },
-                  ]}
-                >
-                  {uploading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Ionicons
-                      name={editingMessage ? 'checkmark' : 'send'}
-                      size={18}
-                      color={canSend ? '#FFFFFF' : colors.outline}
-                    />
-                  )}
-                </LinearGradient>
-              </PressableScale>
+                <Animated.View entering={FadeIn.duration(160).reduceMotion(reduceMotion)}>
+                  <PressableScale
+                    style={styles.sendWrap}
+                    scaleTo={0.88}
+                    haptic="medium"
+                    onPress={handleSend}
+                    disabled={!canSend || uploading}
+                  >
+                    <LinearGradient
+                      colors={canSend ? theme.colors : [colors.surfaceHigh, colors.surfaceHigh]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[
+                        styles.sendButton,
+                        canSend && shadows.glow,
+                        canSend && { shadowColor: theme.accent },
+                      ]}
+                    >
+                      {uploading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Ionicons
+                          name={editingMessage ? 'checkmark' : 'send'}
+                          size={18}
+                          color={canSend ? '#FFFFFF' : colors.outline}
+                        />
+                      )}
+                    </LinearGradient>
+                  </PressableScale>
+                </Animated.View>
               )}
             </View>
           </Animated.View>
@@ -1306,6 +1437,14 @@ export default function ChatScreen({ route, navigation }: Props) {
           setViewingMessage(null);
           if (target) startReply(target);
         }}
+      />
+
+      <DailyRecapModal
+        visible={dailyRecapOpen}
+        recap={dailyRecap}
+        themeGradient={theme.colors}
+        onClose={() => setDailyRecapOpen(false)}
+        onJumpToMessage={jumpToMessage}
       />
     </View>
   );

@@ -1,19 +1,27 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { GestureResponderEvent, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, typography } from '../theme/theme';
+import { easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { formatDuration, releaseRecordingSession, waveformFor } from '../lib/voice';
+import { tapFeedback } from '../utils/haptics';
 import type { MessageMedia } from '../types';
 
 const BAR_COUNT = 28;
 
 /**
- * A voice note in the transcript: play/pause, a waveform that fills as it
- * plays, and a running time. The waveform is derived from the URL rather than
- * the audio itself — see waveformFor — so it's stable per message and costs
- * nothing to draw.
+ * A voice note in the transcript with soothing playback animation.
  */
 export function VoiceNoteView({
   media,
@@ -29,25 +37,39 @@ export function VoiceNoteView({
 
   const bars = useMemo(() => waveformFor(media.url, BAR_COUNT), [media.url]);
 
-  // The recorded duration is known at send time; the player's own duration is
-  // only available once it has loaded enough to know, so prefer ours and let
-  // the player's value correct it if it disagrees.
   const totalMs = status.duration > 0 ? status.duration * 1000 : media.durationMs ?? 0;
   const playedMs = status.currentTime * 1000;
   const progress = totalMs > 0 ? Math.min(playedMs / totalMs, 1) : 0;
 
+  const playPulse = useSharedValue(0);
+
+  useEffect(() => {
+    if (status.playing) {
+      playPulse.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 750, easing: easing.inOut, reduceMotion }),
+          withTiming(0, { duration: 750, easing: easing.inOut, reduceMotion })
+        ),
+        -1,
+        true
+      );
+    } else {
+      playPulse.value = withTiming(0, { duration: 200, reduceMotion });
+    }
+  }, [status.playing, playPulse]);
+
+  const playGlowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(playPulse.value, [0, 1], [1, 1.06], Extrapolation.CLAMP) }],
+    borderColor: interpolate(playPulse.value, [0, 1], [0.4, 0.9]) > 0.6 ? `${tint}AA` : `${tint}55`,
+  }));
+
   async function toggle() {
+    tapFeedback();
     if (status.playing) {
       player.pause();
       return;
     }
-    // Belt and braces on the audio route: the recorder already hands the
-    // session back when it stops, but a recording cut short by a crash or a
-    // backgrounded app would leave iOS in PlayAndRecord — and this would then
-    // play out of the earpiece instead of the speaker.
     await releaseRecordingSession();
-    // Playing to the end leaves the head parked there; without this a second
-    // tap would replay nothing at all.
     if (status.didJustFinish || progress >= 1) player.seekTo(0);
     player.play();
   }
@@ -60,15 +82,20 @@ export function VoiceNoteView({
       onPress={toggle}
       onLongPress={onLongPress}
     >
-      <View style={[styles.playButton, { backgroundColor: `${tint}2E`, borderColor: `${tint}66` }]}>
+      <Animated.View
+        style={[
+          styles.playButton,
+          { backgroundColor: `${tint}2E`, borderColor: `${tint}66` },
+          playGlowStyle,
+        ]}
+      >
         <Ionicons
           name={status.playing ? 'pause' : 'play'}
           size={17}
           color={tint}
-          // Nudged right so the play triangle looks optically centred.
           style={status.playing ? undefined : styles.playGlyph}
         />
-      </View>
+      </Animated.View>
 
       <View style={styles.body}>
         <View style={styles.waveform}>

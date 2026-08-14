@@ -1,0 +1,306 @@
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2.58.0';
+import { assertGroupMembership, authenticate } from './auth.ts';
+import { readCache, writeCache } from './cache.ts';
+import { config } from './config.ts';
+import { buildGCContext } from './context/buildGCContext.ts';
+import { GCAIError, errorResponse } from './errors.ts';
+import { getOperation } from './operations/registry.ts';
+import { getProvider } from './provider/index.ts';
+import { assertWithinRateLimits, recordUsage } from './rateLimit.ts';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+/**
+ * The single AI endpoint.
+ *
+ * The client sends `{ groupId, operation, params? }` and nothing else — no
+ * prompt, no model, no messages. Everything that costs money or touches
+ * private data is decided here, which is what makes the client safe to ship:
+ * there is no request it can construct that reads another group's history or
+ * runs an operation the server doesn't know about.
+ *
+ * The order below is deliberate — each step is cheaper than the next, so the
+ * expensive one only runs for requests that have earned it:
+ *   auth → membership → rate limit → context → cache → provider → cache write
+ */
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  const startedAt = Date.now();
+  let clients: Awaited<ReturnType<typeof authenticate>> | null = null;
+  let groupId = '';
+  let operationName = '';
+
+  try {
+    if (req.method !== 'POST') {
+      throw new GCAIError('invalid_request', 'Use POST');
+    }
+
+    let body: { groupId?: unknown; operation?: unknown; params?: unknown };
+    try {
+      body = await req.json();
+    } catch {
+      throw new GCAIError('invalid_request', 'Body must be JSON');
+    }
+
+    clients = await authenticate(req);
+    groupId = await assertGroupMembership(clients, body.groupId);
+
+    const operation = getOperation(body.operation);
+    operationName = operation.name;
+    const params = (body.params ?? {}) as Record<string, unknown>;
+
+    // Before any spend, and counted from the same ledger that records it.
+    await assertWithinRateLimits(clients.asService, {
+      userId: clients.userId,
+      groupId,
+      operation: operationName,
+    });
+
+    // An operation may derive its window from server-side state (What Did I
+    // Miss reads the caller's own read boundary) rather than a fixed lookback.
+    // Resolved with the user's client so it can't widen past what they may
+    // read, and it wins over caller-supplied bounds — otherwise a client could
+    // hand itself a window its read state doesn't justify.
+    const lookbackHours = operation.context.defaultLookbackHours;
+    const window = operation.resolveWindow
+      ? await operation.resolveWindow({
+          db: clients.asUser,
+          groupId,
+          userId: clients.userId,
+          params,
+        })
+      : {
+          from:
+            typeof params.from === 'string'
+              ? params.from
+              : lookbackHours
+                ? new Date(Date.now() - lookbackHours * 3600_000).toISOString()
+                : undefined,
+          to: typeof params.to === 'string' ? params.to : undefined,
+        };
+
+    // Built with the *user's* client, so RLS still applies to the messages
+    // that make it into the prompt — the AI never sees more than they can.
+    let ctx;
+    try {
+      ctx = await buildGCContext({
+        db: clients.asUser,
+        groupId,
+        userId: clients.userId,
+        operation: operationName,
+        maxMessages: operation.context.maxMessages,
+        includePinned: operation.context.includePinned,
+        perViewer: operation.context.perViewer,
+        from: window.from,
+        to: window.to,
+      });
+    } catch (error) {
+      // For most operations an empty window is an error. For What Did I Miss
+      // it's the answer — and it must cost nothing, since paying a model to
+      // report that nothing happened is the least defensible request there is.
+      if (
+        error instanceof GCAIError &&
+        error.code === 'empty_context' &&
+        operation.emptyResult
+      ) {
+        const emptyResult = operation.emptyResult(params);
+
+        // A quiet day is still worth recording for daily_recap — otherwise
+        // every reopen re-derives "nothing happened" from scratch instead of
+        // finding it already there.
+        if (operation.toDailyRecapRow) {
+          const daily = operation.toDailyRecapRow(emptyResult, params);
+          if (daily) await upsertDailyRecap(clients.asService, groupId, daily);
+        }
+
+        await recordUsage(clients.asService, {
+          userId: clients.userId,
+          groupId,
+          operation: operationName,
+          cacheHit: false,
+          messageCount: 0,
+          latencyMs: Date.now() - startedAt,
+        });
+
+        return jsonResponse({
+          ok: true,
+          cached: false,
+          operation: operationName,
+          result: emptyResult,
+        });
+      }
+      throw error;
+    }
+
+    const cached = await readCache(
+      clients.asService,
+      groupId,
+      operationName,
+      ctx.hash
+    );
+
+    if (cached.hit) {
+      // Still logged: the ledger is the rate-limit counter, and a free hit
+      // that doesn't count would let one user loop forever on a warm cache.
+      await recordUsage(clients.asService, {
+        userId: clients.userId,
+        groupId,
+        operation: operationName,
+        model: cached.model,
+        cacheHit: true,
+        messageCount: ctx.messages.length,
+        latencyMs: Date.now() - startedAt,
+      });
+
+      return jsonResponse({
+        ok: true,
+        cached: true,
+        operation: operationName,
+        result: cached.result,
+      });
+    }
+
+    // The caller's own name, read server-side rather than accepted from the
+    // body. A client-supplied name would let anyone put arbitrary text into
+    // the prompt, which is the cheapest prompt-injection surface there is.
+    const { data: me } = await clients.asUser
+      .from('profiles')
+      .select('display_name')
+      .eq('id', clients.userId)
+      .maybeSingle();
+
+    const promptParams = {
+      ...params,
+      viewerName: (me as { display_name?: string } | null)?.display_name ?? 'you',
+    };
+
+    const provider = getProvider();
+    const completion = await provider.complete({
+      system: operation.buildSystemPrompt(),
+      prompt: operation.buildPrompt(ctx, promptParams),
+      schema: operation.schema,
+      maxOutputTokens: config.limits.maxOutputTokens,
+    });
+
+    let result: unknown;
+    try {
+      result = operation.validate(completion.data, ctx, params);
+    } catch (error) {
+      throw new GCAIError(
+        'invalid_ai_response',
+        error instanceof Error ? error.message : 'Operation rejected the model output'
+      );
+    }
+
+    await writeCache(clients.asService, {
+      groupId,
+      operation: operationName,
+      contextHash: ctx.hash,
+      contextRange: ctx.range,
+      result,
+      model: completion.model,
+      ttlSeconds: operation.cacheTtlSeconds,
+    });
+
+    // Runs only here — on a genuinely fresh generation, never on a cache hit.
+    // A cache hit means this exact window was already stacked once; inserting
+    // again would duplicate the same card every time the screen reopens.
+    if (operation.toHistoryRow) {
+      const row = operation.toHistoryRow(result);
+      if (row) {
+        await clients.asService
+          .from('ai_recap_history')
+          .insert({ user_id: clients.userId, group_id: groupId, operation: operationName, ...row })
+          .then(undefined, (e: unknown) =>
+            console.error(`[gc-ai] history insert failed: ${String(e)}`)
+          );
+
+        // Best-effort prune, scoped to this user+group so it stays cheap.
+        // Failure here just means one group's history table grows a bit —
+        // never worth failing the request over.
+        await clients.asService
+          .from('ai_recap_history')
+          .delete()
+          .eq('user_id', clients.userId)
+          .eq('group_id', groupId)
+          .lt('created_at', new Date(Date.now() - 24 * 3600_000).toISOString())
+          .then(undefined, () => {});
+      }
+    }
+
+    // Group-shared results (daily_recap) go to a different table than
+    // personal ones (ai_recap_history) — everyone reads the same row, so it's
+    // keyed by (group, date) rather than (user, group).
+    if (operation.toDailyRecapRow) {
+      const daily = operation.toDailyRecapRow(result, params);
+      if (daily) await upsertDailyRecap(clients.asService, groupId, daily);
+    }
+
+    await recordUsage(clients.asService, {
+      userId: clients.userId,
+      groupId,
+      operation: operationName,
+      model: completion.model,
+      cacheHit: false,
+      inputTokens: completion.usage.inputTokens,
+      outputTokens: completion.usage.outputTokens,
+      messageCount: ctx.messages.length,
+      latencyMs: Date.now() - startedAt,
+    });
+
+    return jsonResponse({
+      ok: true,
+      cached: false,
+      operation: operationName,
+      result,
+    });
+  } catch (error) {
+    // Failures are logged to the ledger too, so a provider outage is visible
+    // as a pattern rather than only as user complaints. Best-effort: we only
+    // have somewhere to write it once auth has succeeded.
+    if (clients && groupId && operationName) {
+      await recordUsage(clients.asService, {
+        userId: clients.userId,
+        groupId,
+        operation: operationName,
+        cacheHit: false,
+        latencyMs: Date.now() - startedAt,
+        errorCode: error instanceof GCAIError ? error.code : 'internal',
+      });
+    }
+    return errorResponse(error, CORS);
+  }
+});
+
+function jsonResponse(payload: unknown): Response {
+  return new Response(JSON.stringify(payload), {
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+}
+
+/**
+ * `ignoreDuplicates` makes the (group_id, recap_date) unique constraint do
+ * the race-safety work: whichever of two near-simultaneous requests lands
+ * first wins, the second is a silent no-op rather than a duplicate row or a
+ * thrown constraint error.
+ */
+async function upsertDailyRecap(
+  db: SupabaseClient,
+  groupId: string,
+  daily: { date: string; row: Record<string, unknown> }
+): Promise<void> {
+  await db
+    .from('daily_recaps')
+    .upsert(
+      { group_id: groupId, recap_date: daily.date, ...daily.row },
+      { onConflict: 'group_id,recap_date', ignoreDuplicates: true }
+    )
+    .then(undefined, (e: unknown) =>
+      console.error(`[gc-ai] daily recap upsert failed: ${String(e)}`)
+    );
+}

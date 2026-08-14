@@ -19,6 +19,29 @@ export function dayLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
+/**
+ * Yesterday's calendar-day boundaries in the device's own timezone.
+ *
+ * "12 AM" is a local-time idea — a server clock has no way to know what
+ * midnight meant to this particular user, so the daily recap window has to
+ * be computed here and sent up, not guessed at server-side.
+ */
+export function yesterdayBounds(): { date: string; from: string; to: string } {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday.getTime() - 86_400_000);
+
+  const y = startOfYesterday.getFullYear();
+  const m = String(startOfYesterday.getMonth() + 1).padStart(2, '0');
+  const d = String(startOfYesterday.getDate()).padStart(2, '0');
+
+  return {
+    date: `${y}-${m}-${d}`,
+    from: startOfYesterday.toISOString(),
+    to: startOfToday.toISOString(),
+  };
+}
+
 export function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);

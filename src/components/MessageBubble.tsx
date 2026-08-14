@@ -192,7 +192,11 @@ function MessageBubbleImpl({
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
+      entering={
+        mine
+          ? FadeInDown.springify().damping(24).stiffness(250).mass(0.6).reduceMotion(reduceMotion)
+          : FadeInDown.duration(260).easing(easing.out).reduceMotion(reduceMotion)
+      }
       style={[styles.rowOuter]}
     >
       <Animated.View style={[styles.replyIconWrap, replyIconStyle]}>

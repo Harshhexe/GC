@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
+  withSequence,
   withTiming,
+  withSpring,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
@@ -19,7 +21,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration as motionDuration, easing, reduceMotion } from '../theme/motion';
-import { tapFeedback, successFeedback } from '../utils/haptics';
+import { tapFeedback, successFeedback, warningFeedback } from '../utils/haptics';
 import {
   MAX_VOICE_DURATION_MS,
   MIN_VOICE_DURATION_MS,
@@ -32,28 +34,57 @@ import type { PendingAttachment } from '../lib/media';
 /** Drag the mic this far left to bin the recording. */
 const CANCEL_DISTANCE = 55;
 
+/** Soothing animated live equalizer bar */
+function WaveBar({ index, active }: { index: number; active: boolean }) {
+  const height = useSharedValue(0.3);
+
+  useEffect(() => {
+    if (!active) {
+      height.value = 0.3;
+      return;
+    }
+    const speeds = [320, 260, 410, 290];
+    const delay = index * 70;
+    const dur = speeds[index % speeds.length];
+
+    const timeout = setTimeout(() => {
+      height.value = withRepeat(
+        withSequence(
+          withTiming(0.95, { duration: dur, easing: easing.inOut, reduceMotion }),
+          withTiming(0.25, { duration: dur * 0.9, easing: easing.inOut, reduceMotion })
+        ),
+        -1,
+        true
+      );
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [active, index, height]);
+
+  const barStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: height.value }],
+    opacity: interpolate(height.value, [0.25, 0.95], [0.6, 1], Extrapolation.CLAMP),
+  }));
+
+  return <Animated.View style={[styles.waveBar, barStyle]} />;
+}
+
 /**
- * Press and hold the mic to record, slide left to bin it, let go to attach.
- *
- * Hold-to-record rather than tap-to-start/tap-to-stop because a voice note is
- * usually a few seconds of "yeah I'm on my way" — making the user aim at a
- * stop button afterwards is the slower half of the interaction. The recording
- * lands in the composer as a normal pending attachment rather than sending
- * itself, so it can be captioned, replied-with, or thrown away like anything
- * else you attach.
+ * Press and hold the mic to record with soothing ripple aura and live waveform.
  */
 export function VoiceRecorder({
   accentColor,
   disabled,
+  uploading,
   onRecorded,
   onError,
   onRecordingChange,
 }: {
   accentColor: string;
   disabled?: boolean;
+  uploading?: boolean;
   onRecorded: (attachment: PendingAttachment) => void;
   onError: (message: string) => void;
-  /** Lets the composer collapse its text field while a recording is live. */
   onRecordingChange: (recording: boolean) => void;
 }) {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -63,14 +94,12 @@ export function VoiceRecorder({
 
   const startedAt = useRef(0);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Read inside stop() which can be called from a gesture callback, where a
-  // stale closure over `armedToCancel` would bin the wrong recordings.
   const cancelRef = useRef(false);
-  // Guards against a second stop arriving (gesture end + auto-stop racing).
   const stoppingRef = useRef(false);
 
   const translateX = useSharedValue(0);
   const pulse = useSharedValue(0);
+  const micScale = useSharedValue(1);
 
   useEffect(() => {
     onRecordingChange(recording);
@@ -102,14 +131,9 @@ export function VoiceRecorder({
         await recorder.stop();
         uri = recorder.uri ?? null;
       } catch {
-        // Falls through to the cleanup below — a recorder that wouldn't stop
-        // has nothing usable to hand back anyway.
+        // Falls through to cleanup
       }
 
-      // Hand the audio session back to playback. Recording puts iOS in the
-      // PlayAndRecord category, which routes output to the receiver — the
-      // earpiece you hold to your head on a call — so everything played
-      // afterwards comes out of the wrong speaker until this is undone.
       await releaseRecordingSession();
 
       setRecording(false);
@@ -117,10 +141,12 @@ export function VoiceRecorder({
       setArmedToCancel(false);
       translateX.value = withTiming(0, { duration: motionDuration.fast, reduceMotion });
       pulse.value = 0;
+      micScale.value = withSpring(1, { damping: 20, stiffness: 260 });
       stoppingRef.current = false;
 
       if (cancelled || !uri) return;
       if (heldFor < MIN_VOICE_DURATION_MS) {
+        warningFeedback();
         onError('Hold the mic to record a voice note.');
         return;
       }
@@ -131,11 +157,11 @@ export function VoiceRecorder({
         onRecorded(attachment);
       }
     },
-    [recorder, stopTicking, translateX, pulse, onRecorded, onError]
+    [recorder, stopTicking, translateX, pulse, micScale, onRecorded, onError]
   );
 
   const start = useCallback(async () => {
-    if (disabled || recording) return;
+    if (disabled || uploading || recording) return;
 
     const permission = await AudioModule.requestRecordingPermissionsAsync();
     if (!permission.granted) {
@@ -144,8 +170,6 @@ export function VoiceRecorder({
     }
 
     try {
-      // Without this iOS records at a whisper and refuses to play back through
-      // the loud speaker afterwards.
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
@@ -160,20 +184,20 @@ export function VoiceRecorder({
     setRecording(true);
     tapFeedback();
 
+    micScale.value = withSpring(1.15, { damping: 16, stiffness: 220 });
+
     pulse.value = withRepeat(
-      withTiming(1, { duration: 800, easing: easing.inOut, reduceMotion }),
+      withTiming(1, { duration: 1100, easing: easing.out, reduceMotion }),
       -1,
-      true
+      false
     );
 
     tickRef.current = setInterval(() => {
       const held = Date.now() - startedAt.current;
       setElapsed(held);
-      // Stop itself at the ceiling rather than letting it run — the note is
-      // kept, since cutting someone off and binning it would be worse.
       if (held >= MAX_VOICE_DURATION_MS) finish(false);
     }, 100);
-  }, [disabled, recording, recorder, onError, pulse, finish]);
+  }, [disabled, uploading, recording, recorder, onError, pulse, micScale, finish]);
 
   const setArmed = useCallback((armed: boolean) => {
     if (cancelRef.current !== armed) tapFeedback();
@@ -191,8 +215,9 @@ export function VoiceRecorder({
   );
 
   const holdGesture = Gesture.LongPress()
-    .minDuration(150)
-    .maxDistance(10_000) // sliding away must not cancel the gesture — that's the cancel affordance
+    .enabled(!disabled && !uploading)
+    .minDuration(120)
+    .maxDistance(10_000)
     .shouldCancelWhenOutside(false)
     .onStart(() => {
       runOnJS(start)();
@@ -202,6 +227,7 @@ export function VoiceRecorder({
     });
 
   const dragGesture = Gesture.Pan()
+    .enabled(!disabled && !uploading)
     .onUpdate((e) => {
       if (e.translationX >= 0) {
         translateX.value = 0;
@@ -218,20 +244,25 @@ export function VoiceRecorder({
   const gesture = Gesture.Simultaneous(holdGesture, dragGesture);
 
   const recDotStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [1, 0.4], Extrapolation.CLAMP),
-    transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 1.25], Extrapolation.CLAMP) }],
+    opacity: interpolate(pulse.value, [0, 0.5, 1], [1, 0.4, 1], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(pulse.value, [0, 0.5, 1], [1, 1.25, 1], Extrapolation.CLAMP) }],
   }));
 
   const micStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
-      { scale: 1 + pulse.value * 0.1 },
+      { scale: micScale.value },
     ],
   }));
 
-  const haloStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [0.4, 0.05], Extrapolation.CLAMP),
-    transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 1.8], Extrapolation.CLAMP) }],
+  const halo1Style = useAnimatedStyle(() => ({
+    opacity: interpolate(pulse.value, [0, 0.6, 1], [0.45, 0.15, 0], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 1.9], Extrapolation.CLAMP) }],
+  }));
+
+  const halo2Style = useAnimatedStyle(() => ({
+    opacity: interpolate(pulse.value, [0, 0.3, 0.9], [0.25, 0.08, 0], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 2.4], Extrapolation.CLAMP) }],
   }));
 
   const slideHintStyle = useAnimatedStyle(() => ({
@@ -246,6 +277,12 @@ export function VoiceRecorder({
           <View style={styles.recordingInfo}>
             <Animated.View style={[styles.recDot, { backgroundColor: colors.error }, recDotStyle]} />
             <Text style={styles.timer}>{formatDuration(elapsed)}</Text>
+            {/* Live Audio Visualizer Bars */}
+            <View style={styles.waveGroup}>
+              {[0, 1, 2, 3].map((i) => (
+                <WaveBar key={i} index={i} active={recording} />
+              ))}
+            </View>
           </View>
           <Animated.View style={[styles.slideHint, slideHintStyle]}>
             <Ionicons
@@ -253,7 +290,7 @@ export function VoiceRecorder({
               size={14}
               color={armedToCancel ? colors.error : 'rgba(255, 255, 255, 0.5)'}
             />
-            <Text style={[styles.slideText, armedToCancel && { color: colors.error, fontWeight: '600' }]}>
+            <Text style={[styles.slideText, armedToCancel && { color: colors.error, fontWeight: '700' }]}>
               {armedToCancel ? 'release to cancel' : 'slide to cancel'}
             </Text>
           </Animated.View>
@@ -263,9 +300,22 @@ export function VoiceRecorder({
       <GestureDetector gesture={gesture}>
         <Animated.View style={styles.micSlot}>
           {recording && (
-            <Animated.View
-              style={[styles.halo, { backgroundColor: armedToCancel ? colors.error : accentColor }, haloStyle]}
-            />
+            <>
+              <Animated.View
+                style={[
+                  styles.halo,
+                  { backgroundColor: armedToCancel ? colors.error : accentColor },
+                  halo2Style,
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.halo,
+                  { backgroundColor: armedToCancel ? colors.error : accentColor },
+                  halo1Style,
+                ]}
+              />
+            </>
           )}
           <Animated.View
             style={[
@@ -280,11 +330,15 @@ export function VoiceRecorder({
               micStyle,
             ]}
           >
-            <Ionicons
-              name={armedToCancel ? 'trash-outline' : 'mic'}
-              size={20}
-              color={recording ? '#FFFFFF' : colors.onSurfaceVariant}
-            />
+            {uploading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons
+                name={armedToCancel ? 'trash-outline' : 'mic'}
+                size={20}
+                color={recording ? '#FFFFFF' : colors.onSurfaceVariant}
+              />
+            )}
           </Animated.View>
         </Animated.View>
       </GestureDetector>
@@ -326,7 +380,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recDot: { width: 8, height: 8, borderRadius: radius.pill },
-  timer: { ...typography.label, fontSize: 13.5, fontWeight: '600', color: colors.onSurface, minWidth: 38 },
+  timer: { ...typography.label, fontSize: 13.5, fontWeight: '700', color: colors.onSurface, minWidth: 38 },
+  waveGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2.5,
+    height: 16,
+    paddingHorizontal: 4,
+  },
+  waveBar: {
+    width: 3,
+    height: 14,
+    borderRadius: 2,
+    backgroundColor: '#FF6B6B',
+  },
   slideHint: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   slideText: { ...typography.caption, fontSize: 12.5, color: colors.onSurfaceVariant },
 });

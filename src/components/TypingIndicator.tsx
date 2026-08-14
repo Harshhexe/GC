@@ -20,21 +20,24 @@ function Dot({ index }: { index: number }) {
 
   useEffect(() => {
     t.value = withDelay(
-      index * 140,
+      index * 150,
       withRepeat(
         withSequence(
-          withTiming(1, { duration: 380, easing: easing.inOut, reduceMotion }),
-          withTiming(0, { duration: 380, easing: easing.inOut, reduceMotion })
+          withTiming(1, { duration: 420, easing: easing.inOut, reduceMotion }),
+          withTiming(0, { duration: 420, easing: easing.inOut, reduceMotion })
         ),
         -1,
-        false
+        true
       )
     );
   }, [index, t]);
 
   const style = useAnimatedStyle(() => ({
-    opacity: interpolate(t.value, [0, 1], [0.3, 1]),
-    transform: [{ translateY: interpolate(t.value, [0, 1], [0, -3]) }],
+    opacity: interpolate(t.value, [0, 1], [0.35, 1]),
+    transform: [
+      { translateY: interpolate(t.value, [0, 1], [0, -4]) },
+      { scale: interpolate(t.value, [0, 1], [0.85, 1.15]) },
+    ],
   }));
 
   return <Animated.View style={[styles.dot, style]} />;
@@ -45,7 +48,7 @@ export function TypingIndicator({ names }: { names: string[] }) {
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
+      entering={FadeInDown.springify().damping(22).stiffness(240).reduceMotion(reduceMotion)}
       exiting={FadeOutDown.duration(duration.fast).reduceMotion(reduceMotion)}
       style={styles.container}
     >
@@ -62,20 +65,42 @@ export function TypingIndicator({ names }: { names: string[] }) {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  container: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+    paddingTop: 2,
+  },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: spacing.sm,
-    backgroundColor: colors.card,
-    borderColor: colors.border,
+    backgroundColor: 'rgba(21, 21, 34, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     borderWidth: 1,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  dots: { flexDirection: 'row', gap: 3 },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent },
-  text: { ...typography.micro, color: colors.textSecondary },
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 12,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.primary,
+  },
+  text: {
+    ...typography.micro,
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+  },
 });

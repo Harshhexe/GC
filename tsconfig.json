@@ -7,5 +7,9 @@
       "@/*": ["src/*", "*"],
       "@/components/ui/*": ["src/components/ui/*", "components/ui/*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
+  ]
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import {
@@ -91,6 +92,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const { groups } = useGroups({ realtime: false });
   const [totalMessages, setTotalMessages] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // "Total hype" is this user's own message count — a real number, not a prop.
   useEffect(() => {
@@ -108,6 +110,26 @@ export default function ProfileScreen({ navigation }: Props) {
       cancelled = true;
     };
   }, [profile?.id]);
+
+  // Fetch access token for testing/debugging
+  useEffect(() => {
+    async function loadToken() {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        setAccessToken(data.session.access_token);
+      }
+    }
+    loadToken();
+  }, []);
+
+  async function copySessionToken() {
+    if (!accessToken) {
+      Alert.alert('No session', 'Could not find your session token.');
+      return;
+    }
+    await Clipboard.setStringAsync(accessToken);
+    Alert.alert('Copied', 'Session token copied to clipboard.');
+  }
 
   function confirmSignOut() {
     if (Platform.OS === 'web') {
@@ -253,8 +275,34 @@ export default function ProfileScreen({ navigation }: Props) {
             />
           </View>
 
+          {accessToken && (
+            <Animated.View
+              entering={FadeInDown.delay(STAGGER_MS * 5)
+                .duration(duration.slow)
+                .easing(easing.out)
+                .reduceMotion(reduceMotion)}
+            >
+              <GlassPanel style={styles.tokenPanel}>
+                <View style={styles.tokenHeader}>
+                  <Ionicons name="key-outline" size={18} color={colors.onSurfaceVariant} />
+                  <Text style={styles.tokenLabel}>Session Token</Text>
+                </View>
+                <Text style={styles.tokenText} numberOfLines={1} ellipsizeMode="middle">
+                  {accessToken.substring(0, 20)}...{accessToken.substring(accessToken.length - 20)}
+                </Text>
+                <GCButton
+                  label="Copy"
+                  variant="ghost"
+                  full={false}
+                  onPress={copySessionToken}
+                  icon={<Ionicons name="copy-outline" size={16} color={colors.primary} />}
+                />
+              </GlassPanel>
+            </Animated.View>
+          )}
+
           <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS * 5)
+            entering={FadeInDown.delay(STAGGER_MS * 6)
               .duration(duration.slow)
               .easing(easing.out)
               .reduceMotion(reduceMotion)}
@@ -269,7 +317,7 @@ export default function ProfileScreen({ navigation }: Props) {
           </Animated.View>
 
           <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS * 6)
+            entering={FadeInDown.delay(STAGGER_MS * 7)
               .duration(duration.slow)
               .easing(easing.out)
               .reduceMotion(reduceMotion)}
@@ -355,6 +403,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   menuLabel: { ...typography.titleMd, color: colors.onSurface, flex: 1 },
+  tokenPanel: {
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  tokenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  tokenLabel: {
+    ...typography.label,
+    color: colors.onSurfaceVariant,
+  },
+  tokenText: {
+    ...typography.caption,
+    color: colors.onSurfaceVariant,
+    fontFamily: 'monospace',
+  },
   signOut: { marginTop: spacing.sm },
   dangerZone: { alignItems: 'center', paddingTop: spacing.xs },
   deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: spacing.sm },
