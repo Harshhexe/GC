@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  ViewToken,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -29,8 +30,7 @@ const DEBOUNCE_MS = 350;
 /**
  * Full-screen GIPHY search modal.
  * Safe area insets ensure the search bar and Cancel button are never clipped or out of screen.
- * Seamless keyboard integration allows browsing results freely with the keyboard open.
- * All text elements are strictly vertically centered across platforms.
+ * Off-screen GIFs automatically pause playback to save memory and battery.
  */
 export function GifPicker({
   visible,
@@ -48,6 +48,27 @@ export function GifPicker({
   const [searchedOnce, setSearchedOnce] = useState(false);
   const requestId = useRef(0);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track currently visible items to pause off-screen GIFs
+  const [visibleGifIds, setVisibleGifIds] = useState<Set<string>>(() => new Set());
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const ids = new Set<string>();
+      for (const token of viewableItems) {
+        if (token.item?.id) {
+          ids.add(token.item.id);
+        } else if (token.key) {
+          ids.add(token.key);
+        }
+      }
+      setVisibleGifIds(ids);
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 15,
+  }).current;
 
   // Trending on open, then re-searches as query changes
   useEffect(() => {
@@ -157,25 +178,31 @@ export function GifPicker({
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <PressableScale
-                  style={styles.cell}
-                  scaleTo={0.95}
-                  haptic="light"
-                  onPress={() => {
-                    onSelect(item);
-                    onClose();
-                  }}
-                >
-                  <Image
-                    source={item.previewUrl}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    transition={120}
-                  />
-                </PressableScale>
-              )}
+              viewabilityConfig={viewabilityConfig}
+              onViewableItemsChanged={onViewableItemsChanged}
+              renderItem={({ item }) => {
+                const isGifVisible = visibleGifIds.size === 0 || visibleGifIds.has(item.id);
+                return (
+                  <PressableScale
+                    style={styles.cell}
+                    scaleTo={0.95}
+                    haptic="light"
+                    onPress={() => {
+                      onSelect(item);
+                      onClose();
+                    }}
+                  >
+                    <Image
+                      source={item.previewUrl}
+                      autoplay={isGifVisible}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={120}
+                    />
+                  </PressableScale>
+                );
+              }}
             />
           )}
 

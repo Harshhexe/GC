@@ -48,6 +48,7 @@ export function MessageMediaView({
   tint,
   onPress,
   onLongPress,
+  isVisible = true,
 }: {
   media: MessageMedia;
   isMine: boolean;
@@ -58,6 +59,8 @@ export function MessageMediaView({
   /** So long-pressing the media itself still opens the message action menu,
    *  anchored at the real touch position. */
   onLongPress?: (e: GestureResponderEvent) => void;
+  /** Whether this media item is currently visible in the viewport — controls GIF autoplay */
+  isVisible?: boolean;
 }) {
   // Checked before anything that could draw the media: a view-once attachment
   // must never render a thumbnail in the transcript, since that would already
@@ -76,6 +79,23 @@ export function MessageMediaView({
 
   if (media.type === 'voice') {
     return <VoiceNoteView media={media} tint={tint} onLongPress={onLongPress} />;
+  }
+
+  // Stickers render like every other messenger's: no bubble box, no crop —
+  // just the (usually transparent-background) PNG at a fixed size, contained
+  // rather than covered so nothing gets cut off.
+  if (media.type === 'sticker') {
+    return (
+      <PressableScale onPress={onPress} onLongPress={onLongPress} scaleTo={0.96} haptic="light" style={styles.stickerBox}>
+        <Image
+          source={media.url}
+          style={StyleSheet.absoluteFill}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+          transition={120}
+        />
+      </PressableScale>
+    );
   }
 
   if (media.type === 'file') {
@@ -123,6 +143,7 @@ export function MessageMediaView({
       {!!previewUri && !imgError && (
         <Image
           source={previewUri}
+          autoplay={media.type === 'gif' ? (isVisible ?? true) : undefined}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           cachePolicy="memory-disk"
@@ -153,6 +174,10 @@ export function MessageMediaView({
 }
 
 const styles = StyleSheet.create({
+  stickerBox: {
+    width: 148,
+    height: 148,
+  },
   mediaBox: {
     borderRadius: radius.md,
     overflow: 'hidden',

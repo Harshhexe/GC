@@ -10,9 +10,20 @@ export type Reaction = {
 
 /** What kind of content the message is, for the reply-preview icon/label and
  *  for choosing how MessageBubble renders it. */
-export type MessageKind = 'text' | 'image' | 'video' | 'gif' | 'file' | 'voice';
+export type MessageKind = 'text' | 'image' | 'video' | 'gif' | 'file' | 'voice' | 'sticker';
 
-export type MediaType = 'image' | 'video' | 'gif' | 'file' | 'voice';
+export type MediaType = 'image' | 'video' | 'gif' | 'file' | 'voice' | 'sticker';
+
+/** A user-created sticker: a photo with baked-in text, stored once and
+ *  reusable across every chat — sending it just points a message at it. */
+export type Sticker = {
+  id: string;
+  createdBy: string | null;
+  imageUrl: string;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+};
 
 export type MediaViewerProfile = {
   id: string;
@@ -95,6 +106,10 @@ export type Message = {
   mentions: Mention[];
   mentionEveryone: boolean;
   media: MessageMedia | null;
+  /** Set only when `media.type === 'sticker'` — the sticker being pointed
+   *  at, so a long-press can favorite the underlying sticker rather than
+   *  just this one send of it. */
+  stickerId?: string | null;
   reactions: Reaction[];
   isMine: boolean;
   /**
@@ -175,4 +190,8 @@ export type Group = {
   /** Key into GROUP_THEMES — drives this GC's accent colours. */
   theme?: string | null;
   unreadCount: number;
+  /** True when a Tea session is currently active/brewing in this group */
+  hasActiveTea?: boolean;
+  /** True when weekly awards were generated recently for this group */
+  hasRecentAwards?: boolean;
 };

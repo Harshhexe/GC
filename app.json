@@ -49,6 +49,14 @@
           "cameraPermission": "Let GC use your camera so you can snap something for the group."
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Let GC save photos and videos from the chat to your device.",
+          "savePhotosPermission": "Let GC save photos and videos from the chat to your device.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
       "expo-audio"
     ],
     "extra": {

@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  ViewToken,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +48,10 @@ import { MemberProfileSheet } from '../components/MemberProfileSheet';
 import { AttachmentSheet } from '../components/AttachmentSheet';
 import { GifPicker } from '../components/GifPicker';
 import type { GifResult } from '../lib/giphy';
+import { StickerPicker } from '../components/StickerPicker';
+import { StickerCreator } from '../components/StickerCreator';
+import { useStickers } from '../hooks/useStickers';
+import type { Sticker } from '../types';
 import { AttachmentPreview } from '../components/AttachmentPreview';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { MediaViewerModal } from '../components/MediaViewerModal';
@@ -92,6 +97,7 @@ import {
   insertMentionToken,
 } from '../lib/mentions';
 import {
+  downloadMediaToDevice,
   pickDocument,
   pickFromCamera,
   pickFromLibrary,
@@ -356,6 +362,9 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const [attachmentSheetVisible, setAttachmentSheetVisible] = useState(false);
   const [gifPickerVisible, setGifPickerVisible] = useState(false);
+  const [stickerPickerVisible, setStickerPickerVisible] = useState(false);
+  const [stickerCreatorVisible, setStickerCreatorVisible] = useState(false);
+  const { favoriteIds: favoriteStickerIds, toggleFavorite: toggleStickerFavorite } = useStickers();
   const pendingPickerRef = useRef<(() => Promise<PickResult | null>) | null>(null);
   const pickerLaunchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
@@ -371,6 +380,27 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track currently visible items to pause off-screen GIFs and animated media
+  const [viewableItemIds, setViewableItemIds] = useState<Set<string>>(() => new Set());
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const ids = new Set<string>();
+      for (const token of viewableItems) {
+        if (token.item?.id) {
+          ids.add(token.item.id);
+        } else if (token.key) {
+          ids.add(token.key);
+        }
+      }
+      setViewableItemIds(ids);
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 10,
+  }).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -633,6 +663,54 @@ export default function ChatScreen({ route, navigation }: Props) {
     setSelection(undefined);
   }
 
+  function openStickerPicker() {
+    setAttachmentSheetVisible(false);
+    setStickerPickerVisible(true);
+  }
+
+  /** Closes the tray before opening the creator — never both at once. Two
+   *  RN `Modal`s presented simultaneously (the creator used to be nested
+   *  inside the tray's own Modal) froze touch handling entirely. */
+  function openStickerCreator() {
+    setStickerPickerVisible(false);
+    setStickerCreatorVisible(true);
+  }
+
+  /** Same shape as sendGif — a sticker is already a saved, hosted image
+   *  (rendered once at creation time), so this points a message straight at
+   *  it rather than going through the upload pipeline. */
+  function sendSticker(sticker: Sticker) {
+    setStickerPickerVisible(false);
+
+    const { mentions, mentionEveryone } = deriveMentionsFromText(draft, [
+      ...mentionCandidates.values(),
+    ]);
+
+    sendMessage(
+      draft,
+      replyTo?.id ?? null,
+      mentions,
+      mentionEveryone,
+      {
+        url: sticker.imageUrl,
+        type: 'sticker',
+        mime: 'image/png',
+        name: null,
+        size: null,
+        width: sticker.width,
+        height: sticker.height,
+        durationMs: null,
+      },
+      null,
+      sticker.id
+    );
+
+    setReplyTo(null);
+    setDraft('');
+    setMentionCandidates(new Map());
+    setSelection(undefined);
+  }
+
   /** Starting Tea changes the room for everyone, so it never happens on one
    *  stray tap — same two-step the destructive actions use. */
   function confirmStartTea() {
@@ -842,6 +920,14 @@ export default function ChatScreen({ route, navigation }: Props) {
     } catch {
       // User dismissed the share sheet — nothing to do.
     }
+  }, []);
+
+  const downloadCurrentTarget = useCallback(async (message: Message) => {
+    setActionTarget(null);
+    setActionAnchor(null);
+    if (!message.media?.url) return;
+    const { error } = await downloadMediaToDevice(message.media.url);
+    if (error) Alert.alert("Couldn't save", error);
   }, []);
 
   const pinCurrentTarget = useCallback(
@@ -1173,6 +1259,8 @@ export default function ChatScreen({ route, navigation }: Props) {
         );
       }
 
+      const isItemVisible = viewableItemIds.size === 0 || viewableItemIds.has(item.id);
+
       return (
         <View nativeID={`msg-${item.id}`}>
           {newDay && (
@@ -1204,6 +1292,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             highlighted={item.id === highlightedId}
             selectMode={selectMode}
             selected={selectedIds.has(item.id)}
+            isVisible={isItemVisible}
             onLongPress={handleLongPress}
             onPress={selectMode ? handleBubblePress : undefined}
             onToggleReaction={handleToggleReaction}
@@ -1217,30 +1306,31 @@ export default function ChatScreen({ route, navigation }: Props) {
         </View>
       );
     },
-    [
-      invertedMessages,
-      firstUnreadId,
-      unreadCount,
-      theme,
-      motdId,
-      pinnedIds,
-      readersByMessage,
-      highlightedId,
-      selectMode,
-      selectedIds,
-      handleLongPress,
-      handleBubblePress,
-      handleToggleReaction,
-      handleSwipeReply,
-      handleQuotePress,
-      handleMentionPress,
-      handleMediaPress,
-      handleViewGCSources,
-      gcCommands.retry,
-      jumpToMessage,
-      handleSendGCToChat,
-      sharedGCEntryIds,
-    ]
+  [
+    invertedMessages,
+    firstUnreadId,
+    unreadCount,
+    theme,
+    motdId,
+    pinnedIds,
+    readersByMessage,
+    highlightedId,
+    selectMode,
+    selectedIds,
+    viewableItemIds,
+    handleLongPress,
+    handleBubblePress,
+    handleToggleReaction,
+    handleSwipeReply,
+    handleQuotePress,
+    handleMentionPress,
+    handleMediaPress,
+    handleViewGCSources,
+    gcCommands.retry,
+    jumpToMessage,
+    handleSendGCToChat,
+    sharedGCEntryIds,
+  ]
   );
 
   return (
@@ -1349,6 +1439,8 @@ export default function ChatScreen({ route, navigation }: Props) {
                 initialNumToRender={20}
                 maxToRenderPerBatch={10}
                 windowSize={9}
+                viewabilityConfig={viewabilityConfig}
+                onViewableItemsChanged={onViewableItemsChanged}
                 onEndReached={() => {
                   if (hasMore && !loadingMore) {
                     fetchOlderMessages();
@@ -1651,6 +1743,8 @@ export default function ChatScreen({ route, navigation }: Props) {
             canModerate,
             isPinned: pinnedIds.has(actionTarget.id),
             media: actionTarget.media,
+            stickerId: actionTarget.stickerId,
+            stickerFavorited: actionTarget.stickerId ? favoriteStickerIds.has(actionTarget.stickerId) : false,
           }
         }
         anchor={actionAnchor}
@@ -1671,8 +1765,14 @@ export default function ChatScreen({ route, navigation }: Props) {
         onDeleteForEveryone={() => actionTarget && confirmDeleteForEveryone(actionTarget)}
         onDeleteForMe={() => actionTarget && confirmDeleteForMe(actionTarget)}
         onSelect={() => actionTarget && enterSelectMode(actionTarget)}
+        onDownload={() => actionTarget && downloadCurrentTarget(actionTarget)}
         onPin={() => actionTarget && pinCurrentTarget(actionTarget)}
         onUnpin={() => actionTarget && unpinCurrentTarget(actionTarget)}
+        onToggleStickerFavorite={() => {
+          if (actionTarget?.stickerId) toggleStickerFavorite(actionTarget.stickerId);
+          setActionTarget(null);
+          setActionAnchor(null);
+        }}
         onClose={() => {
           setActionTarget(null);
           setActionAnchor(null);
@@ -1691,6 +1791,7 @@ export default function ChatScreen({ route, navigation }: Props) {
         onLibrary={() => choosePicker(pickFromLibrary)}
         onDocument={() => choosePicker(pickDocument)}
         onGif={openGifPicker}
+        onSticker={openStickerPicker}
         onStartTea={confirmStartTea}
         teaActive={tea.isActive}
         onClose={() => setAttachmentSheetVisible(false)}
@@ -1701,6 +1802,22 @@ export default function ChatScreen({ route, navigation }: Props) {
         visible={gifPickerVisible}
         onClose={() => setGifPickerVisible(false)}
         onSelect={sendGif}
+      />
+
+      <StickerPicker
+        visible={stickerPickerVisible}
+        onClose={() => setStickerPickerVisible(false)}
+        onSelect={sendSticker}
+        onCreateNew={openStickerCreator}
+      />
+
+      <StickerCreator
+        visible={stickerCreatorVisible}
+        onClose={() => setStickerCreatorVisible(false)}
+        onCreated={(sticker) => {
+          setStickerCreatorVisible(false);
+          sendSticker(sticker);
+        }}
       />
 
       <MediaViewerModal

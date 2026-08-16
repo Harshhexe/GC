@@ -52,6 +52,7 @@ function MessageBubbleImpl({
   highlighted,
   selectMode,
   selected,
+  isVisible = true,
   onLongPress,
   onPress,
   onToggleReaction,
@@ -77,6 +78,8 @@ function MessageBubbleImpl({
   highlighted?: boolean;
   selectMode?: boolean;
   selected?: boolean;
+  /** Whether the bubble is currently visible in the viewport */
+  isVisible?: boolean;
   /** Screen-space Y of the touch is passed along so the caller can anchor a menu there. */
   onLongPress: (message: Message, pageY: number) => void;
   onPress?: (message: Message) => void;
@@ -313,6 +316,7 @@ function MessageBubbleImpl({
                         media={message.media}
                         isMine={mine}
                         tint={theme.accent}
+                        isVisible={isVisible}
                         onPress={() => onMediaPress?.(message)}
                         onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
                       />
@@ -365,6 +369,7 @@ function MessageBubbleImpl({
                             media={message.media}
                             isMine={mine}
                             tint={theme.accent}
+                            isVisible={isVisible}
                             onPress={() => onMediaPress?.(message)}
                             onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
                           />

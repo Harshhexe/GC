@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, type ReactElement } from 'react';
 import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
@@ -24,6 +24,10 @@ export type MessageActionTarget = {
   canModerate: boolean;
   isPinned: boolean;
   media?: MessageMedia | null;
+  /** Set only when `media.type === 'sticker'` — lets the sheet offer a
+   *  favorite toggle for the sticker itself, not just this message. */
+  stickerId?: string | null;
+  stickerFavorited?: boolean;
 };
 
 /** Where the long-pressed bubble was, so the menu opens right next to it
@@ -56,6 +60,8 @@ export function MessageActionSheet({
   onSelect,
   onPin,
   onUnpin,
+  onToggleStickerFavorite,
+  onDownload,
   onClose,
 }: {
   visible: boolean;
@@ -67,6 +73,10 @@ export function MessageActionSheet({
   onCopy: () => void;
   onShare: () => void;
   onEdit: () => void;
+  /** Only ever called when `target.stickerId` is set. */
+  onToggleStickerFavorite?: () => void;
+  /** Only ever called for image/video messages. */
+  onDownload?: () => void;
   /** Tombstones the message for every member. Only offered when the viewer
    *  is the author or a moderator — RLS enforces the same rule. */
   onDeleteForEveryone: () => void;
@@ -84,6 +94,16 @@ export function MessageActionSheet({
   // Anyone can drop a message from their own view; taking it down for the
   // whole group is the author's call, or a moderator's.
   const canDeleteForEveryone = target.isMine || target.canModerate;
+
+  // What's actually offered narrows by what the message *is* — copying or
+  // sharing "text" makes no sense on a photo/video/voice note/sticker (there
+  // is no text to lift), and editing isn't a thing for the media types that
+  // have no caption-editing UI in the first place.
+  const mediaType = target.media?.type ?? null;
+  const hideCopyShare =
+    mediaType === 'image' || mediaType === 'video' || mediaType === 'voice' || mediaType === 'sticker';
+  const hideEdit = mediaType === 'voice' || mediaType === 'sticker';
+  const showDownload = mediaType === 'image' || mediaType === 'video';
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -151,6 +171,20 @@ export function MessageActionSheet({
                       {target.media.name || 'Document'}
                     </Text>
                   </View>
+                ) : target.media.viewOnce ? (
+                  // Never the real thumbnail here — same rule ViewOnceCard
+                  // enforces in the transcript itself. Long-pressing a
+                  // view-once bubble is not a second look.
+                  <View style={[styles.previewImageContainer, styles.previewLockedContainer]}>
+                    <Ionicons
+                      name={target.media.type === 'video' ? 'videocam' : 'flame'}
+                      size={22}
+                      color={colors.onSurfaceVariant}
+                    />
+                    <Text style={styles.previewLockedText}>
+                      View once {target.media.type === 'video' ? 'video' : 'photo'}
+                    </Text>
+                  </View>
                 ) : (
                   <View style={styles.previewImageContainer}>
                     <MediaThumb media={target.media} />
@@ -187,56 +221,85 @@ export function MessageActionSheet({
               <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
             )}
             <View style={styles.menuInner}>
-              {/* Quick actions top bar */}
+              {/* Quick actions top bar — auto-centers as a tight group
+                  rather than stretching to fill the row, so it looks right
+                  whether it's holding 1, 2, or all 3 icons. */}
               <View style={styles.quickActionsRow}>
                 <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onReply}>
                   <Ionicons name="arrow-undo-outline" size={19} color={colors.onSurface} />
                   <Text style={styles.quickActionLabel}>Reply</Text>
                 </PressableScale>
 
-
-                {target.isMine && (
+                {target.isMine && !hideEdit && (
                   <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onEdit}>
                     <Ionicons name="pencil-outline" size={19} color={colors.onSurface} />
                     <Text style={styles.quickActionLabel}>Edit</Text>
                   </PressableScale>
                 )}
 
-                <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onShare}>
-                  <Ionicons name="share-outline" size={19} color={colors.onSurface} />
-                  <Text style={styles.quickActionLabel}>Share</Text>
-                </PressableScale>
+                {!hideCopyShare && (
+                  <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onShare}>
+                    <Ionicons name="share-outline" size={19} color={colors.onSurface} />
+                    <Text style={styles.quickActionLabel}>Share</Text>
+                  </PressableScale>
+                )}
+
+                {showDownload && (
+                  <PressableScale
+                    style={styles.quickActionButton}
+                    scaleTo={0.9}
+                    haptic="medium"
+                    onPress={() => onDownload?.()}
+                  >
+                    <Ionicons name="download-outline" size={19} color={colors.onSurface} />
+                    <Text style={styles.quickActionLabel}>Save</Text>
+                  </PressableScale>
+                )}
               </View>
 
               <Divider />
 
-              <MenuRow icon="copy-outline" label="Copy" onPress={onCopy} />
-              {target.canModerate && (
-                <>
-                  <Divider />
-                  {target.isPinned ? (
-                    <MenuRow icon="pin" label="Unpin message" onPress={onUnpin} />
-                  ) : (
-                    <MenuRow icon="pin-outline" label="Pin message" onPress={onPin} />
-                  )}
-                </>
-              )}
-              <Divider />
-              <MenuRow icon="checkmark-circle-outline" label="Select" onPress={onSelect} />
-
-              <Divider />
-              <MenuRow icon="eye-off-outline" label="Delete for me" onPress={onDeleteForMe} destructive />
-              {canDeleteForEveryone && (
-                <>
-                  <Divider />
+              {[
+                !hideCopyShare && <MenuRow key="copy" icon="copy-outline" label="Copy" onPress={onCopy} />,
+                !!target.stickerId && (
                   <MenuRow
+                    key="fav"
+                    icon={target.stickerFavorited ? 'star' : 'star-outline'}
+                    label={target.stickerFavorited ? 'Unfavorite sticker' : 'Favorite sticker'}
+                    onPress={() => onToggleStickerFavorite?.()}
+                  />
+                ),
+                target.canModerate &&
+                  (target.isPinned ? (
+                    <MenuRow key="pin" icon="pin" label="Unpin message" onPress={onUnpin} />
+                  ) : (
+                    <MenuRow key="pin" icon="pin-outline" label="Pin message" onPress={onPin} />
+                  )),
+                <MenuRow key="select" icon="checkmark-circle-outline" label="Select" onPress={onSelect} />,
+                <MenuRow
+                  key="deleteme"
+                  icon="eye-off-outline"
+                  label="Delete for me"
+                  onPress={onDeleteForMe}
+                  destructive
+                />,
+                canDeleteForEveryone && (
+                  <MenuRow
+                    key="deleteall"
                     icon="trash-outline"
                     label="Delete for everyone"
                     onPress={onDeleteForEveryone}
                     destructive
                   />
-                </>
-              )}
+                ),
+              ]
+                .filter((row): row is ReactElement => !!row)
+                .map((row, i) => (
+                  <Fragment key={row.key}>
+                    {i > 0 && <Divider />}
+                    {row}
+                  </Fragment>
+                ))}
             </View>
           </Animated.View>
         </View>
@@ -366,6 +429,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  previewLockedContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  previewLockedText: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+  },
   previewPlayOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -427,15 +500,19 @@ const styles = StyleSheet.create({
   quickActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    // Centered as a tight group rather than stretched with space-around —
+    // with Copy/Share/Edit/Download all conditional now, this can hold
+    // anywhere from 1 to 4 icons and should look deliberate either way.
+    justifyContent: 'center',
+    gap: spacing.lg,
     paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   quickActionButton: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    flex: 1,
+    minWidth: 48,
     paddingVertical: 2,
   },
   quickActionLabel: {

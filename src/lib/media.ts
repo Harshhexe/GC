@@ -45,6 +45,10 @@ const SIZE_LIMITS: Record<MediaType, number> = {
   // AAC at 128kbps is ~1MB/min, so this is far above the 5-minute recording
   // ceiling — it's a backstop against a corrupt file, not a real limit.
   voice: 15 * 1024 * 1024,
+  // Stickers never go through this picker — they're already a hosted PNG by
+  // the time a message references one — but the map needs an entry to stay
+  // total over MediaType.
+  sticker: 15 * 1024 * 1024,
 };
 
 function mediaTypeFor(mime: string): MediaType {
@@ -295,6 +299,8 @@ export function describeMedia(
       return { icon: 'document-text', label: name || 'Document' };
     case 'voice':
       return { icon: 'mic', label: 'Voice message' };
+    case 'sticker':
+      return { icon: 'happy', label: 'Sticker' };
   }
 }
 
@@ -302,4 +308,50 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Saves a photo or video message's attachment to the device's own library —
+ * the "Download" action for image/video messages.
+ *
+ * expo-media-library was added for this and, like expo-image-manipulator
+ * above, isn't guaranteed to be linked in whatever dev-client binary is
+ * currently installed until the app is rebuilt — a `require` at module load
+ * time would crash the whole app on that build, not just this feature, so
+ * it's resolved lazily and fails soft instead.
+ */
+export async function downloadMediaToDevice(url: string): Promise<{ error: string | null }> {
+  if (Platform.OS === 'web') {
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return { error: null };
+    } catch {
+      return { error: 'Could not download that.' };
+    }
+  }
+
+  let MediaLibrary: typeof import('expo-media-library');
+  try {
+    MediaLibrary = require('expo-media-library');
+  } catch {
+    return { error: 'Saving needs the latest app update — try again after updating GC.' };
+  }
+
+  try {
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (!perm.granted) return { error: 'Allow photo library access to save media.' };
+
+    const filename = url.split('/').pop()?.split('?')[0] || `gc-${Date.now()}`;
+    const localUri = `${FileSystem.cacheDirectory}${filename}`;
+    const { uri } = await FileSystem.downloadAsync(url, localUri);
+    await MediaLibrary.saveToLibraryAsync(uri);
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not save that.' };
+  }
 }

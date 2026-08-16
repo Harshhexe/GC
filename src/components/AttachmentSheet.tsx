@@ -15,6 +15,7 @@ export function AttachmentSheet({
   onLibrary,
   onDocument,
   onGif,
+  onSticker,
   onStartTea,
   teaActive,
   onClose,
@@ -25,6 +26,7 @@ export function AttachmentSheet({
   onLibrary: () => void;
   onDocument: () => void;
   onGif: () => void;
+  onSticker: () => void;
   /** Omitted where Tea doesn't apply. */
   onStartTea?: () => void;
   /** A Tea is already live in this GC — the row explains rather than offers. */
@@ -72,6 +74,7 @@ export function AttachmentSheet({
             <Option icon="images" label="Photos & Videos" color={colors.primary} onPress={onLibrary} />
             <Option icon="document-attach" label="Document" color={colors.secondary} onPress={onDocument} />
             <GifOption onPress={onGif} />
+            <Option icon="happy" label="Sticker" color={colors.secondary} onPress={onSticker} />
           </View>
 
           {!!onStartTea && (
@@ -193,27 +196,27 @@ const styles = StyleSheet.create({
   teaCopy: { flex: 1, gap: 2 },
   teaLabel: { ...typography.titleMd, fontSize: 16, color: colors.onSurface },
   teaMeta: { ...typography.micro, color: colors.onSurfaceVariant },
-  // Sized for four tiles in one row rather than three — the row's own
-  // space-around distributes whatever width remains as gaps, so this only
-  // needs to leave enough room for that on the narrowest supported screen.
-  option: { alignItems: 'center', gap: spacing.sm, width: 78 },
+  // Sized for five tiles in one row — the row's own space-around distributes
+  // whatever width remains as gaps, so this only needs to leave enough room
+  // for that on the narrowest supported screen (343px usable on an SE).
+  option: { alignItems: 'center', gap: spacing.xs + 2, width: 60 },
   optionIcon: {
-    width: 50,
-    height: 50,
+    width: 42,
+    height: 42,
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
-  optionLabel: { ...typography.caption, fontSize: 12, color: colors.onSurface, textAlign: 'center' },
+  optionLabel: { ...typography.caption, fontSize: 10.5, color: colors.onSurface, textAlign: 'center' },
   gifWordmark: {
     ...typography.label,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     textAlign: 'center',
     textAlignVertical: 'center',
     includeFontPadding: false,
-    lineHeight: 16,
+    lineHeight: 14,
   },
 });

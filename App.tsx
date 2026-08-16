@@ -73,6 +73,9 @@ export default function App() {
     Inter_700Bold,
     Ionicons: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
     ionicons: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
+    // Sticker text overlay — same family the render-sticker edge function
+    // bakes into the final PNG, so the on-device editor previews match.
+    StickerFont: require('./src/assets/fonts/Anton-Regular.ttf'),
   });
 
   useEffect(() => {

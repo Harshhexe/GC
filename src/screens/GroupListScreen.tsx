@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState, memo } from 'react';
+import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ import {
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { groupTheme } from '../theme/groupThemes';
+import { groupTheme, GroupTheme } from '../theme/groupThemes';
 import { copy, pick } from '../theme/copy';
 import { EmptyState } from '../components/EmptyState';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
@@ -25,7 +25,7 @@ import { PressableScale } from '../components/ui/PressableScale';
 import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
 import { Avatar } from '../components/ui/Avatar';
-import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
+import { AppHeader } from '../components/ui/AppHeader';
 import { timeAgo } from '../utils/time';
 import { Group } from '../types';
 import { useGroups } from '../hooks/useGroups';
@@ -50,24 +50,104 @@ function isDeadChat(group: Group) {
   return Date.now() - new Date(group.lastMessageAt).getTime() > DEAD_CHAT_MS;
 }
 
-import { memo } from 'react';
-import { Platform } from 'react-native';
+/**
+ * Evaluates the real-time activity state of the GC to build the dynamic live pill badge.
+ */
+function getLiveBadgeConfig(
+  group: Group,
+  theme: GroupTheme,
+  onOpenChat: () => void,
+  onCatchUp: () => void
+): {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  gradient: readonly [string, string];
+  glowStyle: object;
+  onPress: () => void;
+} {
+  const dead = isDeadChat(group);
+
+  // 1. Live Tea in progress
+  if (group.hasActiveTea) {
+    return {
+      icon: 'cafe',
+      label: 'Live Tea',
+      gradient: ['#10B981', '#059669'],
+      glowStyle: shadows.glowCyan,
+      onPress: onOpenChat,
+    };
+  }
+
+  // 2. Fresh weekly awards available
+  if (group.hasRecentAwards) {
+    return {
+      icon: 'trophy',
+      label: 'GC Awards',
+      gradient: ['#F59E0B', '#D97706'],
+      glowStyle: shadows.glow,
+      onPress: onCatchUp,
+    };
+  }
+
+  // 3. Popping off — large unread message burst (20+ messages)
+  if (group.unreadCount >= 20) {
+    return {
+      icon: 'flame',
+      label: 'Popping Off',
+      gradient: ['#F43F5E', '#BE185D'],
+      glowStyle: shadows.glowPink,
+      onPress: onCatchUp,
+    };
+  }
+
+  // 4. Unread messages needing catch-up
+  if (group.unreadCount > 0) {
+    return {
+      icon: 'sparkles',
+      label: `Catch Up (${group.unreadCount})`,
+      gradient: theme.colors,
+      glowStyle: shadows.glow,
+      onPress: onCatchUp,
+    };
+  }
+
+  // 5. Dead chat needing a revive
+  if (dead) {
+    return {
+      icon: 'skull-outline',
+      label: 'Revive Chat',
+      gradient: ['#374151', '#1F2937'],
+      glowStyle: {},
+      onPress: onOpenChat,
+    };
+  }
+
+  // 6. Default all caught up state
+  return {
+    icon: 'sparkles',
+    label: 'Catch Up',
+    gradient: theme.colors,
+    glowStyle: shadows.glow,
+    onPress: onCatchUp,
+  };
+}
 
 const GroupCard = memo(function GroupCardImpl({
   group,
   index,
   onOpen,
-  onSummary,
+  onCatchUp,
   onCrew,
 }: {
   group: Group;
   index: number;
   onOpen: () => void;
-  onSummary: () => void;
+  onCatchUp: () => void;
   onCrew: () => void;
 }) {
   const dead = isDeadChat(group);
   const theme = groupTheme(group.theme);
+  const badge = getLiveBadgeConfig(group, theme, onOpen, onCatchUp);
 
   return (
     <Animated.View
@@ -125,16 +205,17 @@ const GroupCard = memo(function GroupCardImpl({
           </View>
         </PressableScale>
 
+        {/* Action Row with Dynamic Live Pulse Badge and Crew Button */}
         <View style={styles.actionRow}>
-          <PressableScale style={styles.summaryWrap} haptic="medium" onPress={onSummary}>
+          <PressableScale style={styles.dynamicBadgeWrap} haptic="medium" scaleTo={0.94} onPress={badge.onPress}>
             <LinearGradient
-              colors={theme.colors}
+              colors={badge.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.summaryButton, shadows.glow]}
+              style={[styles.dynamicBadgeButton, badge.glowStyle]}
             >
-              <Ionicons name="stats-chart" size={15} color="#FFFFFF" />
-              <Text style={styles.summaryText}>Summary</Text>
+              <Ionicons name={badge.icon} size={14} color="#FFFFFF" />
+              <Text style={styles.dynamicBadgeText}>{badge.label}</Text>
             </LinearGradient>
           </PressableScale>
 
@@ -157,15 +238,13 @@ const GroupCard = memo(function GroupCardImpl({
 });
 
 export default function GroupListScreen({ navigation }: Props) {
+  const { session, profile } = useAuth();
   const { groups, loading, refetch } = useGroups();
-  const { profile, session } = useAuth();
-  const { unreadCount: unreadNotifications } = useNotifications(session?.user.id);
+  const { unreadCount: unreadNotifications } = useNotifications(session?.user?.id);
 
   const [emptyText] = useState(() => pick(copy.emptyGroups));
   const [loadingText] = useState(() => pick(copy.loadingGroups));
 
-  // Coming back from a chat means a badge just got cleared server-side, and
-  // that write produces no realtime event of its own — so re-pull on focus.
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -183,7 +262,7 @@ export default function GroupListScreen({ navigation }: Props) {
             unreadCount: item.unreadCount,
           })
         }
-        onSummary={() =>
+        onCatchUp={() =>
           navigation.navigate('WhatDidIMiss', { groupId: item.id, groupName: item.name })
         }
         onCrew={() => navigation.navigate('GroupInfo', { groupId: item.id })}
@@ -223,7 +302,11 @@ export default function GroupListScreen({ navigation }: Props) {
                 )}
               </PressableScale>
 
-              <PressableScale scaleTo={0.9} onPress={() => navigation.navigate('Profile')}>
+              <PressableScale
+                scaleTo={0.9}
+                onPress={() => navigation.navigate('Profile')}
+                style={styles.profileAvatarButton}
+              >
                 <Avatar
                   emoji={profile?.avatar_emoji ?? '😎'}
                   imageUrl={profile?.avatar_url}
@@ -235,53 +318,37 @@ export default function GroupListScreen({ navigation }: Props) {
           }
         />
 
-        <Animated.View
-          entering={FadeInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-          style={styles.titleBlock}
-        >
-          <Text style={styles.title}>Your GCs</Text>
-          <Text style={styles.subtitle}>
-            {profile
-              ? `hey ${profile.display_name} 👋`
-              : 'where the group chat has a life of its own'}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>Your GCs</Text>
+          <Text style={styles.heroGreeting}>
+            hey {profile?.display_name ? profile.display_name.split(' ')[0] : 'friend'} 👋
           </Text>
-        </Animated.View>
+        </View>
 
         {loading ? (
           <EmptyState emoji="⏳" text={loadingText} />
         ) : groups.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <EmptyState emoji="👻" text={emptyText} />
-            <Animated.View
-              entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
-              style={styles.emptyActions}
-            >
-              <GCButton
-                label="Create a GC"
-                variant="gradient"
-                neo
-                onPress={() => navigation.navigate('AddGC', { mode: 'create' })}
-                icon={<Ionicons name="add" size={19} color="#FFFFFF" />}
-              />
-              <GCButton
-                label="Join with a code"
-                variant="ghost"
-                onPress={() => navigation.navigate('AddGC', { mode: 'join' })}
-                icon={<Ionicons name="key-outline" size={18} color={colors.primary} />}
-              />
-            </Animated.View>
+          <View style={styles.emptyContainer}>
+            <EmptyState emoji="🦗" text={emptyText} />
+            <GCButton
+              label="Create a GC"
+              onPress={() => navigation.navigate('AddGC', { mode: 'create' })}
+              variant="gradient"
+              neo
+              style={styles.emptyAction}
+            />
           </View>
         ) : (
           <FlatList
             data={groups}
-            keyExtractor={(g) => g.id}
+            keyExtractor={(item) => item.id}
+            renderItem={renderGroupItem}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             removeClippedSubviews={Platform.OS !== 'web'}
             initialNumToRender={8}
             maxToRenderPerBatch={8}
             windowSize={9}
-            renderItem={renderGroupItem}
           />
         )}
       </SafeAreaView>
@@ -292,23 +359,20 @@ export default function GroupListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   safe: { flex: 1 },
-  titleBlock: {
-    paddingHorizontal: CONTAINER_MARGIN,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 2,
   },
-  title: { ...typography.headline, color: colors.onSurface },
-  subtitle: { ...typography.caption, color: colors.onSurfaceVariant, marginTop: 4 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   bellButton: {
     width: 38,
     height: 38,
     borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
   },
   bellBadge: {
     position: 'absolute',
@@ -324,38 +388,66 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.bg,
   },
-  bellBadgeText: { ...typography.label, fontSize: 9.5, color: colors.onSecondary },
+  bellBadgeText: { ...typography.micro, fontSize: 9, color: '#FFFFFF', fontWeight: '700' },
+  profileAvatarButton: {
+    marginLeft: 2,
+  },
+  heroSection: {
+    paddingHorizontal: CONTAINER_MARGIN,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    gap: 2,
+  },
+  heroTitle: {
+    ...typography.headline,
+    fontSize: 28,
+    color: colors.onSurface,
+  },
+  heroGreeting: {
+    ...typography.caption,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+  },
   list: {
     paddingHorizontal: CONTAINER_MARGIN,
+    paddingTop: spacing.xs,
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
-    gap: spacing.lg,
-  },
-  emptyWrap: { flex: 1 },
-  emptyActions: {
     gap: spacing.md,
-    paddingHorizontal: CONTAINER_MARGIN,
-    paddingBottom: DOCK_HEIGHT + spacing.xl,
   },
-  cardWrap: { borderRadius: radius.lg },
-  cardTop: { flexDirection: 'row', gap: spacing.lg, padding: spacing.lg, alignItems: 'center' },
+  cardWrap: { width: '100%' },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
   cardCopy: { flex: 1, gap: 4 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  groupName: { ...typography.title, color: colors.onSurface, flex: 1 },
-  time: { ...typography.micro, color: colors.primary },
-  cardMessageRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  lastMessage: { ...typography.body, color: colors.onSurfaceVariant, flex: 1 },
-  lastMessageAuthor: { fontFamily: typography.label.fontFamily, color: colors.onSurface },
-  lastMessageDead: { color: colors.outline, fontStyle: 'italic' },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  groupName: { ...typography.title, fontSize: 18, color: colors.onSurface, flex: 1 },
+  time: { ...typography.caption, fontSize: 12, fontWeight: '600' },
+  cardMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  lastMessage: { ...typography.body, fontSize: 14, color: colors.onSurfaceVariant, flex: 1 },
+  lastMessageDead: { color: colors.outline },
+  lastMessageAuthor: { fontWeight: '600', color: colors.onSurface },
   badge: {
-    minWidth: 30,
-    height: 30,
+    minWidth: 20,
+    height: 20,
     borderRadius: radius.pill,
-    backgroundColor: colors.secondary,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
   },
-  badgeText: { ...typography.label, fontSize: 13, color: colors.onSecondary },
+  badgeText: { ...typography.micro, fontSize: 10, color: '#FFFFFF', fontWeight: '700' },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -364,28 +456,30 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
   },
-  summaryWrap: { borderRadius: radius.pill },
-  summaryButton: {
+  dynamicBadgeWrap: { borderRadius: radius.pill },
+  dynamicBadgeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderRadius: radius.pill,
-    paddingVertical: 9,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: glass.strokeBright,
   },
-  summaryText: { ...typography.label, fontSize: 13, color: '#FFFFFF' },
+  dynamicBadgeText: { ...typography.label, fontSize: 12.5, color: '#FFFFFF', fontWeight: '700' },
   crewButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     borderRadius: radius.pill,
-    paddingVertical: 9,
+    paddingVertical: 8,
     paddingHorizontal: spacing.md,
     backgroundColor: 'rgba(208, 188, 255, 0.10)',
     borderWidth: 1,
     borderColor: 'rgba(208, 188, 255, 0.30)',
   },
-  crewText: { ...typography.label, fontSize: 13, color: colors.primary },
+  crewText: { ...typography.label, fontSize: 12.5, color: colors.primary, fontWeight: '600' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
+  emptyAction: { marginTop: spacing.md, width: '100%', maxWidth: 260 },
 });

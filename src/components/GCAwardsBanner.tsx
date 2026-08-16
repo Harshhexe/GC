@@ -8,10 +8,10 @@ import { GlassPanel } from './ui/Glass';
 import type { WeeklyAwardsResult } from '../lib/ai';
 
 const AWARD_ACCENT = colors.yellow;
-const ONE_HOUR_MS = 60 * 60 * 1000;
+const THIRTY_MINS_MS = 30 * 60 * 1000;
 
 /**
- * 🏆 The weekly discovery banner shown for 1 hour after weekly awards are generated.
+ * 🏆 The weekly discovery banner shown for 30 minutes after weekly awards are generated (e.g. 12:00pm - 12:30pm).
  * Features a roasty, funny subtext and quick access to the awards ceremony modal.
  */
 export function GCAwardsBanner({
@@ -32,7 +32,7 @@ export function GCAwardsBanner({
     const genTime = new Date(result.generatedAt).getTime();
     if (Number.isNaN(genTime)) return;
 
-    const remaining = ONE_HOUR_MS - (Date.now() - genTime);
+    const remaining = THIRTY_MINS_MS - (Date.now() - genTime);
     if (remaining <= 0) {
       setIsExpired(true);
       return;

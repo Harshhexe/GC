@@ -35,11 +35,12 @@ type MessageRow = {
   media_width: number | null;
   media_height: number | null;
   media_duration_ms: number | null;
+  sticker_id: string | null;
   ai_share: AIShare | null;
 };
 
 const MESSAGE_COLUMNS =
-  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once, ai_share';
+  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once, sticker_id, ai_share';
 
 /** A shared AI answer, but only on a message that still exists — deleting a
  *  shared answer should blank it like any other message, not leave the AI
@@ -236,6 +237,7 @@ export function useMessages(groupId: string) {
             mentions: row.mentions ?? [],
             mentionEveryone: row.mention_everyone,
             media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
+            stickerId: row.is_deleted ? null : row.sticker_id,
             isMine: false,
             reactions,
             aiShare: aiShareFor(row),
@@ -263,6 +265,7 @@ export function useMessages(groupId: string) {
           mentions: row.mentions ?? [],
           mentionEveryone: row.mention_everyone,
           media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
+          stickerId: row.is_deleted ? null : row.sticker_id,
           isMine: row.author_id === myIdRef.current,
           reactions,
           aiShare: aiShareFor(row),
@@ -728,7 +731,8 @@ export function useMessages(groupId: string) {
     mentions: Mention[] = [],
     mentionEveryone = false,
     media?: MessageMedia | null,
-    aiShare?: AIShare | null
+    aiShare?: AIShare | null,
+    stickerId?: string | null
   ) {
     // A media-only message needs no caption; a plain-text one still needs
     // real content — no sending an empty bubble.
@@ -751,6 +755,7 @@ export function useMessages(groupId: string) {
       media_height: media?.height ?? null,
       media_duration_ms: media?.durationMs ?? null,
       media_view_once: media?.viewOnce ?? false,
+      sticker_id: stickerId ?? null,
     });
   }
 
