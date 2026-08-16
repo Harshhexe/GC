@@ -48,6 +48,9 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
   context: {
     maxMessages: 250,
     includePinned: true,
+    // You cannot miss your own messages. If nobody else spoke since the read
+    // boundary, this resolves as "caught up" without a provider call.
+    requireOthers: true,
     // The summary addresses the reader and flags mentions of them, so it must
     // not be served from a result computed for a different member.
     perViewer: true,
@@ -105,6 +108,16 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
       '[time] Sender (id:MESSAGE_ID): text',
       'Attachments appear as labels like 📷 Photo — you cannot see their contents.',
       '',
+      'CRITICAL — lines marked [THE READER] were sent by the person you are',
+      'writing for:',
+      '- They did NOT miss their own messages. Never report what they said as',
+      '  something that happened while they were away.',
+      '- Never build a highlight around one. They are there only so replies to',
+      '  them make sense.',
+      '- Summarise what OTHER people said and did. If the only thing in the',
+      '  window is the reader talking, the honest answer is that they missed',
+      '  nothing.',
+      '',
       'Voice: you are a roast comic, not a notetaker. Rude, cocky, a little',
       'unhinged — the friend who clowns everyone in the group chat and gets',
       'away with it because it is funny. Mainly English, but speak Hinglish',
@@ -161,10 +174,12 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
   buildPrompt(ctx: GCContext, params) {
     const viewer = typeof params.viewerName === 'string' ? params.viewerName : 'they';
 
+    const missedCount = ctx.messages.length - ctx.ownMessageIds.length;
     const lines = [
       `You are catching up: ${viewer}`,
+      `Their own messages are marked [THE READER] — context only, not news.`,
       `Participants: ${ctx.participants.join(', ')}`,
-      `Messages missed: ${ctx.messages.length}`,
+      `Messages they actually missed: ${missedCount}`,
     ];
 
     if (ctx.pinnedMessageIds.length > 0) {
@@ -245,6 +260,7 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
     }
 
     const known = new Set(ctx.messages.map((m) => m.id));
+    const own = new Set(ctx.ownMessageIds);
     const allowed = new Set<string>(CATEGORIES);
 
     const highlights = (value.highlights ?? [])
@@ -263,7 +279,11 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
       // A highlight with no surviving citation is an unsupported claim. The
       // spec is explicit: discard it rather than show it. Better a shorter
       // honest recap than a confident one nobody can check.
-      .filter((h) => h.messageIds.length > 0);
+      .filter((h) => h.messageIds.length > 0)
+      // Enforced here rather than trusted to the prompt: a highlight whose
+      // every citation is the reader's own message is, by definition, not
+      // something they missed. The instruction above asks; this guarantees.
+      .filter((h) => h.messageIds.some((id) => !own.has(id)));
 
     const offered = (value.highlights ?? []).length;
 
@@ -284,7 +304,10 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
       mentionedMessageIds: ctx.mentionedMessageIds,
       pinnedMessageIds: ctx.pinnedMessageIds,
       truncated: ctx.truncated,
-      messageCount: ctx.messages.length,
+      // What they actually missed, not how much was read to work it out —
+      // the reader's own messages were context, and counting them would make
+      // the footer claim they missed more than they did.
+      messageCount: ctx.messages.length - ctx.ownMessageIds.length,
     };
   },
 

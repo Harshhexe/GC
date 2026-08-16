@@ -51,6 +51,14 @@ export class GeminiProvider implements AIProvider {
         },
         generation_config: {
           max_output_tokens: request.maxOutputTokens,
+          // Thinking tokens are billed as output AND count against
+          // max_output_tokens, so an unbounded budget here truncates the JSON
+          // mid-object and surfaces as `incomplete` — which is exactly what
+          // was happening in production. Every GC operation is schema-guided
+          // extraction and summarisation over a transcript, not a reasoning
+          // problem, so a low budget costs nothing in quality and buys back
+          // both the token headroom and a chunk of latency.
+          thinking_level: 'low',
         },
         // Stateless. GC keeps its own history in Postgres, and letting the
         // provider retain group chat content would quietly widen where that
@@ -67,11 +75,20 @@ export class GeminiProvider implements AIProvider {
     // message that hides the real cause.
     if (interaction.status !== 'completed') {
       const detail = interaction.errors?.[0]?.message ?? interaction.status;
-      // `incomplete` is overwhelmingly "hit max_output_tokens mid-object", which
-      // is our configuration to fix, not the user's problem to retry forever.
+      // `incomplete` is overwhelmingly "hit max_output_tokens mid-object",
+      // which is our configuration to fix rather than the user's problem to
+      // retry forever — so say so in the log line, with the numbers needed to
+      // act on it instead of a status word that requires a separate dig.
+      const detailWithBudget =
+        interaction.status === 'incomplete'
+          ? `${detail}: likely hit max_output_tokens (budget ${request.maxOutputTokens}, ` +
+            `used ${interaction.usage?.total_output_tokens ?? 0} output + ` +
+            `${interaction.usage?.total_thought_tokens ?? 0} thinking)`
+          : detail;
+
       throw new GCAIError(
         'invalid_ai_response',
-        `Interaction did not complete (${detail})`
+        `Interaction did not complete (${detailWithBudget})`
       );
     }
 

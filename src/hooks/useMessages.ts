@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
-import { MediaType, Mention, MediaViewerProfile, Message, MessageKind, MessageMedia, Reaction, ReplyPreview } from '../types';
+import { AIShare, MediaType, Mention, MediaViewerProfile, Message, MessageKind, MessageMedia, Reaction, ReplyPreview } from '../types';
 import { labelFor } from '../data/reactions';
 
 type ProfileLite = {
@@ -35,10 +35,25 @@ type MessageRow = {
   media_width: number | null;
   media_height: number | null;
   media_duration_ms: number | null;
+  ai_share: AIShare | null;
 };
 
 const MESSAGE_COLUMNS =
-  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once';
+  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once, ai_share';
+
+/** A shared AI answer, but only on a message that still exists — deleting a
+ *  shared answer should blank it like any other message, not leave the AI
+ *  card rendering under a "message deleted" bubble. */
+function aiShareFor(row: MessageRow): AIShare | undefined {
+  if (row.is_deleted || !row.ai_share) return undefined;
+  const share = row.ai_share;
+  if (typeof share.question !== 'string' || typeof share.answer !== 'string') return undefined;
+  return {
+    question: share.question,
+    answer: share.answer,
+    sourceMessageIds: Array.isArray(share.sourceMessageIds) ? share.sourceMessageIds : [],
+  };
+}
 
 function mediaFor(row: MessageRow): MessageMedia | null {
   if (!row.media_url || !row.media_type) return null;
@@ -223,6 +238,7 @@ export function useMessages(groupId: string) {
             media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
             isMine: false,
             reactions,
+            aiShare: aiShareFor(row),
           };
           return message;
         }
@@ -249,6 +265,7 @@ export function useMessages(groupId: string) {
           media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
           isMine: row.author_id === myIdRef.current,
           reactions,
+          aiShare: aiShareFor(row),
         };
         return message;
       });
@@ -710,12 +727,14 @@ export function useMessages(groupId: string) {
     replyToMessageId?: string | null,
     mentions: Mention[] = [],
     mentionEveryone = false,
-    media?: MessageMedia | null
+    media?: MessageMedia | null,
+    aiShare?: AIShare | null
   ) {
     // A media-only message needs no caption; a plain-text one still needs
     // real content — no sending an empty bubble.
     if (!myId || (!text.trim() && !media)) return;
     await supabase.from('messages').insert({
+      ai_share: aiShare ?? null,
       group_id: groupId,
       author_id: myId,
       text: text.trim(),

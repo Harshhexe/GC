@@ -31,7 +31,7 @@ export const config = {
    * squarely what Flash is for. Must be a model the configured provider
    * actually serves; the two move together.
    */
-  model: str('GC_AI_MODEL', 'gemini-3.6-flash'),
+  model: str('GC_AI_MODEL', 'gemini-3.1-flash-lite'),
 
   limits: {
     /**
@@ -49,12 +49,31 @@ export const config = {
      */
     maxContextTokens: num('GC_AI_MAX_CONTEXT_TOKENS', 12_000),
 
-    /** Ceiling on what the model may generate per operation. */
-    maxOutputTokens: num('GC_AI_MAX_OUTPUT_TOKENS', 2_000),
+    /**
+     * Ceiling on what the model may generate per operation.
+     *
+     * Headroom matters more than it looks: on a thinking model this budget
+     * covers reasoning tokens as well as the answer, and a request that runs
+     * out mid-JSON comes back as an unusable truncated object rather than a
+     * shorter answer. 2000 was demonstrably too tight in production.
+     */
+    maxOutputTokens: num('GC_AI_MAX_OUTPUT_TOKENS', 4_000),
 
     /** Rate limits, counted from ai_usage over a rolling window. */
     requestsPerUserPerHour: num('GC_AI_MAX_REQUESTS_PER_USER', 20),
     requestsPerGroupPerHour: num('GC_AI_MAX_REQUESTS_PER_GROUP', 60),
+
+    /**
+     * @gc gets its own, more generous per-user allowance: it's the one
+     * operation a user invokes deliberately and repeatedly in a sitting
+     * (ask, read, ask a follow-up), where the others fire once per screen.
+     * Sharing the default would make a normal conversation with GC feel
+     * broken. The per-group ceiling still applies on top.
+     */
+    commandsPerUserPerHour: num('GC_AI_COMMANDS_PER_USER', 40),
+
+    /** Upper bound on the question text a user may send with @gc. */
+    maxQuestionChars: num('GC_AI_MAX_QUESTION_CHARS', 300),
 
     /** Upper bound on a single message's text before it's clipped. Keeps one
      *  pasted wall of text from consuming a whole context window. */

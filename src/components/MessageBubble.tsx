@@ -98,8 +98,21 @@ function MessageBubbleImpl({
   const detectedUrl = useMemo(() => extractFirstUrl(message.text), [message.text]);
 
   const textSegments = segmentMentionText(message.text, message.mentions, message.mentionEveryone);
-  const renderedText =
-    textSegments.length === 1 && textSegments[0].type === 'text' ? (
+  const renderedText = message.aiShare ? (
+    // A shared GC AI answer. The sender is the member who shared it — which
+    // is honest — so the badge does the work of making clear the words are
+    // the AI's and not theirs.
+    <View style={styles.aiShareBlock}>
+      <View style={styles.aiShareHead}>
+        <Ionicons name="sparkles" size={11} color={theme.accent} />
+        <Text style={[styles.aiShareBadge, { color: theme.accent }]}>GC AI</Text>
+      </View>
+      <Text style={styles.aiShareQuestion} numberOfLines={2}>
+        {message.aiShare.question}
+      </Text>
+      <Text style={styles.text}>{message.aiShare.answer}</Text>
+    </View>
+  ) : textSegments.length === 1 && textSegments[0].type === 'text' ? (
       <Text style={styles.text}>{message.text}</Text>
     ) : (
       <Text style={styles.text}>
@@ -524,6 +537,20 @@ const styles = StyleSheet.create({
 
   text: { ...typography.body, fontSize: 15, lineHeight: 21, color: colors.onSurface },
   mention: { fontFamily: typography.bodyMedium.fontFamily },
+  aiShareBlock: { gap: 5 },
+  aiShareHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  aiShareBadge: {
+    ...typography.micro,
+    fontWeight: '800',
+    fontSize: 10,
+    letterSpacing: 0.6,
+  },
+  aiShareQuestion: {
+    ...typography.micro,
+    fontSize: 11.5,
+    color: colors.onSurfaceVariant,
+    fontStyle: 'italic',
+  },
   deletedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   deletedBodyText: { ...typography.body, fontSize: 14, color: colors.outline, fontStyle: 'italic' },
 

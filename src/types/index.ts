@@ -1,4 +1,5 @@
 import type { DailyRecapResult } from '../lib/ai';
+import type { GCCommandEntry } from '../hooks/useGCCommands';
 
 export type Reaction = {
   emoji: string;
@@ -104,6 +105,26 @@ export type Message = {
    */
   isDailyRecapCard?: true;
   dailyRecapData?: DailyRecapResult;
+  /**
+   * Set only on the synthetic entries carrying an @gc exchange, woven into
+   * the feed the same way — local to this session, never persisted, and never
+   * present on anything that came from Supabase.
+   */
+  gcCommandEntry?: GCCommandEntry;
+  /**
+   * Present when this real, persisted message is a GC AI answer someone
+   * shared into the chat. The sender is the member who shared it — this only
+   * changes how the bubble renders, so replies, reactions, pins and deletion
+   * all behave like any other message.
+   */
+  aiShare?: AIShare;
+};
+
+export type AIShare = {
+  question: string;
+  answer: string;
+  /** Ids the answer cited, already validated server-side when generated. */
+  sourceMessageIds: string[];
 };
 
 export type Member = {

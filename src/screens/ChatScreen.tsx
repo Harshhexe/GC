@@ -45,6 +45,8 @@ import { MessageQuotePreview } from '../components/MessageQuotePreview';
 import { MentionSuggestions } from '../components/MentionSuggestions';
 import { MemberProfileSheet } from '../components/MemberProfileSheet';
 import { AttachmentSheet } from '../components/AttachmentSheet';
+import { GifPicker } from '../components/GifPicker';
+import type { GifResult } from '../lib/giphy';
 import { AttachmentPreview } from '../components/AttachmentPreview';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { MediaViewerModal } from '../components/MediaViewerModal';
@@ -54,11 +56,19 @@ import { PinnedBanner } from '../components/PinnedBanner';
 import { ElevenElevenBanner } from '../components/ElevenElevenBanner';
 import { DailyRecapMessageCard } from '../components/DailyRecapMessageCard';
 import { DailyRecapModal } from '../components/DailyRecapModal';
+import { GCAIMessage } from '../components/GCAIMessage';
+import { TeaBanner } from '../components/TeaBanner';
+import { TeaInfoSheet } from '../components/TeaInfoSheet';
+import { TeaReportModal } from '../components/TeaReportModal';
+import { useTeaSession, type TeaSession } from '../hooks/useTeaSession';
+import { GCAwardsBanner } from '../components/GCAwardsBanner';
+import { GCAwardsModal } from '../components/GCAwardsModal';
+import { useWeeklyAwards } from '../hooks/useWeeklyAwards';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
-import { groupTheme } from '../theme/groupThemes';
+import { TEA_THEME, groupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
@@ -66,6 +76,9 @@ import { usePinnedMessages } from '../hooks/usePinnedMessages';
 import { useTyping } from '../hooks/useTyping';
 import { useElevenEleven } from '../hooks/useElevenEleven';
 import { useDailyRecap } from '../hooks/useDailyRecap';
+import { useGCCommands, type GCCommandEntry } from '../hooks/useGCCommands';
+import { GC_TOKEN, matchesGCQuery, parseGCCommand } from '../lib/gcCommand';
+import { describeMedia } from '../lib/media';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { markGroupRead } from '../lib/readState';
@@ -133,6 +146,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     boundary: dailyRecapBoundary,
   } = useDailyRecap(groupId);
   const [dailyRecapOpen, setDailyRecapOpen] = useState(false);
+  const gcCommands = useGCCommands(groupId);
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
@@ -230,13 +244,37 @@ export default function ChatScreen({ route, navigation }: Props) {
     };
   }, [showDailyRecapInline, dailyRecap, dailyRecapBoundary, groupId]);
 
+  // @gc exchanges, shaped as feed entries. Local to this session — they were
+  // never sent to the group, so they exist only here (see useGCCommands).
+  const gcCommandItems: Message[] = useMemo(
+    () =>
+      gcCommands.entries.map((entry) => ({
+        id: entry.id,
+        groupId,
+        authorId: null,
+        authorName: 'GC AI',
+        authorColor: colors.primary,
+        text: '',
+        kind: 'text' as const,
+        createdAt: entry.createdAt,
+        mentions: [],
+        mentionEveryone: false,
+        media: null,
+        reactions: [],
+        isMine: false,
+        gcCommandEntry: entry,
+      })),
+    [gcCommands.entries, groupId]
+  );
+
   const invertedMessages = useMemo(() => {
-    if (!dailyRecapItem) return [...messages].reverse();
-    const merged = [...messages, dailyRecapItem].sort(
+    const extras = [...gcCommandItems, ...(dailyRecapItem ? [dailyRecapItem] : [])];
+    if (extras.length === 0) return [...messages].reverse();
+    const merged = [...messages, ...extras].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
     return merged.reverse();
-  }, [messages, dailyRecapItem]);
+  }, [messages, dailyRecapItem, gcCommandItems]);
 
   // Scroll to unread divider on initial open if there are unread messages.
   // Looked up by id rather than derived arithmetically — `invertedMessages`
@@ -285,7 +323,22 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [myRole, setMyRole] = useState<'owner' | 'admin' | 'member' | null>(null);
   const canModerate = myRole === 'owner' || myRole === 'admin';
 
-  const theme = useMemo(() => groupTheme(groupInfo?.theme), [groupInfo?.theme]);
+  const tea = useTeaSession(groupId, { userId: session?.user.id, canModerate });
+  const [teaInfoOpen, setTeaInfoOpen] = useState(false);
+  const [teaReportOpen, setTeaReportOpen] = useState(false);
+  const [teaReportSession, setTeaReportSession] = useState<TeaSession | null>(null);
+
+  const weeklyAwards = useWeeklyAwards(groupId);
+  const [awardsOpen, setAwardsOpen] = useState(false);
+
+  // Tea swaps the whole chat's accent by swapping this one object — every
+  // themed component downstream already reads from it, so nothing else has to
+  // know Tea Mode exists. Never persisted: the group's own theme is untouched
+  // and comes straight back the moment Tea ends.
+  const theme = useMemo(
+    () => (tea.isActive ? TEA_THEME : groupTheme(groupInfo?.theme)),
+    [tea.isActive, groupInfo?.theme]
+  );
   const [draft, setDraft] = useState('');
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -302,6 +355,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [attachmentSheetVisible, setAttachmentSheetVisible] = useState(false);
+  const [gifPickerVisible, setGifPickerVisible] = useState(false);
   const pendingPickerRef = useRef<(() => Promise<PickResult | null>) | null>(null);
   const pickerLaunchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
@@ -412,12 +466,49 @@ export default function ChatScreen({ route, navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       loadGroup();
-    }, [loadGroup])
+      tea.refresh();
+    }, [loadGroup, tea.refresh])
   );
 
   async function handleSend() {
     if (uploading) return;
     if (!draft.trim() && !pendingAttachment) return;
+
+    // @gc is intercepted before anything else: it never becomes a group
+    // message, so none of the send paths below should see it. Editing is
+    // excluded because an edit targets an existing real message — there is
+    // nothing to reroute.
+    const gcCommand = editingMessage ? null : parseGCCommand(draft);
+    if (gcCommand) {
+      // Swiping to reply and then asking @gc means "about this message" — the
+      // reply is the subject, so it anchors the context server-side instead
+      // of being dropped along with the unsent draft.
+      const gcReplyTo = replyTo
+        ? {
+            id: replyTo.id,
+            authorName: replyTo.authorName,
+            preview: replyTo.text || describeMedia(replyTo.media?.type ?? 'file').label,
+          }
+        : undefined;
+
+      // A bare "@gc" on its own is nothing to ask — unless it's replying to
+      // something, in which case pointing at a message and saying nothing
+      // clearly means "explain this one".
+      const question = gcCommand.question || (gcReplyTo ? 'explain this message' : '');
+      if (!question) return;
+
+      gcCommands.ask(question, gcReplyTo);
+      setDraft('');
+      setMentionCandidates(new Map());
+      setSelection(undefined);
+      setReplyTo(null);
+      // Jump to the newest entry the same way sending a message does.
+      requestAnimationFrame(() =>
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+      );
+      return;
+    }
+
     const { mentions, mentionEveryone } = deriveMentionsFromText(draft, [...mentionCandidates.values()]);
 
     if (editingMessage) {
@@ -507,6 +598,86 @@ export default function ChatScreen({ route, navigation }: Props) {
     setAttachmentSheetVisible(true);
   }
 
+  function openGifPicker() {
+    setAttachmentSheetVisible(false);
+    setGifPickerVisible(true);
+  }
+
+  /**
+   * A GIF never goes through the upload pipeline — it's already hosted on
+   * Giphy's CDN, so this skips straight to the same insert every other media
+   * message ends at, reusing the current draft as caption and the same
+   * post-send cleanup `handleSend` does for its own media branch.
+   */
+  function sendGif(gif: GifResult) {
+    setGifPickerVisible(false);
+
+    const { mentions, mentionEveryone } = deriveMentionsFromText(draft, [
+      ...mentionCandidates.values(),
+    ]);
+
+    sendMessage(draft, replyTo?.id ?? null, mentions, mentionEveryone, {
+      url: gif.url,
+      type: 'gif',
+      mime: 'image/gif',
+      name: null,
+      size: gif.size,
+      width: gif.width,
+      height: gif.height,
+      durationMs: null,
+    });
+
+    setReplyTo(null);
+    setDraft('');
+    setMentionCandidates(new Map());
+    setSelection(undefined);
+  }
+
+  /** Starting Tea changes the room for everyone, so it never happens on one
+   *  stray tap — same two-step the destructive actions use. */
+  function confirmStartTea() {
+    setAttachmentSheetVisible(false);
+    const title = '🍵 Start Tea?';
+    const body =
+      'Start a tea session in this GC. Everything said during the session will be included in the Tea Report.';
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${body}`)) tea.startTea();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Start Tea', onPress: () => tea.startTea() },
+    ]);
+  }
+
+  function confirmEndTea() {
+    setTeaInfoOpen(false);
+    const title = '🍵 End the tea?';
+    const body =
+      'GC will close this Tea session and generate a Tea Report from the conversation.';
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${body}`)) tea.endTea();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'End Tea', style: 'destructive', onPress: () => tea.endTea() },
+    ]);
+  }
+
+  /** The banner means different things at different points in the lifecycle:
+   *  live Tea opens the info sheet, a finished one opens its report. */
+  function handleTeaBannerPress() {
+    if (tea.isActive) {
+      setTeaInfoOpen(true);
+    } else {
+      if (tea.session) setTeaReportSession(tea.session);
+      setTeaReportOpen(true);
+    }
+  }
+
   /**
    * Picking is a two-step dance on purpose. Opening a native picker (or the
    * permission prompt that precedes it) while the attachment sheet is still
@@ -582,6 +753,11 @@ export default function ChatScreen({ route, navigation }: Props) {
     EVERYONE_TOKEN.startsWith(activeMentionQuery.query.toLowerCase())
   );
 
+  // GC gets a row in the same picker, but is not a member: selecting it
+  // inserts a plain token and records no mention candidate, so it can never
+  // be resolved into a user id or notify anyone.
+  const showGCOption = !!(activeMentionQuery && matchesGCQuery(activeMentionQuery.query));
+
   const applyMentionInsert = useCallback(
     (token: string, candidate?: Mention) => {
       if (!activeMentionQuery) return;
@@ -610,6 +786,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const selectMentionEveryone = useCallback(
     () => applyMentionInsert(EVERYONE_TOKEN),
+    [applyMentionInsert]
+  );
+
+  // No candidate passed: @gc is not a member, so deriveMentionsFromText must
+  // never turn it into a mention.
+  const selectMentionGC = useCallback(
+    () => applyMentionInsert(GC_TOKEN),
     [applyMentionInsert]
   );
 
@@ -866,6 +1049,62 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const handleMentionPress = useCallback((userId: string) => setViewingProfileId(userId), []);
 
+  // Which source message each @gc answer is currently pointing at. Tapping
+  // "View N messages" walks through them one per tap and wraps — the same
+  // advance-on-tap pattern PinnedBanner already uses for multiple pins,
+  // rather than a second navigation UI.
+  const gcSourceCursor = useRef(new Map<string, number>());
+
+  // Which @gc answers this member has already posted into the chat. Local to
+  // the session, like the entries themselves — it only guards the button from
+  // being tapped twice, and the shared message itself is the real record.
+  const [sharedGCEntryIds, setSharedGCEntryIds] = useState<Set<string>>(new Set());
+
+  /**
+   * Posts an @gc exchange into the group as a real message.
+   *
+   * Sent as an ordinary message carrying the AI payload, with the original
+   * reply preserved as a real `reply_to_message_id` — so the existing reply
+   * system renders the quoted message and no second linking mechanism is
+   * needed. `text` holds a readable fallback so group-list previews, search
+   * and notifications keep working without special-casing.
+   */
+  const handleSendGCToChat = useCallback(
+    (entry: GCCommandEntry) => {
+      if (!entry.result || sharedGCEntryIds.has(entry.id)) return;
+
+      sendMessage(
+        `🤖 ${entry.question} — ${entry.result.text}`,
+        entry.replyTo?.id ?? null,
+        [],
+        false,
+        null,
+        {
+          question: entry.question,
+          answer: entry.result.text,
+          sourceMessageIds: entry.result.sourceMessageIds,
+        }
+      );
+
+      setSharedGCEntryIds((prev) => new Set(prev).add(entry.id));
+      requestAnimationFrame(() =>
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+      );
+    },
+    [sendMessage, sharedGCEntryIds]
+  );
+
+  const handleViewGCSources = useCallback(
+    (entry: GCCommandEntry) => {
+      const ids = entry.result?.sourceMessageIds ?? [];
+      if (ids.length === 0) return;
+      const at = gcSourceCursor.current.get(entry.id) ?? 0;
+      gcSourceCursor.current.set(entry.id, (at + 1) % ids.length);
+      jumpToMessage(ids[at % ids.length]);
+    },
+    [jumpToMessage]
+  );
+
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const olderMsg = index < invertedMessages.length - 1 ? invertedMessages[index + 1] : null;
@@ -884,6 +1123,32 @@ export default function ChatScreen({ route, navigation }: Props) {
       const showTimestamp = !isFollowedWithinOneMin;
 
       const isFirstUnread = item.id === firstUnreadId;
+
+      // An @gc exchange. Like the recap card it's a real array entry so it
+      // scrolls with the conversation, but it never went through Supabase and
+      // has none of the state MessageBubble expects.
+      if (item.gcCommandEntry) {
+        return (
+          <View nativeID={`msg-${item.id}`}>
+            {newDay && (
+              <View style={styles.dayRow}>
+                <Chip style={styles.dayChip}>
+                  <Text style={styles.dayText}>{dayLabel(item.createdAt)}</Text>
+                </Chip>
+              </View>
+            )}
+            <GCAIMessage
+              entry={item.gcCommandEntry}
+              accent={theme.accent}
+              onViewSources={handleViewGCSources}
+              onJumpToMessage={jumpToMessage}
+              onRetry={gcCommands.retry}
+              onSendToGC={handleSendGCToChat}
+              shared={sharedGCEntryIds.has(item.gcCommandEntry.id)}
+            />
+          </View>
+        );
+      }
 
       // The recap card is a real entry in the array (so it scrolls and ages
       // like one), but it never went through Supabase — no reactions, no
@@ -970,6 +1235,11 @@ export default function ChatScreen({ route, navigation }: Props) {
       handleQuotePress,
       handleMentionPress,
       handleMediaPress,
+      handleViewGCSources,
+      gcCommands.retry,
+      jumpToMessage,
+      handleSendGCToChat,
+      sharedGCEntryIds,
     ]
   );
 
@@ -1024,11 +1294,6 @@ export default function ChatScreen({ route, navigation }: Props) {
             >
               <Ionicons name="sparkles" size={16} color={theme.accent} />
             </PressableScale>
-
-            <HeaderIconButton
-              name="information-circle-outline"
-              onPress={() => navigation.navigate('GroupInfo', { groupId })}
-            />
           </View>
         )}
 
@@ -1049,6 +1314,10 @@ export default function ChatScreen({ route, navigation }: Props) {
           }}
           onDismissTimesUp={elevenEleven.dismissTimesUp}
         />
+
+        <TeaBanner session={tea.session} onPress={handleTeaBannerPress} />
+
+        <GCAwardsBanner result={weeklyAwards.thisWeek} onPress={() => setAwardsOpen(true)} />
 
         <PinnedBanner
           pins={bannerPins}
@@ -1225,9 +1494,11 @@ export default function ChatScreen({ route, navigation }: Props) {
               visible={!!activeMentionQuery}
               members={mentionMatches}
               showEveryone={showEveryoneOption}
+              showGC={showGCOption}
               accentColor={theme.accent}
               onSelectMember={selectMentionMember}
               onSelectEveryone={selectMentionEveryone}
+              onSelectGC={selectMentionGC}
             />
 
             <View style={styles.composer}>
@@ -1419,8 +1690,17 @@ export default function ChatScreen({ route, navigation }: Props) {
         onCamera={() => choosePicker(pickFromCamera)}
         onLibrary={() => choosePicker(pickFromLibrary)}
         onDocument={() => choosePicker(pickDocument)}
+        onGif={openGifPicker}
+        onStartTea={confirmStartTea}
+        teaActive={tea.isActive}
         onClose={() => setAttachmentSheetVisible(false)}
         onClosed={launchPendingPicker}
+      />
+
+      <GifPicker
+        visible={gifPickerVisible}
+        onClose={() => setGifPickerVisible(false)}
+        onSelect={sendGif}
       />
 
       <MediaViewerModal
@@ -1444,6 +1724,29 @@ export default function ChatScreen({ route, navigation }: Props) {
         recap={dailyRecap}
         themeGradient={theme.colors}
         onClose={() => setDailyRecapOpen(false)}
+        onJumpToMessage={jumpToMessage}
+      />
+
+      <TeaInfoSheet
+        visible={teaInfoOpen}
+        session={tea.session}
+        canEnd={tea.canEnd}
+        onEndTea={confirmEndTea}
+        onClose={() => setTeaInfoOpen(false)}
+      />
+
+      <TeaReportModal
+        visible={teaReportOpen}
+        session={tea.session ?? teaReportSession}
+        onClose={() => setTeaReportOpen(false)}
+        onJumpToMessage={jumpToMessage}
+        onRetry={tea.retryReport}
+      />
+
+      <GCAwardsModal
+        visible={awardsOpen}
+        result={weeklyAwards.thisWeek}
+        onClose={() => setAwardsOpen(false)}
         onJumpToMessage={jumpToMessage}
       />
     </View>

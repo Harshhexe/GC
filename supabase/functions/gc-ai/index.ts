@@ -5,6 +5,7 @@ import { config } from './config.ts';
 import { buildGCContext } from './context/buildGCContext.ts';
 import { GCAIError, errorResponse } from './errors.ts';
 import { getOperation } from './operations/registry.ts';
+import type { ResolvedWindow } from './operations/types.ts';
 import { getProvider } from './provider/index.ts';
 import { assertWithinRateLimits, recordUsage } from './rateLimit.ts';
 
@@ -34,6 +35,11 @@ Deno.serve(async (req) => {
   let clients: Awaited<ReturnType<typeof authenticate>> | null = null;
   let groupId = '';
   let operationName = '';
+  // Hoisted so the catch block can let an operation record its own failure —
+  // a Tea report that fails must leave a retryable session behind, not
+  // vanish.
+  let operation: ReturnType<typeof getOperation> | null = null;
+  let params: Record<string, unknown> = {};
 
   try {
     if (req.method !== 'POST') {
@@ -50,15 +56,16 @@ Deno.serve(async (req) => {
     clients = await authenticate(req);
     groupId = await assertGroupMembership(clients, body.groupId);
 
-    const operation = getOperation(body.operation);
+    operation = getOperation(body.operation);
     operationName = operation.name;
-    const params = (body.params ?? {}) as Record<string, unknown>;
+    params = (body.params ?? {}) as Record<string, unknown>;
 
     // Before any spend, and counted from the same ledger that records it.
     await assertWithinRateLimits(clients.asService, {
       userId: clients.userId,
       groupId,
       operation: operationName,
+      perUserPerHour: operation.perUserPerHour,
     });
 
     // An operation may derive its window from server-side state (What Did I
@@ -67,7 +74,7 @@ Deno.serve(async (req) => {
     // read, and it wins over caller-supplied bounds — otherwise a client could
     // hand itself a window its read state doesn't justify.
     const lookbackHours = operation.context.defaultLookbackHours;
-    const window = operation.resolveWindow
+    const window: ResolvedWindow = operation.resolveWindow
       ? await operation.resolveWindow({
           db: clients.asUser,
           groupId,
@@ -84,6 +91,14 @@ Deno.serve(async (req) => {
           to: typeof params.to === 'string' ? params.to : undefined,
         };
 
+    // Data an operation computed server-side (e.g. weekly awards' objective
+    // stats) and wants both buildPrompt and validate to see, the same way
+    // every other caller-supplied field in params does. Merged rather than
+    // passed alongside so operations without this concept never notice it.
+    if (window.extraParams) {
+      params = { ...params, ...window.extraParams };
+    }
+
     // Built with the *user's* client, so RLS still applies to the messages
     // that make it into the prompt — the AI never sees more than they can.
     let ctx;
@@ -93,11 +108,20 @@ Deno.serve(async (req) => {
         groupId,
         userId: clients.userId,
         operation: operationName,
-        maxMessages: operation.context.maxMessages,
+        // A resolved window may resize the request (@gc sizes it per intent);
+        // the operation's static value is the fallback, and buildGCContext
+        // still clamps whatever wins to the global ceiling.
+        maxMessages: window.maxMessages ?? operation.context.maxMessages,
         includePinned: operation.context.includePinned,
         perViewer: operation.context.perViewer,
+        requireOthers: operation.context.requireOthers,
         from: window.from,
         to: window.to,
+        retrieval: window.retrieval,
+        subjectUserId: window.subjectUserId,
+        anchorMessageId: window.anchorMessageId,
+        teaSessionId: window.teaSessionId,
+        cacheSeed: window.cacheSeed,
       });
     } catch (error) {
       // For most operations an empty window is an error. For What Did I Miss
@@ -168,16 +192,18 @@ Deno.serve(async (req) => {
     // The caller's own name, read server-side rather than accepted from the
     // body. A client-supplied name would let anyone put arbitrary text into
     // the prompt, which is the cheapest prompt-injection surface there is.
-    const { data: me } = await clients.asUser
-      .from('profiles')
-      .select('display_name')
-      .eq('id', clients.userId)
-      .maybeSingle();
+    // Skipped for the scheduler — there is no "you" in a group-level award.
+    let viewerName = 'you';
+    if (clients.userId) {
+      const { data: me } = await clients.asUser
+        .from('profiles')
+        .select('display_name')
+        .eq('id', clients.userId)
+        .maybeSingle();
+      viewerName = (me as { display_name?: string } | null)?.display_name ?? 'you';
+    }
 
-    const promptParams = {
-      ...params,
-      viewerName: (me as { display_name?: string } | null)?.display_name ?? 'you',
-    };
+    const promptParams = { ...params, viewerName };
 
     const provider = getProvider();
     const completion = await provider.complete({
@@ -241,6 +267,19 @@ Deno.serve(async (req) => {
       if (daily) await upsertDailyRecap(clients.asService, groupId, daily);
     }
 
+    // The general persistence hook. Uses the service-role client so an
+    // operation can write to a table clients may read but never write —
+    // a Tea report has to come from the server that generated it.
+    if (operation.persistResult) {
+      await operation.persistResult({
+        db: clients.asService,
+        groupId,
+        userId: clients.userId,
+        params,
+        result,
+      });
+    }
+
     await recordUsage(clients.asService, {
       userId: clients.userId,
       groupId,
@@ -263,6 +302,8 @@ Deno.serve(async (req) => {
     // Failures are logged to the ledger too, so a provider outage is visible
     // as a pattern rather than only as user complaints. Best-effort: we only
     // have somewhere to write it once auth has succeeded.
+    const code = error instanceof GCAIError ? error.code : 'internal';
+
     if (clients && groupId && operationName) {
       await recordUsage(clients.asService, {
         userId: clients.userId,
@@ -270,8 +311,19 @@ Deno.serve(async (req) => {
         operation: operationName,
         cacheHit: false,
         latencyMs: Date.now() - startedAt,
-        errorCode: error instanceof GCAIError ? error.code : 'internal',
+        errorCode: code,
       });
+
+      // Let the operation mark its own record as failed, so the feature can
+      // offer a retry instead of the work silently disappearing. Best-effort:
+      // a failure here must not replace the original error.
+      if (operation?.persistFailure) {
+        try {
+          await operation.persistFailure({ db: clients.asService, groupId, params, code });
+        } catch (persistError) {
+          console.error(`[gc-ai] persistFailure failed: ${String(persistError)}`);
+        }
+      }
     }
     return errorResponse(error, CORS);
   }

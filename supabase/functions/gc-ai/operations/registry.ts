@@ -2,6 +2,9 @@ import { GCAIError } from '../errors.ts';
 import { testSummaryOperation } from './testSummary.ts';
 import { whatDidIMissOperation } from './whatDidIMiss.ts';
 import { dailyRecapOperation } from './dailyRecap.ts';
+import { gcCommandOperation } from './gcCommand.ts';
+import { teaReportOperation } from './teaReport.ts';
+import { weeklyAwardsOperation } from './weeklyAwards.ts';
 import type { AIOperation } from './types.ts';
 
 /**
@@ -14,13 +17,15 @@ import type { AIOperation } from './types.ts';
  * forgetting) a security check.
  *
  * Planned, not yet built:
- *   tea_summary · explain_lore · find_receipt
- *   gc_command · gc_awards · gc_dna · member_personality
+ *   explain_lore · find_receipt · gc_dna · member_personality
  */
 const OPERATIONS = new Map<string, AIOperation<unknown>>([
   [testSummaryOperation.name, testSummaryOperation as AIOperation<unknown>],
   [whatDidIMissOperation.name, whatDidIMissOperation as AIOperation<unknown>],
   [dailyRecapOperation.name, dailyRecapOperation as AIOperation<unknown>],
+  [gcCommandOperation.name, gcCommandOperation as AIOperation<unknown>],
+  [teaReportOperation.name, teaReportOperation as AIOperation<unknown>],
+  [weeklyAwardsOperation.name, weeklyAwardsOperation as AIOperation<unknown>],
 ]);
 
 export function getOperation(name: unknown): AIOperation<unknown> {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2.58.0';
 import type { GCContext } from '../context/buildGCContext.ts';
+import type { RetrievalPlan } from '../context/retrieval.ts';
 
 /**
  * What every GC AI feature implements.
@@ -23,6 +24,11 @@ export type AIOperation<TResult = unknown> = {
     /** Resolve which messages in the window are pinned. */
     includePinned?: boolean;
     /**
+     * A window with none of other people's messages counts as empty. Set by
+     * operations about what someone missed — their own messages can't be it.
+     */
+    requireOthers?: boolean;
+    /**
      * Scope cached results to the requesting user. Set when the output is
      * personal — otherwise two members hitting the same window would share a
      * result written to address one of them.
@@ -32,6 +38,12 @@ export type AIOperation<TResult = unknown> = {
 
   /** Overrides the global cache TTL where an operation ages differently. */
   readonly cacheTtlSeconds?: number;
+
+  /**
+   * Per-user hourly ceiling for this operation specifically. Omit to use the
+   * global default. The per-group ceiling always applies on top.
+   */
+  readonly perUserPerHour?: number;
 
   /**
    * Decide the window from server-side state instead of a fixed lookback.
@@ -44,9 +56,10 @@ export type AIOperation<TResult = unknown> = {
   resolveWindow?(args: {
     db: SupabaseClient;
     groupId: string;
-    userId: string;
+    /** Null only for the scheduler's system calls (see auth.ts). */
+    userId: string | null;
     params: OperationParams;
-  }): Promise<{ from?: string; to?: string }>;
+  }): Promise<ResolvedWindow>;
 
   /**
    * What to return when the window holds nothing.
@@ -87,6 +100,38 @@ export type AIOperation<TResult = unknown> = {
     params: OperationParams
   ): { date: string; row: Record<string, unknown> } | null;
 
+  /**
+   * Write the finished result wherever this operation keeps it.
+   *
+   * The general form of the two narrower hooks above (which predate it and
+   * still serve their own tables). Given the service-role client, so an
+   * operation can write to a table the client is deliberately not allowed to
+   * write to itself — a Tea report must come from the server that generated
+   * it, never from whoever happened to ask for it.
+   *
+   * Called only on a freshly generated result, never on a cache hit.
+   */
+  persistResult?(args: {
+    db: SupabaseClient;
+    groupId: string;
+    userId: string | null;
+    params: OperationParams;
+    result: TResult;
+  }): Promise<void>;
+
+  /**
+   * Record that generation failed, so a failure is a state the feature can
+   * show and retry from rather than a silent nothing.
+   */
+  persistFailure?(args: {
+    db: SupabaseClient;
+    /** Always available, even when resolveWindow itself is what threw — a
+     *  failure record needs to be locatable regardless of which step failed. */
+    groupId: string;
+    params: OperationParams;
+    code: string;
+  }): Promise<void>;
+
   /** Server-side only — never shipped to the client. */
   buildSystemPrompt(): string;
   buildPrompt(ctx: GCContext, params: OperationParams): string;
@@ -104,6 +149,39 @@ export type AIOperation<TResult = unknown> = {
 
 /** Caller-supplied, operation-specific arguments. Always validated. */
 export type OperationParams = Record<string, unknown>;
+
+/**
+ * What context one request needs, decided per-request rather than per-operation.
+ *
+ * @gc is the reason this isn't just `{from, to}`: "what happened today" and
+ * "when did we decide Goa" are the same operation but want completely
+ * different windows, and the question text has to reach the cache key or two
+ * questions over one conversation would collide on a single cached answer.
+ */
+export type ResolvedWindow = {
+  from?: string;
+  to?: string;
+  /** Overrides the operation's static `context.maxMessages` for this request. */
+  maxMessages?: number;
+  /** Search the whole history and merge the best matches into the window. */
+  retrieval?: RetrievalPlan;
+  /** Centre the window on this message and its neighbours. */
+  anchorMessageId?: string;
+  /** Restrict the window to exactly one Tea session's messages. */
+  teaSessionId?: string;
+  /** Pull this person's own messages into the window, by authorship. */
+  subjectUserId?: string;
+  /** Extra text folded into the cache fingerprint. */
+  cacheSeed?: string;
+  /**
+   * Server-computed data merged into `params` before buildPrompt/validate run
+   * — for objective numbers an operation computed itself and needs the model
+   * (or its own validation) to see, without asking Gemini to compute them.
+   * Weekly Awards is the reason this exists: message/reaction/reply counts
+   * come from SQL, never from the model's arithmetic.
+   */
+  extraParams?: Record<string, unknown>;
+};
 
 /**
  * Every operation's output carries the message ids that justify it.

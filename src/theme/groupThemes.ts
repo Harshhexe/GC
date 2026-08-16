@@ -34,3 +34,20 @@ const byKey = new Map(GROUP_THEMES.map((t) => [t.key, t]));
 export function groupTheme(key?: string | null): GroupTheme {
   return byKey.get((key ?? 'violet') as GroupThemeKey) ?? GROUP_THEMES[0];
 }
+
+/**
+ * The temporary look while a Tea session is running — hot amber over the
+ * group's usual palette, so the chat reads as "something is happening" the
+ * moment you open it.
+ *
+ * Deliberately a GroupTheme like any other rather than a parallel styling
+ * path: everything downstream already themes off this object, so Tea Mode
+ * changes one value instead of every component. It is never persisted, so a
+ * group's chosen theme is untouched and returns the instant Tea ends.
+ */
+export const TEA_THEME: GroupTheme = {
+  key: 'sunset',
+  name: 'Tea',
+  colors: ['#F59E0B', '#EF4444'],
+  accent: '#FBBF24',
+};

@@ -28,6 +28,14 @@ export type NormalizedMessage = {
   senderId: string | null;
   timestamp: string;
   text: string;
+  /**
+   * Sent by the person this context is being built for.
+   *
+   * Kept rather than filtered out because a reply reads as nonsense without
+   * the message it answered — but an operation about what someone *missed*
+   * must never report these back to them as news.
+   */
+  isOwn?: boolean;
   /** Who this replies to, by display name — enough to follow a thread. */
   replyTo?: { id: string; sender: string };
   mentions?: string[];
@@ -75,7 +83,8 @@ export function normalizeMessages(
   rows: MessageRow[],
   nameById: Map<string, string>,
   reactionsByMessage: Map<string, number>,
-  hiddenIds: ReadonlySet<string>
+  hiddenIds: ReadonlySet<string>,
+  viewerId?: string
 ): NormalizedMessage[] {
   const byId = new Map(rows.map((r) => [r.id, r]));
   const nameFor = (id: string | null) =>
@@ -99,6 +108,8 @@ export function normalizeMessages(
       timestamp: row.created_at,
       text,
     };
+
+    if (viewerId && row.author_id === viewerId) message.isOwn = true;
 
     if (media) message.media = media;
 
@@ -141,7 +152,10 @@ function clockTime(iso: string): string {
 export function renderTranscript(messages: NormalizedMessage[]): string {
   return messages
     .map((m) => {
-      const head = `[${clockTime(m.timestamp)}] ${m.sender} (id:${m.id})`;
+      // Marked inline so the model can tell, line by line, which messages
+      // belong to the person it's writing for.
+      const own = m.isOwn ? ' [THE READER]' : '';
+      const head = `[${clockTime(m.timestamp)}] ${m.sender}${own} (id:${m.id})`;
       const reply = m.replyTo ? ` ↩ replying to ${m.replyTo.sender} (id:${m.replyTo.id})` : '';
       const media = m.media ? ` ${m.media}` : '';
       const reactions = m.reactionCount ? ` [${m.reactionCount} reactions]` : '';

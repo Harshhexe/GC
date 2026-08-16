@@ -8,11 +8,17 @@ import { GCAIError } from './errors.ts';
  * who they are and what they may see. `asService` bypasses RLS and is used
  * only after membership has been established, for the cache and usage tables
  * the client must never touch directly.
+ *
+ * `userId` is null only for the trusted scheduler path (see `authenticate`):
+ * a weekly award belongs to the group, not to whoever happened to trigger the
+ * cron tick, so there is no real "requesting user" to attribute it to.
  */
 export type Clients = {
   asUser: SupabaseClient;
   asService: SupabaseClient;
-  userId: string;
+  userId: string | null;
+  /** True only for the trusted internal scheduler — never settable by a client. */
+  isSystem: boolean;
 };
 
 export async function authenticate(req: Request): Promise<Clients> {
@@ -22,6 +28,22 @@ export async function authenticate(req: Request): Promise<Clients> {
 
   if (!url || !anonKey || !serviceKey) {
     throw new GCAIError('internal', 'Supabase environment is not configured');
+  }
+
+  const asService = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // The scheduler's own secret, checked in addition to (never instead of) the
+  // platform's own JWT gate on this endpoint — pg_cron sends the service-role
+  // key as the Authorization header to get past that gate, and this header
+  // separately proves the call is really our own weekly job and not just
+  // anyone who obtained a service key. Constant-time compare: this is a
+  // secret-equality check, and a timing side-channel would defeat the point.
+  const cronSecret = Deno.env.get('GC_AI_CRON_SECRET');
+  const provided = req.headers.get('x-cron-secret');
+  if (cronSecret && provided && timingSafeEqual(cronSecret, provided)) {
+    return { asUser: asService, asService, userId: null, isSystem: true };
   }
 
   const authHeader = req.headers.get('Authorization');
@@ -41,11 +63,14 @@ export async function authenticate(req: Request): Promise<Clients> {
     throw new GCAIError('unauthorized', error?.message ?? 'Invalid session');
   }
 
-  const asService = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  return { asUser, asService, userId: data.user.id, isSystem: false };
+}
 
-  return { asUser, asService, userId: data.user.id };
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 /**
@@ -54,6 +79,10 @@ export async function authenticate(req: Request): Promise<Clients> {
  * Checked explicitly rather than leaned on implicitly: RLS would already stop
  * them reading another group's messages, but this turns a silently empty
  * context into a clear 403, and it runs *before* any provider spend.
+ *
+ * Skipped for the system caller — it isn't impersonating a member, and
+ * `group_id` in that path only ever comes from our own scheduler's query over
+ * real groups, never from external input. A cheap existence check stands in.
  */
 export async function assertGroupMembership(
   clients: Clients,
@@ -61,6 +90,17 @@ export async function assertGroupMembership(
 ): Promise<string> {
   if (typeof groupId !== 'string' || !groupId) {
     throw new GCAIError('invalid_request', 'groupId is required');
+  }
+
+  if (clients.isSystem) {
+    const { data, error } = await clients.asService
+      .from('groups')
+      .select('id')
+      .eq('id', groupId)
+      .maybeSingle();
+    if (error) throw new GCAIError('internal', `Group lookup failed: ${error.message}`);
+    if (!data) throw new GCAIError('group_not_found', 'No such group');
+    return groupId;
   }
 
   const { data, error } = await clients.asUser

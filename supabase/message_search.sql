@@ -1,0 +1,17 @@
+-- Historical retrieval for @gc.
+--
+-- Replaces an `ilike '%term%'` scan, which could not use an index and so read
+-- every message in the group on every question. At 50k messages that is the
+-- difference between a query and an outage.
+--
+-- Two lexical signals, both in-database and both free:
+--   * full-text search  — stems English ("planned" matches "planning")
+--   * trigram similarity — fuzzy/partial, and carries the Hinglish and
+--     misspelled words that English stemming has no idea about
+--
+-- pgvector is available but deliberately not used yet: it would need an
+-- embedding service and a backfill, and the retrieval interface is shaped so
+-- a semantic leg can be merged in later without changing callers.
+--
+-- Applied as migrations `message_search_retrieval` and `message_neighbourhoods`.
+-- Full definitions live in those migrations; this file documents the design.

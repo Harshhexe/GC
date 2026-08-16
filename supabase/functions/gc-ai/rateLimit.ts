@@ -17,17 +17,30 @@ const WINDOW_MS = 60 * 60 * 1000;
  */
 export async function assertWithinRateLimits(
   db: SupabaseClient,
-  params: { userId: string; groupId: string; operation: string }
+  params: {
+    userId: string | null;
+    groupId: string;
+    operation: string;
+    /** Operation-specific per-user ceiling; falls back to the global one. */
+    perUserPerHour?: number;
+  }
 ): Promise<void> {
   const since = new Date(Date.now() - WINDOW_MS).toISOString();
 
+  // No per-user check for the scheduler (userId is null there): the weekly
+  // job can legitimately fire for many groups within the same minute, and
+  // that isn't the kind of runaway loop the per-user limit exists to catch.
+  // The per-group limit still applies — one group still can't be regenerated
+  // in a loop — so cost stays bounded either way.
   const [byUser, byGroup] = await Promise.all([
-    db
-      .from('ai_usage')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', params.userId)
-      .eq('operation', params.operation)
-      .gte('created_at', since),
+    params.userId
+      ? db
+          .from('ai_usage')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', params.userId)
+          .eq('operation', params.operation)
+          .gte('created_at', since)
+      : Promise.resolve({ count: 0, error: null }),
     db
       .from('ai_usage')
       .select('id', { count: 'exact', head: true })
@@ -44,7 +57,8 @@ export async function assertWithinRateLimits(
     return;
   }
 
-  if ((byUser.count ?? 0) >= config.limits.requestsPerUserPerHour) {
+  const userCeiling = params.perUserPerHour ?? config.limits.requestsPerUserPerHour;
+  if (params.userId && (byUser.count ?? 0) >= userCeiling) {
     throw new GCAIError('rate_limited', 'Per-user hourly limit reached', 600);
   }
   if ((byGroup.count ?? 0) >= config.limits.requestsPerGroupPerHour) {
@@ -59,7 +73,7 @@ export async function assertWithinRateLimits(
 export async function recordUsage(
   db: SupabaseClient,
   row: {
-    userId: string;
+    userId: string | null;
     groupId: string;
     operation: string;
     model?: string | null;

@@ -18,19 +18,25 @@ export function MentionSuggestions({
   visible,
   members,
   showEveryone,
+  showGC,
   accentColor,
   onSelectMember,
   onSelectEveryone,
+  onSelectGC,
 }: {
   visible: boolean;
   members: GroupMember[];
   /** Show the "@everyone" row above the member list. */
   showEveryone: boolean;
+  /** Show the "@gc" AI row. Not a member — it routes the message to the AI
+   *  instead of mentioning anyone. */
+  showGC?: boolean;
   accentColor: string;
   onSelectMember: (member: GroupMember) => void;
   onSelectEveryone: () => void;
+  onSelectGC?: () => void;
 }) {
-  if (!visible || (members.length === 0 && !showEveryone)) return null;
+  if (!visible || (members.length === 0 && !showEveryone && !showGC)) return null;
 
   return (
     <Animated.View
@@ -45,16 +51,34 @@ export function MentionSuggestions({
         keyboardShouldPersistTaps="handled"
         style={styles.list}
         ListHeaderComponent={
-          showEveryone ? (
-            <PressableScale style={styles.row} scaleTo={0.98} haptic="light" onPress={onSelectEveryone}>
-              <View style={[styles.everyoneIcon, { backgroundColor: `${accentColor}26` }]}>
-                <Ionicons name="megaphone" size={18} color={accentColor} />
-              </View>
-              <View style={styles.rowCopy}>
-                <Text style={styles.rowName}>everyone</Text>
-                <Text style={styles.rowMeta}>Notify the whole GC</Text>
-              </View>
-            </PressableScale>
+          showGC || showEveryone ? (
+            <View>
+              {/* GC sits at the top: it's the only row that does something
+                  other than mention a person, and it's what someone typing
+                  "@g" is usually reaching for. */}
+              {showGC && !!onSelectGC && (
+                <PressableScale style={styles.row} scaleTo={0.98} haptic="light" onPress={onSelectGC}>
+                  <View style={[styles.everyoneIcon, { backgroundColor: `${accentColor}26` }]}>
+                    <Ionicons name="sparkles" size={17} color={accentColor} />
+                  </View>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowName}>gc</Text>
+                    <Text style={styles.rowMeta}>Ask GC AI anything about this chat</Text>
+                  </View>
+                </PressableScale>
+              )}
+              {showEveryone && (
+                <PressableScale style={styles.row} scaleTo={0.98} haptic="light" onPress={onSelectEveryone}>
+                  <View style={[styles.everyoneIcon, { backgroundColor: `${accentColor}26` }]}>
+                    <Ionicons name="megaphone" size={18} color={accentColor} />
+                  </View>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowName}>everyone</Text>
+                    <Text style={styles.rowMeta}>Notify the whole GC</Text>
+                  </View>
+                </PressableScale>
+              )}
+            </View>
           ) : null
         }
         renderItem={({ item }) => (

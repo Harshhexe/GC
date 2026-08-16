@@ -24,6 +24,12 @@ import { useGroupRecap } from '../hooks/useGroupRecap';
 import { useWhatDidIMiss } from '../hooks/useWhatDidIMiss';
 import { useMissedRecapHistory, type MissedRecapEntry } from '../hooks/useMissedRecapHistory';
 import { useDailyRecapHistory } from '../hooks/useDailyRecapHistory';
+import { useTodaysTea } from '../hooks/useTodaysTea';
+import { TeaReportModal } from '../components/TeaReportModal';
+import type { TeaSession } from '../hooks/useTeaSession';
+import { useWeeklyAwards } from '../hooks/useWeeklyAwards';
+import { GCAwardsModal } from '../components/GCAwardsModal';
+import type { WeeklyAwardsResult } from '../lib/ai';
 import { AIThinking, AIErrorState } from '../components/ui/AIState';
 import { DailyRecapModal } from '../components/DailyRecapModal';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +39,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WhatDidIMiss'>;
+type MissedTab = 'missed' | 'tea' | 'pulse';
+
+const TABS: { id: MissedTab; label: string }[] = [
+  { id: 'missed', label: 'Missed' },
+  { id: 'tea', label: 'Tea' },
+  { id: 'pulse', label: 'Stats' },
+];
 
 function Section({
   icon,
@@ -196,6 +209,49 @@ function DailyRecapRow({ entry, onPress }: { entry: DailyRecapResult; onPress: (
   );
 }
 
+function weekRangeLabel(weekStart: string, weekEnd: string): string {
+  const start = new Date(`${weekStart}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const end = new Date(`${weekEnd}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${start} – ${end}`;
+}
+
+function WeeklyAwardsRow({
+  result,
+  isThisWeek,
+  onPress,
+}: {
+  result: WeeklyAwardsResult;
+  isThisWeek: boolean;
+  onPress: () => void;
+}) {
+  const topAward = result.awards[0];
+  return (
+    <PressableScale style={styles.awardsRow} scaleTo={0.98} haptic="light" onPress={onPress}>
+      <Text style={styles.awardsRowEmoji}>
+        {result.status === 'generating' ? '⏳' : result.status === 'failed' ? '💀' : '🏆'}
+      </Text>
+      <View style={styles.dailyRowCopy}>
+        <Text style={styles.awardsRowTitle} numberOfLines={1}>
+          {isThisWeek ? "This Week's Awards" : weekRangeLabel(result.weekStart, result.weekEnd)}
+        </Text>
+        <Text style={styles.dailyRowMeta} numberOfLines={1}>
+          {result.status === 'generating'
+            ? 'Judging...'
+            : result.status === 'failed'
+              ? 'Retrying automatically'
+              : // GC's own headline for the week beats a generic "top award"
+                // line — it's the thing the AI actually wants said about the week.
+                result.title ||
+                (topAward
+                  ? `${topAward.emoji} ${topAward.title}: ${topAward.userName}`
+                  : 'Not enough activity for awards')}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+    </PressableScale>
+  );
+}
+
 function StatRow({ label, value, meta }: { label: string; value: string; meta: string }) {
   return (
     <View style={styles.statRow}>
@@ -222,8 +278,16 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   );
   const history = useMissedRecapHistory(groupId);
   const dailyHistory = useDailyRecapHistory(groupId);
+  const todaysTea = useTodaysTea(groupId);
+  const weeklyAwards = useWeeklyAwards(groupId);
   const [openDailyRecap, setOpenDailyRecap] = useState<DailyRecapResult | null>(null);
+  const [openTea, setOpenTea] = useState<TeaSession | null>(null);
+  const [openAwards, setOpenAwards] = useState<WeeklyAwardsResult | null>(null);
   const ai = useWhatDidIMiss(groupId);
+
+  const [activeTab, setActiveTab] = useState<MissedTab>(
+    focusSection === 'missedElevenEleven' ? 'pulse' : 'missed'
+  );
 
   const scrollRef = useRef<ScrollView>(null);
   const elevenElevenYRef = useRef<number | null>(null);
@@ -231,6 +295,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     if (focusSection === 'missedElevenEleven') {
+      setActiveTab('pulse');
       const timer = setTimeout(() => {
         if (elevenElevenYRef.current != null) {
           scrollRef.current?.scrollTo({ y: Math.max(0, elevenElevenYRef.current - 40), animated: true });
@@ -257,6 +322,11 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   const jumpTo = (messageId: string) =>
     navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
 
+  const handleTabChange = (tab: MissedTab) => {
+    setActiveTab(tab);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
   return (
     <View style={styles.root}>
       <AmbientBackground variant="vivid" />
@@ -268,268 +338,403 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           right={<Avatar emoji={profile?.avatar_emoji} imageUrl={profile?.avatar_url} label={profile?.display_name} size={36} />}
         />
 
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Animated.View
-            entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
-            style={styles.hero}
-          >
-            <Text style={styles.heroTitle}>What I{'\n'}Missed</Text>
-            <Text style={styles.heroSub}>
-              Here's the recap of the chaos while you were AFK.
-            </Text>
-          </Animated.View>
+        {/* Compact Hero */}
+        <Animated.View
+          entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
+          style={styles.hero}
+        >
+          <Text style={styles.heroTitle}>What I Missed</Text>
+          <Text style={styles.heroSub}>
+            Recap of the chaos while you were AFK.
+          </Text>
+        </Animated.View>
 
-          {/* Vibe check */}
-          <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS)
-              .duration(duration.slow)
-              .easing(easing.out)
-              .reduceMotion(reduceMotion)}
-          >
-            <GlassPanel borderRadius={radius.lg} style={styles.vibeCard}>
-              <Text style={styles.vibeLabel}>DAILY VIBE CHECK</Text>
-              <View style={styles.vibePill}>
-                <Text style={styles.vibeValue}>{recap.vibe.label}</Text>
-              </View>
-              <Text style={styles.vibeDetail}>{recap.vibe.detail}</Text>
-            </GlassPanel>
-          </Animated.View>
-
-          {/* The recap stack — every distinct thing you've missed today,
-              newest first. Old cards never disappear just because a new one
-              showed up; they age out after 24h on the server. */}
-          <Section
-            icon="sparkles"
-            iconColor={colors.primary}
-            title="What You Missed"
-            delay={STAGGER_MS * 2}
-            trailing={
-              // A quiet "checking" pulse rather than the full thinking state —
-              // there's already content on screen, this shouldn't feel like a
-              // reload of it.
-              ai.loading ? <Ionicons name="sync" size={14} color={colors.outline} /> : undefined
+        {/* Segmented Control Track */}
+        <View style={styles.tabTrack}>
+          {TABS.map((t) => {
+            const isActive = activeTab === t.id;
+            let badgeCount: string | undefined;
+            if (t.id === 'missed' && recap.mentions.length > 0) {
+              badgeCount = String(recap.mentions.length);
+            } else if (t.id === 'tea' && todaysTea.sessions.length > 0) {
+              badgeCount = String(todaysTea.sessions.length);
+            } else if (t.id === 'pulse' && recap.missedElevenEleven.length > 0) {
+              badgeCount = String(recap.missedElevenEleven.length);
             }
-          >
-            {history.loading ? (
-              <AIThinking />
-            ) : history.entries.length > 0 ? (
-              <View style={styles.aiBody}>
-                {history.entries.map((entry, i) => (
-                  <RecapCard
-                    key={entry.id}
-                    entry={entry}
-                    onJump={jumpTo}
-                    isLast={i === history.entries.length - 1}
-                  />
-                ))}
-              </View>
-            ) : ai.loading ? (
-              <AIThinking />
-            ) : ai.error ? (
-              <AIErrorState error={ai.error} onRetry={ai.retry} />
-            ) : (
-              <Text style={styles.emptyMentions}>
-                Nothing missed in the last 24h. You're all caught up.
-              </Text>
-            )}
-          </Section>
 
-          {/* Every day this group has had a recap for, not just today's —
-              the chat-feed card disappears after an hour, this is where a
-              day's recap lives permanently. */}
-          <Section
-            icon="calendar"
-            iconColor={colors.tertiary}
-            title="Recaps"
-            delay={STAGGER_MS * 2.5}
-          >
-            {dailyHistory.loading ? (
-              <AIThinking />
-            ) : dailyHistory.entries.length === 0 ? (
-              <Text style={styles.emptyMentions}>
-                No daily recaps yet — check back after the day's first one lands.
-              </Text>
-            ) : (
-              <View style={styles.dailyList}>
-                {dailyHistory.entries.map((entry) => (
-                  <DailyRecapRow
-                    key={entry.date}
-                    entry={entry}
-                    onPress={() => setOpenDailyRecap(entry)}
-                  />
-                ))}
-              </View>
-            )}
-          </Section>
-
-          {/* Stats */}
-          <Section
-            icon="stats-chart"
-            iconColor={colors.primary}
-            title="Group Stats"
-            delay={STAGGER_MS * 3}
-          >
-            <StatRow
-              label="TOTAL HYPE"
-              value={loading ? '—' : String(recap.totalToday)}
-              meta="messages in the last 24h"
-            />
-            <StatRow
-              label="TOP VIBE SETTER"
-              value={recap.topSender ? recap.topSender.name : '—'}
-              meta={
-                recap.topSender
-                  ? `${recap.topSender.count} message${recap.topSender.count === 1 ? '' : 's'}`
-                  : 'nobody spoke'
-              }
-            />
-            <StatRow
-              label="PEAK CHAOS"
-              value={recap.peakHour ? recap.peakHour.label : '—'}
-              meta={
-                recap.peakHour
-                  ? `${recap.peakHour.count} message${recap.peakHour.count === 1 ? '' : 's'} that hour`
-                  : 'no peak'
-              }
-            />
-          </Section>
-
-          {/* Mentions */}
-          <Section
-            icon="at"
-            iconColor={colors.secondary}
-            title="Mentioned You Today"
-            delay={STAGGER_MS * 4}
-            trailing={
-              recap.mentions.length > 0 ? (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{recap.mentions.length}</Text>
-                </View>
-              ) : undefined
-            }
-          >
-            {recap.mentions.length === 0 ? (
-              <Text style={styles.emptyMentions}>
-                Nobody @'d you today. Free of obligations, free of relevance.
-              </Text>
-            ) : (
-              recap.mentions.map((m) => (
-                <PressableScale
-                  key={m.id}
-                  style={styles.mention}
-                  scaleTo={0.98}
-                  haptic="light"
-                  onPress={() => navigation.navigate('Chat', { groupId, jumpToMessageId: m.id })}
-                >
-                  <View style={styles.mentionHead}>
-                    <Avatar
-                      emoji={m.authorEmoji}
-                      imageUrl={m.authorAvatarUrl}
-                      label={m.authorName}
-                      size={26}
-                      ring={false}
-                      ringColors={[m.authorColor, m.authorColor]}
-                    />
-                    <Text style={[styles.mentionName, { color: m.authorColor }]}>
-                      {m.authorName}
+            return (
+              <PressableScale
+                key={t.id}
+                scaleTo={0.97}
+                haptic="light"
+                onPress={() => handleTabChange(t.id)}
+                style={[styles.tab, isActive && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {t.label}
+                </Text>
+                {!!badgeCount && (
+                  <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                    <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                      {badgeCount}
                     </Text>
-                    <View style={styles.spacer} />
-                    <Text style={styles.mentionTime}>{clockTime(m.createdAt)}</Text>
-                    <Ionicons name="chevron-forward" size={14} color={colors.outline} />
                   </View>
-                  <Text style={styles.mentionText} numberOfLines={3}>
-                    {m.text}
-                  </Text>
-                </PressableScale>
-              ))
-            )}
-          </Section>
+                )}
+              </PressableScale>
+            );
+          })}
+        </View>
 
-          {/* Who Missed 11:11 */}
-          <Section
-            icon="alarm-outline"
-            iconColor={colors.yellow}
-            title="Who Missed 11:11 Today"
-            delay={STAGGER_MS * 4.5}
-            onLayout={(e) => {
-              elevenElevenYRef.current = e.nativeEvent.layout.y;
-            }}
-            highlighted={highlight1111}
-            trailing={
-              recap.missedElevenEleven.length > 0 ? (
-                <View style={[styles.countBadge, { backgroundColor: colors.yellow }]}>
-                  <Text style={[styles.countBadgeText, { color: colors.bg }]}>
-                    {recap.missedElevenEleven.length}
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* TAB 1: MISSED (Vibe, AI Highlights & Mentions) */}
+          {activeTab === 'missed' && (
+            <>
+              {/* Vibe check */}
+              <Animated.View
+                entering={FadeInDown.delay(STAGGER_MS)
+                  .duration(duration.slow)
+                  .easing(easing.out)
+                  .reduceMotion(reduceMotion)}
+              >
+                <GlassPanel borderRadius={radius.lg} style={styles.vibeCard}>
+                  <Text style={styles.vibeLabel}>DAILY VIBE CHECK</Text>
+                  <View style={styles.vibePill}>
+                    <Text style={styles.vibeValue}>{recap.vibe.label}</Text>
+                  </View>
+                  <Text style={styles.vibeDetail}>{recap.vibe.detail}</Text>
+                </GlassPanel>
+              </Animated.View>
+
+              {/* The recap stack */}
+              <Section
+                icon="sparkles"
+                iconColor={colors.primary}
+                title="What You Missed"
+                delay={STAGGER_MS * 2}
+                trailing={
+                  ai.loading ? <Ionicons name="sync" size={14} color={colors.outline} /> : undefined
+                }
+              >
+                {history.loading ? (
+                  <AIThinking />
+                ) : history.entries.length > 0 ? (
+                  <View style={styles.aiBody}>
+                    {history.entries.map((entry, i) => (
+                      <RecapCard
+                        key={entry.id}
+                        entry={entry}
+                        onJump={jumpTo}
+                        isLast={i === history.entries.length - 1}
+                      />
+                    ))}
+                  </View>
+                ) : ai.loading ? (
+                  <AIThinking />
+                ) : ai.error ? (
+                  <AIErrorState error={ai.error} onRetry={ai.retry} />
+                ) : (
+                  <Text style={styles.emptyMentions}>
+                    Nothing missed in the last 24h. You're all caught up! ✨
                   </Text>
-                </View>
-              ) : undefined
-            }
-          >
-            {recap.missedElevenEleven.length === 0 ? (
-              <Text style={styles.emptyMentions}>
-                Everyone made a wish at 11:11 today! ✨ Pure perfection.
-              </Text>
-            ) : (
-              recap.missedElevenEleven.map((item) => (
-                <View key={item.id} style={styles.missedCard}>
-                  <View style={styles.missedHead}>
-                    <Avatar
-                      emoji={item.authorEmoji}
-                      imageUrl={item.authorAvatarUrl}
-                      label={item.authorName}
-                      size={32}
-                      ring={false}
-                      ringColors={[item.authorColor, item.authorColor]}
-                    />
-                    <View style={styles.missedAuthorInfo}>
-                      <Text style={[styles.mentionName, { color: item.authorColor }]}>
-                        {item.authorName}
-                      </Text>
-                      <Text style={styles.missedSubtitle}>
-                        {item.status === 'yapping'
-                          ? `Too busy typing at ${item.timeLabel} today`
-                          : `Didn't make a wish today 💤`}
-                      </Text>
+                )}
+              </Section>
+
+              {/* Mentions */}
+              <Section
+                icon="at"
+                iconColor={colors.secondary}
+                title="Mentioned You Today"
+                delay={STAGGER_MS * 3}
+                trailing={
+                  recap.mentions.length > 0 ? (
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>{recap.mentions.length}</Text>
                     </View>
-                    <View style={styles.spacer} />
-                    <View
-                      style={[
-                        styles.timeTag,
-                        item.status === 'silent' && {
-                          backgroundColor: 'rgba(255, 107, 107, 0.15)',
-                          borderColor: 'rgba(255, 107, 107, 0.35)',
-                        },
-                      ]}
+                  ) : undefined
+                }
+              >
+                {recap.mentions.length === 0 ? (
+                  <Text style={styles.emptyMentions}>
+                    Nobody @'d you today. Free of obligations, free of relevance.
+                  </Text>
+                ) : (
+                  recap.mentions.map((m) => (
+                    <PressableScale
+                      key={m.id}
+                      style={styles.mention}
+                      scaleTo={0.98}
+                      haptic="light"
+                      onPress={() => navigation.navigate('Chat', { groupId, jumpToMessageId: m.id })}
                     >
-                      <Text
-                        style={[
-                          styles.timeTagText,
-                          item.status === 'silent' && { color: '#FF6B6B' },
-                        ]}
-                      >
-                        {item.status === 'yapping' ? item.timeLabel : 'MISSED'}
+                      <View style={styles.mentionHead}>
+                        <Avatar
+                          emoji={m.authorEmoji}
+                          imageUrl={m.authorAvatarUrl}
+                          label={m.authorName}
+                          size={26}
+                          ring={false}
+                          ringColors={[m.authorColor, m.authorColor]}
+                        />
+                        <Text style={[styles.mentionName, { color: m.authorColor }]}>
+                          {m.authorName}
+                        </Text>
+                        <View style={styles.spacer} />
+                        <Text style={styles.mentionTime}>{clockTime(m.createdAt)}</Text>
+                        <Ionicons name="chevron-forward" size={14} color={colors.outline} />
+                      </View>
+                      <Text style={styles.mentionText} numberOfLines={3}>
+                        {m.text}
                       </Text>
-                    </View>
-                  </View>
-                  {item.status === 'yapping' && !!item.text && (
-                    <View style={styles.missedQuoteBox}>
-                      <Ionicons name="chatbox-ellipses-outline" size={14} color={colors.yellow} />
-                      <Text style={styles.missedMessageText} numberOfLines={2}>
-                        "{item.text}"
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.roastBox}>
-                    <Ionicons name="flame" size={13} color="#FF6B6B" />
-                    <Text style={styles.roastText}>{item.roast}</Text>
-                  </View>
-                </View>
-              ))
-            )}
-          </Section>
+                    </PressableScale>
+                  ))
+                )}
+              </Section>
+            </>
+          )}
 
+          {/* TAB 2: TEA & RECAPS (Today's Tea & Daily Recaps Archive) */}
+          {activeTab === 'tea' && (
+            <>
+              {/* Today's Tea */}
+              <Section
+                icon="cafe"
+                iconColor={colors.yellow}
+                title="Today's Tea"
+                delay={STAGGER_MS}
+                trailing={
+                  todaysTea.sessions.length > 0 ? (
+                    <View style={[styles.countBadge, { backgroundColor: colors.yellow }]}>
+                      <Text style={[styles.countBadgeText, { color: colors.bg }]}>
+                        {todaysTea.sessions.length}
+                      </Text>
+                    </View>
+                  ) : undefined
+                }
+              >
+                {todaysTea.loading ? (
+                  <AIThinking />
+                ) : todaysTea.sessions.length === 0 ? (
+                  <Text style={styles.emptyMentions}>
+                    Nothing has happened yet... unfortunately. 😔
+                  </Text>
+                ) : (
+                  <View style={styles.dailyList}>
+                    {todaysTea.sessions.map((s) => (
+                      <PressableScale
+                        key={s.id}
+                        style={styles.teaRow}
+                        scaleTo={0.98}
+                        haptic="light"
+                        onPress={() => setOpenTea(s)}
+                      >
+                        <Text style={styles.teaRowEmoji}>
+                          {s.status === 'failed' ? '💀' : s.report && s.report.dramaLevel >= 4 ? '🔥' : '🍵'}
+                        </Text>
+                        <View style={styles.dailyRowCopy}>
+                          <Text style={styles.teaRowTitle} numberOfLines={1}>
+                            {s.status === 'completed' && s.report
+                              ? s.report.title
+                              : s.status === 'failed'
+                                ? 'Report failed — tap to retry'
+                                : 'Still brewing...'}
+                          </Text>
+                          <Text style={styles.dailyRowMeta}>
+                            {s.endedAt ? clockTime(s.endedAt) : ''} · Started by {s.startedByName}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+                      </PressableScale>
+                    ))}
+                  </View>
+                )}
+              </Section>
+
+              {/* GC Awards — generated automatically every Sunday, never by
+                  opening this screen. This just reads what already exists. */}
+              <Section
+                icon="trophy"
+                iconColor={colors.yellow}
+                title="GC Awards"
+                delay={STAGGER_MS * 1.5}
+              >
+                {weeklyAwards.loading ? (
+                  <AIThinking />
+                ) : !weeklyAwards.thisWeek && weeklyAwards.previousWeeks.length === 0 ? (
+                  <Text style={styles.emptyMentions}>
+                    First awards land this Sunday at noon. Behave until then. 🏆
+                  </Text>
+                ) : (
+                  <View style={styles.dailyList}>
+                    {weeklyAwards.thisWeek && (
+                      <WeeklyAwardsRow
+                        result={weeklyAwards.thisWeek}
+                        isThisWeek
+                        onPress={() => setOpenAwards(weeklyAwards.thisWeek)}
+                      />
+                    )}
+                    {weeklyAwards.previousWeeks.map((w) => (
+                      <WeeklyAwardsRow
+                        key={`${w.weekStart}-${w.weekEnd}`}
+                        result={w}
+                        isThisWeek={false}
+                        onPress={() => setOpenAwards(w)}
+                      />
+                    ))}
+                  </View>
+                )}
+              </Section>
+
+              {/* Past Daily Recaps */}
+              <Section
+                icon="calendar"
+                iconColor={colors.tertiary}
+                title="Recaps Archive"
+                delay={STAGGER_MS * 2}
+              >
+                {dailyHistory.loading ? (
+                  <AIThinking />
+                ) : dailyHistory.entries.length === 0 ? (
+                  <Text style={styles.emptyMentions}>
+                    No daily recaps yet — check back after the day's first one lands.
+                  </Text>
+                ) : (
+                  <View style={styles.dailyList}>
+                    {dailyHistory.entries.map((entry) => (
+                      <DailyRecapRow
+                        key={entry.date}
+                        entry={entry}
+                        onPress={() => setOpenDailyRecap(entry)}
+                      />
+                    ))}
+                  </View>
+                )}
+              </Section>
+            </>
+          )}
+
+          {/* TAB 3: PULSE & 11:11 (Stats & Missed 11:11 Wall) */}
+          {activeTab === 'pulse' && (
+            <>
+              {/* Stats */}
+              <Section
+                icon="stats-chart"
+                iconColor={colors.primary}
+                title="Group Stats"
+                delay={STAGGER_MS}
+              >
+                <StatRow
+                  label="TOTAL HYPE"
+                  value={loading ? '—' : String(recap.totalToday)}
+                  meta="messages in the last 24h"
+                />
+                <StatRow
+                  label="TOP VIBE SETTER"
+                  value={recap.topSender ? recap.topSender.name : '—'}
+                  meta={
+                    recap.topSender
+                      ? `${recap.topSender.count} message${recap.topSender.count === 1 ? '' : 's'}`
+                      : 'nobody spoke'
+                  }
+                />
+                <StatRow
+                  label="PEAK CHAOS"
+                  value={recap.peakHour ? recap.peakHour.label : '—'}
+                  meta={
+                    recap.peakHour
+                      ? `${recap.peakHour.count} message${recap.peakHour.count === 1 ? '' : 's'} that hour`
+                      : 'no peak'
+                  }
+                />
+              </Section>
+
+              {/* Who Missed 11:11 */}
+              <Section
+                icon="alarm-outline"
+                iconColor={colors.yellow}
+                title="Who Missed 11:11 Today"
+                delay={STAGGER_MS * 2}
+                onLayout={(e) => {
+                  elevenElevenYRef.current = e.nativeEvent.layout.y;
+                }}
+                highlighted={highlight1111}
+                trailing={
+                  recap.missedElevenEleven.length > 0 ? (
+                    <View style={[styles.countBadge, { backgroundColor: colors.yellow }]}>
+                      <Text style={[styles.countBadgeText, { color: colors.bg }]}>
+                        {recap.missedElevenEleven.length}
+                      </Text>
+                    </View>
+                  ) : undefined
+                }
+              >
+                {recap.missedElevenEleven.length === 0 ? (
+                  <Text style={styles.emptyMentions}>
+                    Everyone made a wish at 11:11 today! ✨ Pure perfection.
+                  </Text>
+                ) : (
+                  recap.missedElevenEleven.map((item) => (
+                    <View key={item.id} style={styles.missedCard}>
+                      <View style={styles.missedHead}>
+                        <Avatar
+                          emoji={item.authorEmoji}
+                          imageUrl={item.authorAvatarUrl}
+                          label={item.authorName}
+                          size={32}
+                          ring={false}
+                          ringColors={[item.authorColor, item.authorColor]}
+                        />
+                        <View style={styles.missedAuthorInfo}>
+                          <Text style={[styles.mentionName, { color: item.authorColor }]}>
+                            {item.authorName}
+                          </Text>
+                          <Text style={styles.missedSubtitle}>
+                            {item.status === 'yapping'
+                              ? `Too busy typing at ${item.timeLabel} today`
+                              : `Didn't make a wish today 💤`}
+                          </Text>
+                        </View>
+                        <View style={styles.spacer} />
+                        <View
+                          style={[
+                            styles.timeTag,
+                            item.status === 'silent' && {
+                              backgroundColor: 'rgba(255, 107, 107, 0.15)',
+                              borderColor: 'rgba(255, 107, 107, 0.35)',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.timeTagText,
+                              item.status === 'silent' && { color: '#FF6B6B' },
+                            ]}
+                          >
+                            {item.status === 'yapping' ? item.timeLabel : 'MISSED'}
+                          </Text>
+                        </View>
+                      </View>
+                      {item.status === 'yapping' && !!item.text && (
+                        <View style={styles.missedQuoteBox}>
+                          <Ionicons name="chatbox-ellipses-outline" size={14} color={colors.yellow} />
+                          <Text style={styles.missedMessageText} numberOfLines={2}>
+                            "{item.text}"
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.roastBox}>
+                        <Ionicons name="flame" size={13} color="#FF6B6B" />
+                        <Text style={styles.roastText}>{item.roast}</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </Section>
+            </>
+          )}
+
+          {/* Jump to Chat CTA */}
           <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS * 5.5)
+            entering={FadeInDown.delay(STAGGER_MS * 3.5)
               .duration(duration.slow)
               .easing(easing.out)
               .reduceMotion(reduceMotion)}
@@ -544,6 +749,32 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
+
+      <TeaReportModal
+        visible={openTea !== null}
+        session={openTea}
+        onClose={() => setOpenTea(null)}
+        onJumpToMessage={(messageId) => {
+          setOpenTea(null);
+          navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+        }}
+        // Retrying from here has no live session hook; the chat screen owns
+        // that. Send them there rather than silently doing nothing.
+        onRetry={() => {
+          setOpenTea(null);
+          navigation.navigate('Chat', { groupId });
+        }}
+      />
+
+      <GCAwardsModal
+        visible={openAwards !== null}
+        result={openAwards}
+        onClose={() => setOpenAwards(null)}
+        onJumpToMessage={(messageId) => {
+          setOpenAwards(null);
+          navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+        }}
+      />
 
       <DailyRecapModal
         visible={openDailyRecap !== null}
@@ -561,35 +792,98 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   safe: { flex: 1 },
-  scroll: { padding: CONTAINER_MARGIN, paddingBottom: spacing.section + 40, gap: spacing.xl },
-  hero: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.lg },
+  hero: { alignItems: 'center', gap: 4, paddingVertical: spacing.sm, paddingHorizontal: CONTAINER_MARGIN },
   heroTitle: {
-    ...typography.displayXl,
+    ...typography.title,
+    fontSize: 24,
     color: colors.onSurface,
+    fontWeight: '800',
     textAlign: 'center',
   },
   heroSub: {
-    ...typography.body,
+    ...typography.caption,
     color: colors.onSurfaceVariant,
     textAlign: 'center',
-    paddingHorizontal: spacing.lg,
   },
-  vibeCard: { padding: spacing.xl, alignItems: 'center', gap: spacing.md },
-  vibeLabel: { ...typography.label, color: colors.tertiary },
+  tabTrack: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: radius.pill,
+    padding: 3,
+    marginHorizontal: CONTAINER_MARGIN,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: radius.pill,
+    gap: 6,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  tabText: {
+    ...typography.label,
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  tabBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radius.pill,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeActive: {
+    backgroundColor: colors.primary,
+  },
+  tabBadgeText: {
+    ...typography.micro,
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+  },
+  tabBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  scroll: { padding: CONTAINER_MARGIN, paddingTop: spacing.xs, paddingBottom: spacing.section + 40, gap: spacing.lg },
+  vibeCard: { padding: spacing.lg, alignItems: 'center', gap: spacing.sm },
+  vibeLabel: { ...typography.label, fontSize: 11, color: colors.tertiary, letterSpacing: 1 },
   vibePill: {
     backgroundColor: colors.surfaceLowest,
     borderRadius: radius.pill,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
     borderWidth: 1,
     borderColor: glass.stroke,
     width: '100%',
   },
-  vibeValue: { ...typography.titleMd, color: colors.onSurface, textAlign: 'center' },
-  vibeDetail: { ...typography.micro, color: colors.outline },
+  vibeValue: { ...typography.titleMd, fontSize: 17, color: colors.onSurface, textAlign: 'center' },
+  vibeDetail: { ...typography.micro, color: colors.outline, textAlign: 'center' },
   card: { padding: spacing.lg },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  cardTitle: { ...typography.title, fontSize: 20, color: colors.onSurface },
+  cardTitle: { ...typography.title, fontSize: 18, color: colors.onSurface },
   spacer: { flex: 1 },
   divider: { height: 1, backgroundColor: glass.stroke, marginVertical: spacing.md },
   aiBody: { gap: spacing.lg },
@@ -602,7 +896,7 @@ const styles = StyleSheet.create({
   recapCardLast: { paddingBottom: 0, borderBottomWidth: 0 },
   recapCardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   recapTime: { ...typography.micro, color: colors.outline, paddingTop: 4 },
-  aiHeadline: { ...typography.title, fontSize: 22, color: colors.onSurface, flex: 1 },
+  aiHeadline: { ...typography.title, fontSize: 20, color: colors.onSurface, flex: 1 },
   aiSummary: { ...typography.body, color: colors.onSurfaceVariant, lineHeight: 21 },
   highlight: {
     backgroundColor: 'rgba(0,0,0,0.22)',
@@ -637,6 +931,30 @@ const styles = StyleSheet.create({
   dailyRowCopy: { flex: 1, gap: 1 },
   dailyRowWord: { ...typography.bodyMedium, color: colors.onSurface, textTransform: 'lowercase' },
   dailyRowMeta: { ...typography.micro, color: colors.onSurfaceVariant },
+  teaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.22)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  teaRowEmoji: { fontSize: 20 },
+  teaRowTitle: { ...typography.bodyMedium, color: colors.onSurface },
+  awardsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.22)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  awardsRowEmoji: { fontSize: 20 },
+  awardsRowTitle: { ...typography.bodyMedium, color: colors.onSurface },
   statRow: {
     backgroundColor: 'rgba(0,0,0,0.22)',
     borderRadius: radius.md,
