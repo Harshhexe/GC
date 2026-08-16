@@ -12,6 +12,10 @@ export type MemberActionTarget = {
   displayName: string;
   avatarEmoji: string;
   avatarColor: string;
+  /** Their uploaded photo, when they have one. Without this the sheet falls
+   *  back to the emoji avatar — which reads as the member's *old* picture
+   *  sitting right under the row that correctly shows their current one. */
+  avatarUrl?: string | null;
   role: 'owner' | 'admin' | 'member';
 };
 
@@ -69,6 +73,7 @@ export function MemberActionSheet({
           <View style={styles.header}>
             <Avatar
               emoji={target.avatarEmoji}
+              imageUrl={target.avatarUrl}
               label={target.displayName}
               size={44}
               ringColors={[target.avatarColor, target.avatarColor]}

@@ -96,14 +96,21 @@ export function MessageActionSheet({
   const canDeleteForEveryone = target.isMine || target.canModerate;
 
   // What's actually offered narrows by what the message *is* — copying or
-  // sharing "text" makes no sense on a photo/video/voice note/sticker (there
-  // is no text to lift), and editing isn't a thing for the media types that
-  // have no caption-editing UI in the first place.
+  // sharing "text" makes no sense on a photo/video/voice note/sticker/gif
+  // (there is no text to lift), and editing isn't a thing for the media
+  // types that have no caption-editing UI in the first place.
   const mediaType = target.media?.type ?? null;
   const hideCopyShare =
-    mediaType === 'image' || mediaType === 'video' || mediaType === 'voice' || mediaType === 'sticker';
-  const hideEdit = mediaType === 'voice' || mediaType === 'sticker';
-  const showDownload = mediaType === 'image' || mediaType === 'video';
+    mediaType === 'image' ||
+    mediaType === 'video' ||
+    mediaType === 'voice' ||
+    mediaType === 'sticker' ||
+    mediaType === 'gif';
+  const hideEdit = mediaType === 'voice' || mediaType === 'sticker' || mediaType === 'gif';
+  // Never offered for a view-once attachment — saving it to the device
+  // library would defeat the entire "one look" premise.
+  const showDownload =
+    (mediaType === 'image' || mediaType === 'video') && !target.media?.viewOnce;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>

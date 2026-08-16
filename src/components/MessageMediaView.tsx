@@ -6,7 +6,9 @@ import { GestureResponderEvent, StyleSheet, Text, View } from 'react-native';
 // rather than popping.
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/theme';
+import { duration } from '../theme/motion';
 import { formatFileSize } from '../lib/media';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import { VoiceNoteView } from './VoiceNoteView';
@@ -49,6 +51,7 @@ export function MessageMediaView({
   onPress,
   onLongPress,
   isVisible = true,
+  downloaded = false,
 }: {
   media: MessageMedia;
   isMine: boolean;
@@ -61,6 +64,9 @@ export function MessageMediaView({
   onLongPress?: (e: GestureResponderEvent) => void;
   /** Whether this media item is currently visible in the viewport — controls GIF autoplay */
   isVisible?: boolean;
+  /** Whether this photo/video has been saved to the device — shows a small
+   *  "Saved" pill. Local-only state, so it only reflects this device. */
+  downloaded?: boolean;
 }) {
   // Checked before anything that could draw the media: a view-once attachment
   // must never render a thumbnail in the transcript, since that would already
@@ -169,6 +175,16 @@ export function MessageMediaView({
           <Text style={styles.gifChipText}>GIF</Text>
         </View>
       )}
+      {downloaded && (
+        <Animated.View
+          entering={FadeIn.duration(duration.fast)}
+          exiting={FadeOut.duration(duration.fast)}
+          style={styles.savedPill}
+        >
+          <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+          <Text style={styles.savedPillText}>Saved</Text>
+        </Animated.View>
+      )}
     </PressableScale>
   );
 }
@@ -221,6 +237,19 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   gifChipText: { ...typography.label, fontSize: 9, color: '#FFFFFF' },
+  savedPill: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  savedPillText: { ...typography.label, fontSize: 9, color: '#FFFFFF' },
   fileCard: {
     flexDirection: 'row',
     alignItems: 'center',

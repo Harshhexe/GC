@@ -228,6 +228,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
         displayName: actionTarget.display_name,
         avatarEmoji: actionTarget.avatar_emoji,
         avatarColor: actionTarget.avatar_color,
+        avatarUrl: actionTarget.avatar_url,
         role: actionTarget.role,
       }
     : null;

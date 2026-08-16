@@ -66,10 +66,25 @@ export async function unfavoriteSticker(userId: string, stickerId: string): Prom
   return !error;
 }
 
+const TIMEOUT_MS = 45_000;
+
+/** The edge function answers `{ ok: false, error }` on every failure path —
+ *  pull that out of the raw Response so the alert says what actually broke. */
+async function readErrorBody(context: unknown): Promise<string | null> {
+  if (!context || typeof (context as Response).text !== 'function') return null;
+  try {
+    const raw = await (context as Response).text();
+    const parsed = JSON.parse(raw) as { error?: unknown };
+    return typeof parsed.error === 'string' ? parsed.error : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Uploads the picked photo plus the text-overlay placement to the
  * render-sticker edge function, which flattens them server-side into one
- * PNG and saves the result. Returns the saved sticker on success.
+ * flat JPEG and saves the result. Returns the saved sticker on success.
  */
 export async function renderSticker(params: {
   imageBase64: string;
@@ -80,13 +95,14 @@ export async function renderSticker(params: {
   color: string;
 }): Promise<{ sticker: Sticker | null; error: string | null }> {
   let data: unknown;
-  let error: { name?: string; message?: string } | null;
+  let error: { name?: string; message?: string; context?: unknown } | null;
+  const startedAt = Date.now();
   try {
     // Left unbounded, a stalled connection just hangs the composer forever —
     // this turns that into a clear, retryable failure instead. 45s is
     // generous: cold starts plus the actual decode/render/upload work rarely
     // clear a few seconds, even on a slow link.
-    const result = await supabase.functions.invoke('render-sticker', { body: params, timeout: 45_000 });
+    const result = await supabase.functions.invoke('render-sticker', { body: params, timeout: TIMEOUT_MS });
     data = result.data;
     error = result.error;
   } catch (e) {
@@ -94,13 +110,27 @@ export async function renderSticker(params: {
   }
 
   if (error) {
-    const timedOut = error.name === 'AbortError' || /abort|timeout/i.test(error.message ?? '');
-    return {
-      sticker: null,
-      error: timedOut
-        ? 'Taking too long — check your connection and try again.'
-        : error.message ?? 'Could not create the sticker.',
-    };
+    // A timeout doesn't surface as an AbortError here: functions-js catches
+    // the aborted fetch and rethrows it as a FunctionsFetchError whose
+    // message is the generic "Failed to send a request to the Edge
+    // Function". Checking the error name alone therefore mislabelled every
+    // slow render as unreachable, so fall back to how long we actually
+    // waited to tell "timed out" apart from "never connected".
+    const elapsed = Date.now() - startedAt;
+    if (
+      error.name === 'AbortError' ||
+      /abort|timeout/i.test(error.message ?? '') ||
+      elapsed >= TIMEOUT_MS - 1_000
+    ) {
+      return { sticker: null, error: 'Taking too long — check your connection and try again.' };
+    }
+
+    // Non-2xx responses arrive as FunctionsHttpError, which reports only
+    // "Edge Function returned a non-2xx status code" — the actual reason is
+    // in the response body this carries, so dig it out rather than showing
+    // the user a status code dressed as an explanation.
+    const fromBody = await readErrorBody(error.context);
+    return { sticker: null, error: fromBody ?? error.message ?? 'Could not create the sticker.' };
   }
 
   const payload = data as { ok: boolean; sticker?: StickerRow; error?: string };

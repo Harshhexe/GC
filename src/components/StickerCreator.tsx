@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Image } from 'expo-image';
@@ -65,6 +66,7 @@ export function StickerCreator({
   /** Fires once the sticker is rendered and saved — the caller sends it. */
   onCreated: (sticker: Sticker) => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [box, setBox] = useState({ width: MAX_BOX_WIDTH, height: MAX_BOX_WIDTH });
@@ -95,20 +97,24 @@ export function StickerCreator({
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 1,
+        // Not 1: at full quality the picker writes a full-resolution copy of
+        // the original out to disk before we even get to resize it, which is
+        // the slow part of choosing a photo. The picked file is a throwaway
+        // intermediate — it gets downscaled to 320px below regardless.
+        quality: 0.5,
         allowsEditing: false,
       });
       if (result.canceled || !result.assets[0]) return;
 
-      // Downscaled and re-encoded as JPEG before it ever leaves the device.
-      // PNG is lossless, so a full-res photo saved as one can run several MB
-      // even after resizing — that's what was actually behind slow/failed
-      // sends, not the edge function itself. JPEG at 640px is a fraction of
-      // the size for a photo base and uploads in a beat.
+      // Downscaled hard and re-encoded as a low-quality JPEG before it ever
+      // leaves the device. Stickers draw at 148pt in the transcript, so this
+      // is already more resolution than gets displayed — and the payload
+      // size is what decides whether the round trip beats the timeout on a
+      // slow connection.
       const manipulated = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
-        [{ resize: { width: 640 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        [{ resize: { width: 320 } }],
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
       if (!manipulated.base64) {
         Alert.alert("Couldn't read that photo", 'Try a different one.');
@@ -174,12 +180,21 @@ export function StickerCreator({
       <View style={styles.root}>
         <AmbientBackground variant="default" />
 
-        <View style={styles.header}>
-          <PressableScale hitSlop={10} onPress={handleClose} disabled={saving}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: Math.max(insets.top + 8, 20),
+              paddingLeft: Math.max(insets.left + 16, 16),
+              paddingRight: Math.max(insets.right + 16, 16),
+            },
+          ]}
+        >
+          <PressableScale hitSlop={10} scaleTo={0.92} onPress={handleClose} disabled={saving}>
             <Text style={styles.cancelText}>Cancel</Text>
           </PressableScale>
           <Text style={styles.title}>New Sticker</Text>
-          <PressableScale hitSlop={10} onPress={handleSave} disabled={!photoBase64 || saving}>
+          <PressableScale hitSlop={10} scaleTo={0.92} onPress={handleSave} disabled={!photoBase64 || saving}>
             {saving ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
@@ -220,7 +235,7 @@ export function StickerCreator({
                     entirely when it lived below the image. */}
                 <View style={styles.toolbar}>
                   <View style={styles.toolbarInputRow}>
-                    <Ionicons name="text" size={18} color={colors.primary} style={styles.toolbarIcon} />
+                    <Ionicons name="text" size={17} color={colors.primary} style={styles.toolbarIcon} />
                     <TextInput
                       value={text}
                       onChangeText={(v: string) => setText(v.replace(/\n/g, '').slice(0, 60))}
@@ -228,7 +243,13 @@ export function StickerCreator({
                       placeholderTextColor={colors.outline}
                       style={styles.textInput}
                       returnKeyType="done"
+                      autoCorrect={false}
                     />
+                    {!!text && (
+                      <PressableScale onPress={() => setText('')} hitSlop={10} scaleTo={0.88}>
+                        <Ionicons name="close-circle" size={17} color={colors.outline} />
+                      </PressableScale>
+                    )}
                   </View>
 
                   <View style={styles.colorRow}>
@@ -295,18 +316,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 56 : 32,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(10, 10, 15, 0.85)',
+    zIndex: 10,
   },
-  title: { ...typography.titleMd, fontSize: 16, color: colors.onSurface },
-  cancelText: { ...typography.bodyMedium, fontSize: 15, color: colors.onSurfaceVariant },
-  saveText: { ...typography.bodyMedium, fontSize: 15, fontWeight: '700', color: colors.primary },
+  title: {
+    ...typography.titleMd,
+    fontSize: 16,
+    color: colors.onSurface,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    lineHeight: 22,
+  },
+  cancelText: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    color: colors.onSurfaceVariant,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    lineHeight: 22,
+  },
+  saveText: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    lineHeight: 22,
+  },
   saveTextDisabled: { color: colors.outline },
   body: {
     flexGrow: 1,
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl,
     gap: spacing.lg,
   },
@@ -319,19 +366,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
   },
-  pickLabel: { ...typography.body, fontSize: 14, color: colors.onSurfaceVariant },
+  pickLabel: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
   toolbar: { width: '100%', gap: spacing.sm + 2 },
   toolbarInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
+    height: 44,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
-  toolbarIcon: { flexShrink: 0 },
+  toolbarIcon: { alignSelf: 'center' },
+  textInput: {
+    flex: 1,
+    height: '100%',
+    ...typography.body,
+    fontSize: 15,
+    color: colors.onSurface,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    margin: 0,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    lineHeight: Platform.OS === 'ios' ? 20 : undefined,
+  },
   imageBox: {
     borderRadius: radius.lg,
     overflow: 'hidden',
@@ -353,14 +420,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 4,
   },
-  textInput: {
-    flex: 1,
-    ...typography.body,
-    fontSize: 15,
-    color: colors.onSurface,
-    paddingVertical: spacing.sm + 2,
-  },
-  colorRow: { flexDirection: 'row', gap: spacing.sm + 2 },
+  colorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 },
   swatch: {
     width: 28,
     height: 28,

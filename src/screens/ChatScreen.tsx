@@ -104,6 +104,11 @@ import {
   type PendingAttachment,
   type PickResult,
 } from '../lib/media';
+import {
+  SAVED_PILL_DURATION_MS,
+  getDownloadedIds,
+  markDownloaded,
+} from '../lib/downloadedMedia';
 import { uploadMessageMedia } from '../lib/uploadMessageMedia';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -312,6 +317,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const readers = useReadReceipts(groupId, session?.user.id);
   const readersByMessage = useReadersByMessage(messages, readers);
+
+  // Which of this device's messages have already been saved — purely local,
+  // loaded once so the "Saved" pill survives navigating away and back.
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getDownloadedIds().then(setDownloadedIds);
+  }, []);
   const { pins, pin: pinMessage, unpin: unpinMessage } = usePinnedMessages(groupId);
   const pinnedIds = useMemo(() => new Set(pins.map((p) => p.messageId)), [pins]);
   const bannerPins = useMemo(() => {
@@ -694,7 +706,10 @@ export default function ChatScreen({ route, navigation }: Props) {
       {
         url: sticker.imageUrl,
         type: 'sticker',
-        mime: 'image/png',
+        // Read off the URL rather than hardcoded: the renderer switched from
+        // PNG to JPEG (PNG's deflate pass was the bulk of the render cost),
+        // and stickers made before that switch are still PNGs.
+        mime: sticker.imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg',
         name: null,
         size: null,
         width: sticker.width,
@@ -927,7 +942,21 @@ export default function ChatScreen({ route, navigation }: Props) {
     setActionAnchor(null);
     if (!message.media?.url) return;
     const { error } = await downloadMediaToDevice(message.media.url);
-    if (error) Alert.alert("Couldn't save", error);
+    if (error) {
+      Alert.alert("Couldn't save", error);
+      return;
+    }
+    const updated = await markDownloaded(message.id);
+    setDownloadedIds(updated);
+
+    // Auto-dismiss the "Saved" pill after 30 seconds
+    setTimeout(() => {
+      setDownloadedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(message.id);
+        return next;
+      });
+    }, SAVED_PILL_DURATION_MS);
   }, []);
 
   const pinCurrentTarget = useCallback(
@@ -1293,6 +1322,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             selectMode={selectMode}
             selected={selectedIds.has(item.id)}
             isVisible={isItemVisible}
+            downloaded={!!item.media?.url && downloadedIds.has(item.id)}
             onLongPress={handleLongPress}
             onPress={selectMode ? handleBubblePress : undefined}
             onToggleReaction={handleToggleReaction}
@@ -1314,6 +1344,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     motdId,
     pinnedIds,
     readersByMessage,
+    downloadedIds,
     highlightedId,
     selectMode,
     selectedIds,

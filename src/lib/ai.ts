@@ -120,6 +120,7 @@ export type AwardType =
   | 'night_owl'
   | 'voice_note_menace'
   | 'media_spammer'
+  | 'sticker_of_week'
   | 'most_active'
   | 'most_reliable'
   | 'one_liner_king'
@@ -138,6 +139,11 @@ export type Award = {
   userAvatarColor: string | null;
   userAvatarUrl: string | null;
   value: string | null;
+  /** Set only where the award's subject is a thing rather than a person —
+   *  Sticker of the Week shows the sticker here instead of an avatar.
+   *  Optional because awards generated before this existed have no such
+   *  field in their stored JSON. */
+  imageUrl?: string | null;
   reason: string;
   sourceMessageIds: string[];
 };

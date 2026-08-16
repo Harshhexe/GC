@@ -25,11 +25,22 @@ const CORS = {
 };
 
 const BUCKET = 'stickers';
-const MAX_DIMENSION = 640;
+// Stickers are drawn at 148pt in the transcript, so anything past ~320px is
+// pixels nobody sees paid for in CPU time on every single create. Dropping
+// from 640 quarters the pixel count the text rasterizer and encoder chew
+// through, which is most of the render cost.
+const MAX_DIMENSION = 320;
+// PNG's deflate pass was the single most expensive step here (~6s of edge
+// CPU per sticker, which on a slow uplink pushed the whole round trip past
+// the client's timeout and surfaced as "couldn't reach the edge function").
+// The source is an opaque photo, so there is no transparency to preserve —
+// JPEG at a deliberately low quality encodes in a fraction of the time and
+// ships a much smaller file.
+const JPEG_QUALITY = 60;
 const MAX_TEXT_LENGTH = 60;
 const MIN_FONT_PX = 14;
 const MAX_FONT_PX = 220;
-const OUTLINE_PX = 3;
+const OUTLINE_PX = 2;
 
 // Embedded as base64 rather than read from a sibling file: the deploy
 // bundler only ships what it can trace through imports, and a raw
@@ -155,10 +166,11 @@ Deno.serve(async (req) => {
 
         // Cheap outline: stamp the black layer at a ring of offsets behind
         // the real text, rather than pulling in a stroke-capable font
-        // renderer for one effect.
+        // renderer for one effect. Four offsets rather than eight — each one
+        // is a full-layer composite, and at this size the diagonals were
+        // paying CPU for a difference you can't see.
         const offsets = [
           [-OUTLINE_PX, 0], [OUTLINE_PX, 0], [0, -OUTLINE_PX], [0, OUTLINE_PX],
-          [-OUTLINE_PX, -OUTLINE_PX], [OUTLINE_PX, -OUTLINE_PX], [-OUTLINE_PX, OUTLINE_PX], [OUTLINE_PX, OUTLINE_PX],
         ];
         for (const [dx, dy] of offsets) {
           image.composite(outlineLayer, textX + dx, textY + dy);
@@ -171,13 +183,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    const encoded = await image.encode();
+    const encoded = await image.encodeJPEG(JPEG_QUALITY);
 
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-    const path = `${userId}/${Date.now()}.png`;
+    const path = `${userId}/${Date.now()}.jpg`;
     const { error: uploadError } = await admin.storage
       .from(BUCKET)
-      .upload(path, encoded, { contentType: 'image/png', upsert: false });
+      .upload(path, encoded, { contentType: 'image/jpeg', upsert: false });
     if (uploadError) {
       console.error(`[render-sticker] upload failed: ${uploadError.message}`);
       return jsonResponse({ ok: false, error: 'Could not save the sticker' }, 500);

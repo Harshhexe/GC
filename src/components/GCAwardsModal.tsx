@@ -1,8 +1,19 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { Image } from 'expo-image';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  interpolate,
+} from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, typography, glass, shadows } from '../theme/theme';
@@ -91,6 +102,17 @@ const AWARD_THEMES: Record<string, AwardTheme> = {
     borderColor: 'rgba(251, 191, 36, 0.55)',
     bgTint: 'rgba(251, 191, 36, 0.12)',
     valueIcon: 'trophy',
+  },
+  sticker_of_week: {
+    title: 'Sticker of the Week',
+    emoji: '🏷️',
+    tag: 'ON REPEAT',
+    color: '#2DD4BF',
+    gradient: ['#2DD4BF', '#0D9488'],
+    glowColor: 'rgba(45, 212, 191, 0.35)',
+    borderColor: 'rgba(45, 212, 191, 0.45)',
+    bgTint: 'rgba(45, 212, 191, 0.1)',
+    valueIcon: 'happy',
   },
 };
 
@@ -202,6 +224,205 @@ function GoldenAwardsBackground() {
   );
 }
 
+/**
+ * 👑 Grand Centerpiece Champion Card for Member of the Week / Professional Yapper (most messages).
+ * Features a prominent Big PFP, dramatic "Yapper Award goes to ___" announcement,
+ * champion crown badge, and AI audit verdict.
+ */
+function YapperChampionCard({
+  award,
+  onJump,
+}: {
+  award: Award;
+  onJump: (messageId: string) => void;
+}) {
+  const hasReceipts = award.sourceMessageIds && award.sourceMessageIds.length > 0;
+  const isAnonymous = !award.userId && award.userName === 'someone';
+
+  // 1. Floating Crown Loop Animation
+  const crownFloat = useSharedValue(0);
+  // 2. Avatar Gentle Breathing Loop Animation
+  const avatarBreath = useSharedValue(0);
+  // 3. Member of the Week Badge Sheen Loop Animation
+  const badgePulse = useSharedValue(0);
+
+  useEffect(() => {
+    crownFloat.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1300, easing: easing.inOut, reduceMotion }),
+        withTiming(0, { duration: 1300, easing: easing.inOut, reduceMotion })
+      ),
+      -1,
+      true
+    );
+
+    avatarBreath.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1800, easing: easing.inOut, reduceMotion }),
+        withTiming(0, { duration: 1800, easing: easing.inOut, reduceMotion })
+      ),
+      -1,
+      true
+    );
+
+    badgePulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1600, easing: easing.inOut, reduceMotion }),
+        withTiming(0, { duration: 1600, easing: easing.inOut, reduceMotion })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const crownAnimStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(crownFloat.value, [0, 1], [0, -6]) },
+      { rotate: `${interpolate(crownFloat.value, [0, 1], [-3, 3])}deg` },
+      { scale: interpolate(crownFloat.value, [0, 1], [1, 1.08]) },
+    ],
+  }));
+
+  const avatarAnimStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(avatarBreath.value, [0, 1], [1, 1.035]) },
+    ],
+  }));
+
+  const avatarGlowAnimStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(avatarBreath.value, [0, 1], [0.3, 0.6]),
+    transform: [{ scale: interpolate(avatarBreath.value, [0, 1], [0.98, 1.08]) }],
+  }));
+
+  const badgeAnimStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(badgePulse.value, [0, 1], [1, 1.025]) },
+    ],
+    opacity: interpolate(badgePulse.value, [0, 1], [0.92, 1]),
+  }));
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(20)
+        .duration(duration.slow)
+        .easing(easing.out)
+        .reduceMotion(reduceMotion)}
+      style={styles.cardContainer}
+    >
+      <View style={styles.yapperCard}>
+        {Platform.OS !== 'web' && (
+          <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+        )}
+
+        {/* Soft Golden Ambient Glow inside the box */}
+        <LinearGradient
+          colors={['rgba(253, 224, 71, 0.20)', 'rgba(245, 158, 11, 0.08)', 'rgba(20, 15, 5, 0)']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 0.7 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+
+        {/* Top Gold Shimmer Bar */}
+        <LinearGradient
+          colors={['#FDE047', '#F59E0B', '#D97706']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.yapperAccentBar}
+        />
+
+        {/* Member of the Week Crown Eyebrow Banner (Looping Subtle Pulse) */}
+        <Animated.View style={[styles.yapperCrownBanner, badgeAnimStyle]}>
+          <LinearGradient
+            colors={['rgba(253, 224, 71, 0.30)', 'rgba(245, 158, 11, 0.15)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.yapperCrownBannerGrad}
+          >
+            <Ionicons name="trophy" size={13} color="#FDE047" />
+            <Text style={styles.yapperCrownBannerText}>MEMBER OF THE WEEK</Text>
+            <View style={styles.yapperTagPill}>
+              <Text style={styles.yapperTagText}>#1 YAPPER</Text>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        {/* Centerpiece Hero Big PFP (Looping Breathing + Floating Crown) */}
+        <View style={styles.yapperAvatarSection}>
+          <View style={styles.yapperAvatarWrapper}>
+            {/* Breathing Golden Aura */}
+            <Animated.View style={[styles.yapperAvatarAura, avatarGlowAnimStyle]} pointerEvents="none" />
+
+            <Animated.View style={avatarAnimStyle}>
+              {!isAnonymous ? (
+                <Avatar
+                  emoji={award.userAvatarEmoji ?? undefined}
+                  imageUrl={award.userAvatarUrl}
+                  label={award.userName}
+                  size={88}
+                  ring={true}
+                  ringColors={['#FDE047', '#F59E0B', '#D97706']}
+                />
+              ) : (
+                <View style={styles.yapperAnonAvatar}>
+                  <Ionicons name="person" size={42} color="#FDE047" />
+                </View>
+              )}
+            </Animated.View>
+
+            {/* Floating Crown Badge (Looping Bobbing Animation) */}
+            <Animated.View style={[styles.yapperFloatingCrown, crownAnimStyle]}>
+              <Text style={styles.yapperCrownEmoji}>👑</Text>
+            </Animated.View>
+          </View>
+
+          {/* "Yapper Award goes to ___" Typography */}
+          <View style={styles.yapperAnnouncement}>
+            <Text style={styles.yapperGoesToText}>Yapper Award goes to</Text>
+            <Text style={styles.yapperWinnerName} numberOfLines={2}>
+              {award.userName}
+            </Text>
+
+            {!!award.value && (
+              <View style={styles.yapperMetricPill}>
+                <Ionicons name="chatbubbles" size={13} color="#FDE047" />
+                <Text style={styles.yapperMetricText}>{award.value}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Citation / AI Roast Verdict */}
+        <View style={styles.yapperReasonBox}>
+          <View style={styles.yapperReasonHead}>
+            <Ionicons name="sparkles" size={12} color="#FDE047" />
+            <Text style={styles.yapperReasonEyebrow}>AI AUDIT VERDICT</Text>
+          </View>
+          <Text style={styles.yapperReasonText}>{award.reason}</Text>
+        </View>
+
+        {/* View Receipts Button */}
+        {hasReceipts && (
+          <PressableScale
+            style={styles.yapperReceiptBtn}
+            scaleTo={0.97}
+            haptic="light"
+            onPress={() => onJump(award.sourceMessageIds[0])}
+          >
+            <View style={styles.receiptContent}>
+              <Ionicons name="document-text-outline" size={14} color="#FDE047" />
+              <Text style={styles.yapperReceiptText}>
+                View receipt{award.sourceMessageIds.length > 1 ? 's' : ''} ({award.sourceMessageIds.length})
+              </Text>
+            </View>
+            <Ionicons name="arrow-forward" size={14} color="#FDE047" />
+          </PressableScale>
+        )}
+      </View>
+    </Animated.View>
+  );
+}
+
 function AwardCard({
   award,
   index,
@@ -268,7 +489,20 @@ function AwardCard({
 
         {/* Winner Hero Section */}
         <View style={styles.winnerRow}>
-          {!isAnonymous ? (
+          {award.imageUrl ? (
+            // Sticker of the Week is the one award whose subject is an object
+            // rather than a member, so the sticker takes the avatar's slot and
+            // the person named below is whoever sent it most.
+            <View style={[styles.stickerFrame, { borderColor: theme.borderColor }]}>
+              <Image
+                source={award.imageUrl}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                transition={140}
+              />
+            </View>
+          ) : !isAnonymous ? (
             <Avatar
               emoji={award.userAvatarEmoji ?? undefined}
               imageUrl={award.userAvatarUrl}
@@ -354,6 +588,15 @@ export function GCAwardsModal({
     onClose();
     onJumpToMessage(messageId);
   }
+
+  // Sort awards so the grand Member of the Week / Professional Yapper is prominently first
+  const sortedAwards = [...result.awards].sort((a, b) => {
+    const aIsYapper = a.type === 'professional_yapper' || a.title.toLowerCase().includes('yapper');
+    const bIsYapper = b.type === 'professional_yapper' || b.title.toLowerCase().includes('yapper');
+    if (aIsYapper && !bIsYapper) return -1;
+    if (!aIsYapper && bIsYapper) return 1;
+    return 0;
+  });
 
   return (
     <Modal
@@ -474,10 +717,9 @@ export function GCAwardsModal({
               entering={FadeIn.duration(300)}
               style={styles.stateBox}
             >
-              <AIThinking tint="#FBBF24" />
-              <Text style={styles.stateTitle}>Judging This Week's Chaos...</Text>
+              <AIThinking tint="#FDE047" />
               <Text style={styles.stateSubtitle}>
-                Tallying messages, calculating reply speeds, and uncovering the spiciest moments.
+                The jury is calculating who yapped the most and who started the drama...
               </Text>
             </Animated.View>
           )}
@@ -517,14 +759,30 @@ export function GCAwardsModal({
           {/* Award Cards List */}
           {!generating &&
             !failed &&
-            result.awards.map((award, i) => (
-              <AwardCard
-                key={`${award.type}-${i}`}
-                award={award}
-                index={i}
-                onJump={jump}
-              />
-            ))}
+            sortedAwards.map((award, i) => {
+              const isYapper =
+                award.type === 'professional_yapper' ||
+                award.title.toLowerCase().includes('yapper');
+
+              if (isYapper) {
+                return (
+                  <YapperChampionCard
+                    key={`${award.type}-${i}`}
+                    award={award}
+                    onJump={jump}
+                  />
+                );
+              }
+
+              return (
+                <AwardCard
+                  key={`${award.type}-${i}`}
+                  award={award}
+                  index={i}
+                  onJump={jump}
+                />
+              );
+            })}
 
           {/* Ceremony Footer */}
           {!generating && !failed && result.awards.length > 0 && (
@@ -574,59 +832,57 @@ const styles = StyleSheet.create({
   cornerBlob: {
     position: 'absolute',
     borderRadius: 999,
-    opacity: 0.9,
   },
   blobFill: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
     borderRadius: 999,
   },
   blobTopLeft: {
-    top: -80,
-    left: -80,
-    width: 290,
-    height: 290,
+    top: -60,
+    left: -60,
+    width: 260,
+    height: 260,
+    opacity: 0.7,
   },
   blobTopRight: {
-    top: -70,
-    right: -70,
-    width: 270,
-    height: 270,
+    top: -50,
+    right: -50,
+    width: 250,
+    height: 250,
+    opacity: 0.65,
   },
   blobBottomLeft: {
-    bottom: -80,
-    left: -70,
-    width: 270,
-    height: 270,
+    bottom: -60,
+    left: -50,
+    width: 260,
+    height: 260,
+    opacity: 0.6,
   },
   blobBottomRight: {
-    bottom: -90,
-    right: -80,
-    width: 310,
-    height: 310,
+    bottom: -70,
+    right: -60,
+    width: 280,
+    height: 280,
+    opacity: 0.65,
   },
   blobCenter: {
-    top: '28%',
-    left: '12%',
-    width: 330,
-    height: 330,
-  },
-  scrollView: {
-    flex: 1,
+    top: '35%',
+    left: '20%',
+    width: 240,
+    height: 240,
+    opacity: 0.5,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.sm + 2,
     zIndex: 10,
   },
   headerBadge: {
     borderRadius: radius.pill,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.45)',
   },
   headerBadgeGradient: {
     flexDirection: 'row',
@@ -634,22 +890,29 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(253, 224, 71, 0.45)',
   },
   headerBadgeText: {
     ...typography.label,
     fontSize: 11,
     color: '#FDE047',
-    letterSpacing: 1,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   closeBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     borderWidth: 1,
     borderColor: 'rgba(253, 224, 71, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scrollView: {
+    flex: 1,
   },
   scroll: {
     paddingHorizontal: spacing.lg,
@@ -658,62 +921,59 @@ const styles = StyleSheet.create({
   },
   hero: {
     alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.xs,
   },
   crestWrapper: {
-    marginBottom: spacing.xs,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
   crestBorder: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    padding: 2.5,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.glow,
   },
   crestInner: {
     width: '100%',
     height: '100%',
-    borderRadius: 34,
-    backgroundColor: '#1E170A',
+    borderRadius: 30,
+    backgroundColor: '#1E1608',
     alignItems: 'center',
     justifyContent: 'center',
   },
   crestEmoji: {
-    fontSize: 32,
+    fontSize: 30,
   },
   crestBackGlow: {
     position: 'absolute',
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    backgroundColor: 'rgba(251, 191, 36, 0.35)',
-    top: 0,
-    left: 0,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(245, 158, 11, 0.35)',
     zIndex: -1,
   },
   ceremonyEyebrow: {
-    ...typography.label,
+    ...typography.micro,
     fontSize: 11,
     color: '#FDE047',
-    letterSpacing: 1.4,
+    letterSpacing: 1.6,
+    fontWeight: '800',
   },
   dateRange: {
-    ...typography.headline,
-    fontSize: 26,
-    lineHeight: 32,
-    color: colors.onSurface,
-    textAlign: 'center',
+    ...typography.caption,
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
   },
   heroSubtitle: {
     ...typography.caption,
-    color: 'rgba(243, 244, 246, 0.75)',
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
     marginTop: 2,
   },
@@ -806,7 +1066,191 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
 
-  // Award Card
+  // Grand Yapper Champion Card
+  yapperCard: {
+    borderRadius: radius.xl,
+    borderWidth: 1.5,
+    borderColor: 'rgba(253, 224, 71, 0.55)',
+    padding: spacing.xl,
+    gap: spacing.lg,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: 'rgba(24, 18, 7, 0.85)',
+  },
+  yapperAccentBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3.5,
+  },
+  yapperCrownBanner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  yapperCrownBannerGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(253, 224, 71, 0.5)',
+  },
+  yapperCrownBannerText: {
+    ...typography.label,
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#FDE047',
+    letterSpacing: 1,
+  },
+  yapperTagPill: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  yapperTagText: {
+    ...typography.micro,
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: 0.5,
+  },
+  yapperAvatarSection: {
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  yapperAvatarWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  yapperAvatarAura: {
+    position: 'absolute',
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: 'rgba(245, 158, 11, 0.40)',
+  },
+  yapperAnonAvatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2.5,
+    borderColor: '#FDE047',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  yapperFloatingCrown: {
+    position: 'absolute',
+    top: -10,
+    right: -4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E1608',
+    borderWidth: 1.5,
+    borderColor: '#FDE047',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  yapperCrownEmoji: {
+    fontSize: 16,
+  },
+  yapperAnnouncement: {
+    alignItems: 'center',
+    gap: 4,
+    width: '100%',
+  },
+  yapperGoesToText: {
+    ...typography.caption,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FDE047',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  yapperWinnerName: {
+    ...typography.headline,
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  yapperMetricPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(253, 224, 71, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(253, 224, 71, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    marginTop: 4,
+  },
+  yapperMetricText: {
+    ...typography.label,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FDE047',
+  },
+  yapperReasonBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(253, 224, 71, 0.22)',
+    gap: 6,
+  },
+  yapperReasonHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  yapperReasonEyebrow: {
+    ...typography.micro,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FDE047',
+    letterSpacing: 0.8,
+  },
+  yapperReasonText: {
+    ...typography.body,
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: '#F5F5F7',
+  },
+  yapperReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(253, 224, 71, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(253, 224, 71, 0.4)',
+  },
+  yapperReceiptText: {
+    ...typography.label,
+    fontSize: 13,
+    letterSpacing: 0.4,
+    fontWeight: '700',
+    color: '#FDE047',
+  },
+
+  // Category Award Card
   cardContainer: {
     width: '100%',
   },
@@ -880,6 +1324,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stickerFrame: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    overflow: 'hidden',
   },
   winnerMeta: {
     flex: 1,

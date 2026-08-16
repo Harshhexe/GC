@@ -12,6 +12,7 @@ export type AwardType =
   | 'night_owl'
   | 'voice_note_menace'
   | 'media_spammer'
+  | 'sticker_of_week'
   | 'most_active'
   | 'most_reliable'
   | 'one_liner_king'
@@ -32,6 +33,10 @@ export type Award = {
   /** The hard number backing this award, formatted server-side. Null for the
    *  purely qualitative awards, which have nothing to count. */
   value: string | null;
+  /** Set only where the subject of the award is a *thing* rather than a
+   *  person — currently just Sticker of the Week, whose card shows the
+   *  sticker itself in place of a winner's avatar. */
+  imageUrl: string | null;
   reason: string;
   sourceMessageIds: string[];
 };
@@ -58,6 +63,7 @@ const TITLES: Record<AwardType, { emoji: string; title: string }> = {
   night_owl: { emoji: '🌙', title: 'Night Owl' },
   voice_note_menace: { emoji: '🎙️', title: 'Voice Note Menace' },
   media_spammer: { emoji: '📸', title: 'Media Spammer' },
+  sticker_of_week: { emoji: '🏷️', title: 'Sticker of the Week' },
   most_active: { emoji: '🔥', title: 'Most Active' },
   most_reliable: { emoji: '🫡', title: 'Most Reliable' },
   one_liner_king: { emoji: '💬', title: 'One-Liner King' },
@@ -88,9 +94,20 @@ type PerUserStat = {
   reactionsGiven: number;
 };
 
+type StickerOfWeek = {
+  stickerId: string;
+  imageUrl: string;
+  useCount: number;
+  /** How many distinct people sent it — decides whether the caption line
+   *  reads as a group in-joke or one person wearing it out. */
+  senderCount: number;
+  topSenderId: string | null;
+};
+
 type ObjectiveStats = {
   perUser: PerUserStat[];
   messageOfWeek: { messageId: string; authorId: string; text: string; reactionCount: number } | null;
+  stickerOfWeek: StickerOfWeek | null;
   fastestReplier: { userId: string; avgReplySeconds: number; sampleSize: number } | null;
   totalMessages: number;
 };
@@ -112,6 +129,10 @@ const MIN_VOICE_COUNT = 3;
 const MIN_MEDIA_COUNT = 5;
 const MIN_ACTIVE_DAYS = 4;
 const MIN_SHORT_MESSAGES = 5;
+/** One sticker sent twice isn't "the sticker of the week", it's a sticker
+ *  that happened to go out twice. Same "pattern, not coin flip" bar the
+ *  per-user floors above enforce. */
+const MIN_STICKER_USES = 3;
 
 function topBy(
   users: PerUserStat[],
@@ -320,6 +341,7 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
         [
           ...OBJECTIVE_AWARD_DEFS.map((d) => winners[d.winnerKey]?.userId),
           stats.messageOfWeek?.authorId,
+          stats.stickerOfWeek?.topSenderId,
           stats.fastestReplier?.userId,
         ].filter((id): id is string => !!id)
       )
@@ -450,6 +472,12 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
         ? `- Message of the Week: ${nameFor(stats.messageOfWeek.authorId)} — "${stats.messageOfWeek.text}" — ${stats.messageOfWeek.reactionCount} reactions.`
         : '- Message of the Week: none (nothing got meaningfully reacted to).'
     );
+    const sticker = stats.stickerOfWeek;
+    lines.push(
+      sticker && sticker.useCount >= MIN_STICKER_USES
+        ? `- Sticker of the Week: one sticker sent ${sticker.useCount} times by ${sticker.senderCount} ${sticker.senderCount === 1 ? 'person' : 'different people'}${sticker.topSenderId ? `, most often by ${nameFor(sticker.topSenderId)}` : ''}. You cannot see the sticker itself — write about how hard the GC leaned on one sticker, never about what is pictured on it.`
+        : '- Sticker of the Week: none.'
+    );
     lines.push(
       stats.fastestReplier
         ? `- Fastest Reply: ${nameFor(stats.fastestReplier.userId)}, ~${Math.round(stats.fastestReplier.avgReplySeconds)}s average across ${stats.fastestReplier.sampleSize} replies.`
@@ -493,6 +521,7 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
           mostReliable: { type: 'string' },
           oneLinerKing: { type: 'string' },
           messageOfWeek: { type: 'string' },
+          stickerOfWeek: { type: 'string' },
           fastestReply: { type: 'string' },
         },
         required: [
@@ -505,6 +534,7 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
           'mostReliable',
           'oneLinerKing',
           'messageOfWeek',
+          'stickerOfWeek',
           'fastestReply',
         ],
         additionalProperties: false,
@@ -576,7 +606,8 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
       formattedValue: string,
       fallbackReason: string,
       captionKey: string,
-      sourceMessageIds: string[] = []
+      sourceMessageIds: string[] = [],
+      imageUrl: string | null = null
     ) => {
       if (!winner) return;
       const profile = profiles[winner.userId];
@@ -591,6 +622,7 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
         userAvatarColor: profile?.avatar_color ?? null,
         userAvatarUrl: profile?.avatar_url ?? null,
         value: formattedValue,
+        imageUrl,
         reason: caption(captionKey) || fallbackReason,
         sourceMessageIds,
       });
@@ -615,6 +647,26 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
         [stats.messageOfWeek.messageId].filter((id) => known.has(id))
       );
     }
+    // The only award whose subject is an object, not a member: the sticker
+    // is the hero image and the person who leaned on it hardest is named
+    // underneath. Skipped without a top sender — every sticker message has an
+    // author, so that only happens if the row is malformed.
+    const sticker = stats.stickerOfWeek;
+    if (sticker && sticker.useCount >= MIN_STICKER_USES && sticker.topSenderId) {
+      const winnerStat: PerUserStat = { userId: sticker.topSenderId } as PerUserStat;
+      pushObjective(
+        'sticker_of_week',
+        winnerStat,
+        `sent ${sticker.useCount} times`,
+        sticker.senderCount === 1
+          ? 'One sticker, one person, all week.'
+          : 'The whole GC got mileage out of this one.',
+        'stickerOfWeek',
+        [],
+        sticker.imageUrl
+      );
+    }
+
     if (stats.fastestReplier) {
       const secs = Math.round(stats.fastestReplier.avgReplySeconds);
       const winnerStat: PerUserStat = { userId: stats.fastestReplier.userId } as PerUserStat;
@@ -652,6 +704,7 @@ export const weeklyAwardsOperation: AIOperation<WeeklyAwardsResult> = {
         userAvatarColor: profile?.avatar_color ?? null,
         userAvatarUrl: profile?.avatar_url ?? null,
         value: null,
+        imageUrl: null,
         reason: pick.reason,
         sourceMessageIds,
       });
