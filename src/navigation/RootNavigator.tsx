@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import {
   NavigationContainer,
@@ -72,6 +72,13 @@ export default function RootNavigator() {
     goToChat(target);
   }, [goToChat]);
 
+  // Explicitly push Welcome screen if a new user just completed sign up
+  useEffect(() => {
+    if (session && justSignedUp && navigationRef.isReady()) {
+      navigationRef.navigate('Welcome');
+    }
+  }, [session, justSignedUp]);
+
   const {
     isAvailable: isUpdateAvailable,
     isDownloading: isUpdateDownloading,
@@ -103,20 +110,24 @@ export default function RootNavigator() {
           {session ? (
             <>
               {justSignedUp ? (
-                <Stack.Screen
-                  name="Welcome"
-                  component={WelcomeScreen}
-                  options={{ animation: 'fade', animationDuration: 500 }}
-                />
-              ) : null}
-              <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
-              {!justSignedUp ? (
-                <Stack.Screen
-                  name="Welcome"
-                  component={WelcomeScreen}
-                  options={{ animation: 'fade', animationDuration: 500 }}
-                />
-              ) : null}
+                <>
+                  <Stack.Screen
+                    name="Welcome"
+                    component={WelcomeScreen}
+                    options={{ animation: 'fade', animationDuration: 500 }}
+                  />
+                  <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
+                </>
+              ) : (
+                <>
+                  <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
+                  <Stack.Screen
+                    name="Welcome"
+                    component={WelcomeScreen}
+                    options={{ animation: 'slide_from_bottom' }}
+                  />
+                </>
+              )}
               <Stack.Screen name="Chat" component={ChatScreen} />
               <Stack.Screen name="GroupInfo" component={GroupInfoScreen} />
               <Stack.Screen name="PinnedMessages" component={PinnedMessagesScreen} />

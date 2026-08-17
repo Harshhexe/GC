@@ -107,26 +107,23 @@ export function MentionSuggestions({
   );
 }
 
-const MAX_HEIGHT = 240;
+const MAX_HEIGHT = 220;
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: '100%',
-    marginBottom: spacing.sm,
+    width: '100%',
+    marginBottom: spacing.xs + 2,
     maxHeight: MAX_HEIGHT,
     borderRadius: radius.lg,
-    backgroundColor: 'rgba(22, 22, 34, 0.94)',
-    borderWidth: 1,
-    borderColor: glass.strokeBright,
+    backgroundColor: '#151421',
+    borderWidth: 1.5,
+    borderColor: '#2D2A45',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
   list: { maxHeight: MAX_HEIGHT },
   row: {

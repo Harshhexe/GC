@@ -52,8 +52,7 @@ const TABS: { id: MissedTab; label: string }[] = [
 
 /**
  * Atmospheric glowing background tailored to the group's theme palette.
- * Features a deep dark base, a vibrant top spotlight, and corner glowing mesh blobs
- * diffused by a deep BlurView for an ultra-rich, radiant feel (just like GC Awards).
+ * Features a deep dark base, smooth diffused ambient gradients (zero blob artifacts on Android).
  */
 function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
   const [c1, c2] = theme.colors;
@@ -71,74 +70,39 @@ function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
 
       {/* Top Atmospheric Theme Spotlight */}
       <LinearGradient
-        colors={[`${c1}36`, `${c2}1C`, 'rgba(5, 5, 8, 0)']}
+        colors={[`${c1}2E`, `${c2}18`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 0.65 }}
         style={styles.topSpotlight}
       />
 
-      {/* Corner Glowing Mesh Blobs */}
-      {/* Top-Left Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={[c1, c2, 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
+      {/* Top-Left Ambient Diffused Wash */}
+      <LinearGradient
+        colors={[`${c1}20`, 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.7, y: 0.7 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      {/* Top-Right Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={[c2, accent, 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
+      {/* Top-Right Ambient Diffused Wash */}
+      <LinearGradient
+        colors={[`${accent}1A`, 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.3, y: 0.7 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      {/* Bottom-Left Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={[accent, c1, 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Bottom-Right Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={[c2, c1, 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Center Atmosphere Blob */}
-      <View style={[styles.cornerBlob, styles.blobCenter]}>
-        <LinearGradient
-          colors={[`${c1}2E`, `${c2}14`, 'transparent']}
-          start={{ x: 0.5, y: 0.5 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Deep Blur View diffusing blobs into dreamy glowing ambient clouds */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 75 : 90}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
+      {/* Center Subtle Atmosphere */}
+      <LinearGradient
+        colors={['transparent', `${c2}10`, 'transparent']}
+        start={{ x: 0.5, y: 0.3 }}
+        end={{ x: 0.5, y: 0.7 }}
         style={StyleSheet.absoluteFill}
       />
 
       {/* Top Sheen & Subtle Dark Vignette */}
       <LinearGradient
-        colors={[`${c1}18`, 'transparent', 'rgba(5, 5, 8, 0.45)']}
+        colors={[`${c1}14`, 'transparent', 'rgba(5, 5, 8, 0.5)']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -532,14 +496,18 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   // when the recap was generated, not from when this screen happened to
   // render it.
 
-  // The server's answer to "what did I miss *right now*" — the caught-up line
-  // or the too-few-messages roast. Deliberately independent of the recap
-  // stack: it used to live inside the same if/else chain, so any unexpired
-  // recap still on screen meant it never rendered at all. Those answer
-  // different questions — this one is about now, the stack is what was already
-  // generated — so both should be able to show at once.
+  // The server's answer to "what did I miss *right now*" — but only the
+  // roast (1–9 genuinely unread messages) gets shown here. A caught-up
+  // result (messageCount 0) is deliberately rendered as nothing at all: the
+  // AI only has something to say when there is something unread to say it
+  // about, not "you're fine" as a permanent fixture on the screen.
+  //
+  // Independent of the recap stack below on purpose: it used to live inside
+  // the same if/else chain, so any unexpired recap still on screen meant it
+  // never rendered at all. Those answer different questions — this one is
+  // about right now, the stack is what was already generated.
   const serverNote =
-    !ai.loading && ai.result && !ai.result.hasMissedContent && ai.result.headline
+    !ai.loading && ai.result && !ai.result.hasMissedContent && ai.result.headline && ai.result.messageCount > 0
       ? { headline: ai.result.headline, summary: ai.result.summary }
       : null;
 

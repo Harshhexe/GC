@@ -72,130 +72,117 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
   context: {
     maxMessages: 250,
     includePinned: true,
-    // You cannot miss your own messages. If nobody else spoke since the read
-    // boundary, this resolves as "caught up" without a provider call.
-    requireOthers: true,
-    // The summary addresses the reader and flags mentions of them, so it must
-    // not be served from a result computed for a different member.
+    requireOthers: false,
     perViewer: true,
   },
 
-  // A full day, not the global default. Freshness doesn't come from the TTL
-  // here — it comes from the cache key: any new message changes ctx.hash and
-  // forces a real regeneration regardless of TTL. So a long TTL costs
-  // nothing in staleness and saves a full re-summarize every time the user
-  // reopens the screen with nothing new to report.
   cacheTtlSeconds: 24 * 3600,
 
   /**
-   * The missed window is whatever happened after this user's read boundary.
+   * Resolves the missed message window from the user's own read boundary —
+   * `gc_missed_since`, the same preserved boundary the "N unread messages"
+   * divider in ChatScreen is seeded from (see openedWithUnread there).
    *
-   * `gc_missed_since` is the single source of truth for that boundary — the
-   * same rule that `mark_group_read` maintains — so opening the chat (which
-   * stamps last_read_at continuously) can't quietly move it. Called through
-   * the user's own client, so it can only ever answer for the caller.
+   * There is deliberately no fallback that widens this when it comes back
+   * small or empty. A version of this used to force a 48h lookback whenever
+   * fewer than 2 messages were found, specifically so there was always
+   * "something" to show — that is exactly backwards from what this screen is
+   * for: if you are caught up, the correct answer is that you are caught up,
+   * not a manufactured recap of stuff you already read.
    */
-  async resolveWindow({ db, groupId, userId }) {
-    const { data, error } = await db.rpc('gc_missed_since', { p_group_id: groupId });
-    if (error) {
-      throw new GCAIError('internal', `Could not resolve read boundary: ${error.message}`);
-    }
+  async resolveWindow({ db, groupId }) {
+    const { data } = await db.rpc('gc_missed_since', { p_group_id: groupId });
 
     const floor = new Date(Date.now() - MAX_LOOKBACK_DAYS * 86_400_000);
     const boundary = data ? new Date(data as string) : floor;
 
-    // The *unread* mark, which is a different and always-later line than the
-    // missed boundary above: gc_missed_since deliberately reaches back past
-    // this sitting, while last_read_at is where the chat list's unread badge
-    // counts from. The recap still covers the wider window — only the
-    // "is this even worth summarising" check uses this, so the number it
-    // quotes back is the same one the badge showed.
-    let unreadSince: string | null = null;
-    if (userId) {
-      const { data: member } = await db
-        .from('group_members')
-        .select('last_read_at')
-        .eq('group_id', groupId)
-        .eq('user_id', userId)
-        .maybeSingle();
-      unreadSince = (member?.last_read_at as string | null) ?? null;
-    }
-
     return {
       from: (boundary > floor ? boundary : floor).toISOString(),
-      extraParams: { unreadSince },
     };
   },
 
   /**
-   * Under a handful of messages, the honest answer is "scroll up" — so say
-   * that, in this operation's own voice, without paying a model to summarise
-   * something shorter than the summary would be.
+   * Below MIN_MESSAGES_FOR_RECAP, answer without the model at all: either
+   * "you're caught up" (missed === 0) or a roast (1–9).
    *
-   * Counts only what the reader actually missed: `requireOthers` guarantees
-   * somebody else spoke, but their own messages still sit in the window as
-   * context for replies, and "you can't read 8 messages" is a worse roast when
-   * three of them are theirs.
-   *
-   * Truncation is a hard override — if messages were dropped to fit the token
-   * budget then the window was never small, and calling it trivial would
-   * dismiss a genuinely busy stretch as nothing.
+   * `missed` comes straight from the resolved ctx window — the same
+   * gc_missed_since boundary the divider uses — not a separately-fetched
+   * `last_read_at`. That distinction matters: ChatScreen's markGroupRead
+   * fires the instant the chat is opened (see the effect there), so by the
+   * time any AI call could run, last_read_at is already "now" even if the
+   * user hasn't scrolled past the divider yet. Counting off the ctx window
+   * instead keeps this consistent with what's still visibly marked unread on
+   * screen, and it naturally reaches zero the moment the user actually
+   * replies — sendMessage() calls consumeMissedBoundary() for exactly that.
    */
-  trivialResult(ctx, params) {
+  trivialResult(ctx) {
     if (ctx.truncated) return null;
 
-    // Counted the same way the chat list's unread badge counts (see
-    // unread_counts): after last_read_at, and not your own. Sizing this off
-    // the recap window instead was wrong in a way that showed — the window
-    // starts at prev_read_at, which reaches back before this sitting on
-    // purpose, so a single unread message in a chat you had already opened
-    // got roasted as three. The recap itself still covers the wider window;
-    // it is only this count, and the number quoted back at the user, that
-    // has to agree with the badge they just looked at.
-    const unreadSince = typeof params.unreadSince === 'string' ? params.unreadSince : null;
-    const missed = unreadSince
-      ? ctx.messages.filter((m) => !m.isOwn && m.timestamp > unreadSince).length
-      : ctx.messages.length - ctx.ownMessageIds.length;
+    const missed = ctx.messages.filter((m) => !m.isOwn).length;
 
-    // 10+ genuinely missed: a real recap earns its keep, hand it to the model.
+    if (missed === 0) return caughtUpResult();
     if (missed >= MIN_MESSAGES_FOR_RECAP) return null;
 
-    // The bug this exists to close: the badge can read 0 (nothing from
-    // others since last_read_at) while the *recap* window — which starts
-    // further back, at prev_read_at, on purpose — still holds a message or
-    // two you already read earlier this sitting. That window isn't empty, so
-    // buildGCContext never throws empty_context and emptyResult() never runs;
-    // without this, a 0-unread open still reached the model. Badge-zero is
-    // caught-up, full stop, regardless of what the wider window still holds.
-    if (missed <= 0) return caughtUpResult();
-
     const plural = missed === 1 ? '' : 's';
-    // Indexed by the count rather than randomised: the screen refetches on
-    // every open, and a line that reshuffles each time reads like a bug.
+    // A deliberately large, fixed pool — indexed by `missed % length`, never
+    // random. The screen refetches on every open; a line that reshuffled on
+    // an unchanged count would read as a bug, not variety.
     const roasts = [
       {
-        headline: `${missed} message${plural}. Seriously?`,
+        headline: `${missed} message${plural}. Seriously? 💀`,
         summary: `Bhai, you couldn't read ${missed} message${plural} yourself and came running to an AI? Scroll up. It takes nine seconds.`,
       },
       {
-        headline: `You want a recap of ${missed} message${plural}?`,
-        summary: `Arre that's not a backlog, that's a text. Scroll up and read it like a normal person, matlab come on.`,
+        headline: `You want a recap of ${missed} message${plural}? 😭`,
+        summary: `Arre that's not a backlog, that's just a text. Scroll up and read it like a normal person, matlab come on.`,
       },
       {
-        headline: `Absolutely not. ${missed} message${plural}?`,
-        summary: `I'm not summarising ${missed} message${plural} for you. Use your eyes they came free with the phone, Ig you are not andha.`,
+        headline: `Bro really asked AI for ${missed} message${plural} 💀`,
+        summary: `I'm not summarising ${missed} message${plural} for you. Use your eyes, they came free with the phone... Ig you are not andha.`,
       },
       {
-        headline: `${missed} message${plural} and you're here?`,
-        summary: `Chal, scroll up. If ${missed} message${plural} is too much, the group chat isn't your real problem.`,
+        headline: `${missed} message${plural} and you're here? 🗿`,
+        summary: `Chal, scroll up. If reading ${missed} message${plural} is too much work, the group chat isn't your real problem.`,
+      },
+      {
+        headline: `Bruh... ${missed} message${plural}? 💀`,
+        summary: `You opened the AI for ${missed} message${plural}? It would take you less time to just read them than waiting for this screen.`,
+      },
+      {
+        headline: `${missed} message${plural}?? Bro what 😭`,
+        summary: `This is genuinely embarrassing. ${missed} message${plural} isn't a backlog, it's a paragraph. Scroll up, matlab, use the thumb.`,
+      },
+      {
+        headline: `Absolutely not. ${missed} message${plural} 🚫`,
+        summary: `I have standards. ${missed} message${plural} doesn't clear the bar for "needs an AI to explain it." Read it yourself, bhai.`,
+      },
+      {
+        headline: `${missed} message${plural}, and you panicked 💀`,
+        summary: `Nothing happened enough that YOU had to check. Take the nine seconds, scroll, come back if it's actually a saga.`,
+      },
+      {
+        headline: `Yaar. ${missed} message${plural}. That's it.`,
+        summary: `You have eyes. You have thumbs. You have ${missed} message${plural} sitting right there. Use two of the three.`,
+      },
+      {
+        headline: `${missed} message${plural} — GC AI is judging you 🗿`,
+        summary: `This isn't a recap-worthy backlog, it's a light breeze. Scroll up before you make this weirder.`,
+      },
+      {
+        headline: `Bhai relax. ${missed} message${plural} only.`,
+        summary: `Sun, ${missed} message${plural} takes less time to read than this screen took to load. Go look.`,
+      },
+      {
+        headline: `${missed} message${plural}?! The audacity 💀`,
+        summary: `Calling the AI in for ${missed} message${plural} is like calling a moving company for one box. Just carry it, scroll up.`,
       },
     ];
     const roast = roasts[missed % roasts.length];
 
     return {
-      // False on purpose: this is not a recap. It keeps the result out of
-      // ai_recap_history (toHistoryRow returns null) and stops the screen
-      // rendering it as a card with a ten-minute countdown.
+      // False on purpose: this is a roast, not a recap. Keeps it out of
+      // ai_recap_history (toHistoryRow returns null below) and stops the
+      // screen rendering it as a timed card with a ten-minute countdown.
       hasMissedContent: false,
       headline: roast.headline,
       summary: roast.summary,
@@ -203,15 +190,10 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
       mentionedMessageIds: [],
       pinnedMessageIds: [],
       truncated: false,
-      // The unread count, not the window size — this is the number the roast
-      // just quoted, so anything else here would contradict it.
       messageCount: missed,
     };
   },
 
-  /** Nothing after the boundary is the good case, not a failure. Also reused
-   *  by trivialResult below for the badge-says-zero case, which is the same
-   *  outcome reached a different way. */
   emptyResult() {
     return caughtUpResult();
   },

@@ -79,26 +79,23 @@ export function SlashCommandSuggestions({
   );
 }
 
-const MAX_HEIGHT = 280;
+const MAX_HEIGHT = 220;
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: '100%',
-    marginBottom: spacing.sm,
+    width: '100%',
+    marginBottom: spacing.xs + 2,
     maxHeight: MAX_HEIGHT,
     borderRadius: radius.lg,
-    backgroundColor: 'rgba(18, 16, 26, 0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#151421',
+    borderWidth: 1.5,
+    borderColor: '#2D2A45',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 14,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
   header: {
     flexDirection: 'row',

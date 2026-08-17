@@ -407,15 +407,15 @@ export async function buildGCContext(params: BuildContextParams): Promise<GCCont
     hiddenIds,
     userId ?? undefined
   );
-  if (messages.length === 0) {
-    throw new GCAIError('empty_context', 'Nothing in this window the model can read');
+
+  // For "what_did_i_miss", strictly exclude the viewer's own messages so the AI
+  // gets ONLY other members' unread messages to summarize!
+  if (params.operation === 'what_did_i_miss' && userId) {
+    messages = messages.filter((m) => !m.isOwn && m.senderId !== userId);
   }
 
-  // For "what did I miss", a window containing only the reader's own messages
-  // is an empty window: you cannot miss what you wrote. Treated as empty here
-  // so it takes the operation's caught-up path — free, and before any spend.
-  if (params.requireOthers && !messages.some((m) => !m.isOwn)) {
-    throw new GCAIError('empty_context', 'Only the viewer’s own messages in this window');
+  if (messages.length === 0) {
+    throw new GCAIError('empty_context', 'Nothing in this window the model can read');
   }
 
   const totalAvailable = messages.length;

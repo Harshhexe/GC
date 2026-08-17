@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -154,16 +154,127 @@ function SettingsMenuItem({
 }
 
 export default function ProfileScreen({ navigation }: Props) {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, refreshProfile } = useAuth();
   const { groups, refetch: refetchGroups } = useGroups({ realtime: true });
   const [totalMessages, setTotalMessages] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Alpha Feedback State
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackPhoto, setFeedbackPhoto] = useState<{ uri: string; base64: string; ext: string } | null>(null);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
+
+  async function handleChangeAvatar() {
+    selectFeedback();
+    if (Platform.OS === 'web') {
+      choosePhotoFromLibrary();
+      return;
+    }
+
+    Alert.alert('Profile Picture', 'Choose how you want to update your profile photo', [
+      { text: 'Choose from Library', onPress: choosePhotoFromLibrary },
+      { text: 'Take Photo', onPress: takePhotoWithCamera },
+      ...(profile?.avatar_url
+        ? [
+            {
+              text: 'Remove Photo',
+              style: 'destructive' as const,
+              onPress: removeAvatarPhoto,
+            },
+          ]
+        : []),
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  async function choosePhotoFromLibrary() {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Please allow access to your photos to set a profile picture.');
+        return;
+      }
+      selectFeedback();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+      if (result.canceled || !result.assets[0] || !profile?.id) return;
+      await uploadAndSaveAvatar(result.assets[0]);
+    } catch (e: any) {
+      Alert.alert('Photo Picker', e?.message || 'Could not pick photo.');
+    }
+  }
+
+  async function takePhotoWithCamera() {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Please allow camera access to take a profile picture.');
+        return;
+      }
+      selectFeedback();
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+      if (result.canceled || !result.assets[0] || !profile?.id) return;
+      await uploadAndSaveAvatar(result.assets[0]);
+    } catch (e: any) {
+      Alert.alert('Camera', e?.message || 'Could not take photo.');
+    }
+  }
+
+  async function uploadAndSaveAvatar(asset: ImagePicker.ImagePickerAsset) {
+    if (!profile?.id || !asset.base64) return;
+    setUploadingAvatar(true);
+    try {
+      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const { url, error } = await uploadUserAvatar(asset.base64, profile.id, ext);
+      if (error || !url) {
+        throw new Error(error || 'Failed to upload photo.');
+      }
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: url })
+        .eq('id', profile.id);
+      if (dbError) throw dbError;
+
+      await refreshProfile();
+      successFeedback();
+      Alert.alert('Profile Photo Updated! ✨', 'Your new profile picture is now live across all your groups.');
+    } catch (e: any) {
+      Alert.alert('Update Failed', e?.message || 'Could not save profile picture.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function removeAvatarPhoto() {
+    if (!profile?.id) return;
+    setUploadingAvatar(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', profile.id);
+      if (error) throw error;
+      await refreshProfile();
+      successFeedback();
+      Alert.alert('Photo Removed', 'Your avatar has been reset to your emoji profile.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not remove photo.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   const loadCount = useCallback(async () => {
     if (!profile?.id) return;
@@ -362,14 +473,42 @@ export default function ProfileScreen({ navigation }: Props) {
               .reduceMotion(reduceMotion)}
           >
             <GlassPanel borderRadius={radius.xl} style={styles.profileCard}>
-              <Avatar
-                emoji={profile?.avatar_emoji ?? undefined}
-                imageUrl={profile?.avatar_url}
-                label={profile?.display_name ?? 'You'}
-                size={84}
-                ring={true}
-                ringColors={['#818CF8', '#C084FC', '#F472B6']}
-              />
+              <PressableScale
+                style={styles.avatarTouchWrap}
+                scaleTo={0.94}
+                haptic="medium"
+                onPress={handleChangeAvatar}
+                disabled={uploadingAvatar}
+              >
+                <Avatar
+                  emoji={profile?.avatar_emoji ?? undefined}
+                  imageUrl={profile?.avatar_url}
+                  label={profile?.display_name ?? 'You'}
+                  size={88}
+                  ring={true}
+                  ringColors={['#818CF8', '#C084FC', '#F472B6']}
+                />
+                <View style={styles.editAvatarBadge}>
+                  {uploadingAvatar ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="camera" size={14} color="#FFFFFF" />
+                  )}
+                </View>
+              </PressableScale>
+
+              <PressableScale
+                scaleTo={0.96}
+                haptic="light"
+                onPress={handleChangeAvatar}
+                disabled={uploadingAvatar}
+                style={styles.changePhotoBtn}
+              >
+                <Ionicons name="image-outline" size={13} color="#818CF8" />
+                <Text style={styles.changePhotoText}>
+                  {uploadingAvatar ? 'Uploading Photo...' : 'Edit Profile Picture'}
+                </Text>
+              </PressableScale>
 
               <View style={styles.profileInfo}>
                 <Text style={styles.displayName}>{profile?.display_name ?? 'Anonymous'}</Text>
@@ -431,6 +570,13 @@ export default function ProfileScreen({ navigation }: Props) {
                 title="Create or Join Group"
                 subtitle="Start a fresh GC or enter an invite code"
                 onPress={() => navigation.navigate('AddGC')}
+              />
+              <SettingsMenuItem
+                icon="sparkles-outline"
+                accentColor="#A855F7"
+                title="Features & App Tour"
+                subtitle="Learn how to use @gc AI, Tea, 11:11, Awards & Polls"
+                onPress={() => navigation.navigate('Welcome')}
                 isLast
               />
             </GlassPanel>
@@ -632,10 +778,50 @@ const styles = StyleSheet.create({
   profileCard: {
     padding: spacing.xl,
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm + 2,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  avatarTouchWrap: {
+    position: 'relative',
+  },
+  editAvatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#6366F1',
+    borderWidth: 2,
+    borderColor: '#0B0B12',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  changePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.3)',
+    marginTop: -2,
+    marginBottom: 2,
+  },
+  changePhotoText: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#818CF8',
   },
   profileInfo: {
     alignItems: 'center',
