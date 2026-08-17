@@ -111,6 +111,7 @@ function AuthAtmosphericBackground() {
       <BlurView
         intensity={Platform.OS === 'ios' ? 85 : 95}
         tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
 
@@ -269,6 +270,8 @@ export default function AuthScreen() {
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="on-drag"
           >
             <Animated.View
               entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
@@ -693,9 +696,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: CONTAINER_MARGIN,
-    paddingVertical: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl * 3,
   },
   cardWrapper: {
     width: '100%',

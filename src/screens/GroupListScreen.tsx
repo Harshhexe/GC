@@ -104,6 +104,7 @@ function GroupListAtmosphericBackground() {
       <BlurView
         intensity={Platform.OS === 'ios' ? 85 : 95}
         tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
 

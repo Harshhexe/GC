@@ -103,6 +103,7 @@ function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
       <BlurView
         intensity={Platform.OS === 'ios' ? 75 : 90}
         tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
 

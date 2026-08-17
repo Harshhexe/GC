@@ -28,6 +28,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "pan",
+      "androidNavigationBar": {
+        "backgroundColor": "#07060B",
+        "barStyle": "light-content"
+      },
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.POST_NOTIFICATIONS"
@@ -43,6 +48,12 @@
       "expo-font",
       "expo-splash-screen",
       "expo-video",
+      [
+        "expo-blur",
+        {
+          "experimentalBlurMethod": "dimezisBlurView"
+        }
+      ],
       [
         "expo-audio",
         {

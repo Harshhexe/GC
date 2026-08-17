@@ -421,27 +421,6 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Track currently visible items to pause off-screen GIFs and animated media
-  const [viewableItemIds, setViewableItemIds] = useState<Set<string>>(() => new Set());
-
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const ids = new Set<string>();
-      for (const token of viewableItems) {
-        if (token.item?.id) {
-          ids.add(token.item.id);
-        } else if (token.key) {
-          ids.add(token.key);
-        }
-      }
-      setViewableItemIds(ids);
-    }
-  ).current;
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 10,
-  }).current;
-
   useEffect(() => {
     let cancelled = false;
     if (!session?.user.id) return;
@@ -1520,8 +1499,6 @@ export default function ChatScreen({ route, navigation }: Props) {
         );
       }
 
-      const isItemVisible = viewableItemIds.size === 0 || viewableItemIds.has(item.id);
-
       return (
         <View nativeID={`msg-${item.id}`}>
           {newDay && (
@@ -1553,7 +1530,6 @@ export default function ChatScreen({ route, navigation }: Props) {
             highlighted={item.id === highlightedId}
             selectMode={selectMode}
             selected={selectedIds.has(item.id)}
-            isVisible={isItemVisible}
             downloaded={!!item.media?.url && downloadedIds.has(item.id)}
             poll={item.pollId ? polls.get(item.pollId) : undefined}
             myPollVotes={item.pollId ? myPollVotes.get(item.pollId) : undefined}
@@ -1586,7 +1562,6 @@ export default function ChatScreen({ route, navigation }: Props) {
     highlightedId,
     selectMode,
     selectedIds,
-    viewableItemIds,
     handleLongPress,
     handleBubblePress,
     handleToggleReaction,
@@ -1687,8 +1662,8 @@ export default function ChatScreen({ route, navigation }: Props) {
 
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         >
           {loading ? (
             <EmptyState emoji="⏳" text={loadingText} />
@@ -1705,11 +1680,11 @@ export default function ChatScreen({ route, navigation }: Props) {
                 showsVerticalScrollIndicator={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 keyboardShouldPersistTaps="handled"
-                initialNumToRender={20}
-                maxToRenderPerBatch={10}
-                windowSize={9}
-                viewabilityConfig={viewabilityConfig}
-                onViewableItemsChanged={onViewableItemsChanged}
+                initialNumToRender={14}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                updateCellsBatchingPeriod={40}
+                removeClippedSubviews={Platform.OS === 'android'}
                 onEndReached={() => {
                   if (hasMore && !loadingMore) {
                     fetchOlderMessages();

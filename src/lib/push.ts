@@ -105,14 +105,15 @@ export async function registerForPush(userId: string): Promise<string | null> {
     }
 
     const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-    if (!projectId) {
-      console.warn('[push] no EAS projectId — cannot mint an Expo push token');
-      return null;
-    }
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId ??
+      'eda4be96-0e54-4b02-88a8-d7a456652f83';
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    if (!token) return null;
+    if (!token) {
+      console.warn('[push] getExpoPushTokenAsync returned empty token');
+      return null;
+    }
 
     const { error } = await supabase.from('device_push_tokens').upsert(
       {
@@ -124,10 +125,11 @@ export async function registerForPush(userId: string): Promise<string | null> {
       { onConflict: 'token' }
     );
     if (error) {
-      console.warn(`[push] could not store token: ${error.message}`);
+      console.warn(`[push] could not store token in db: ${error.message}`);
       return null;
     }
 
+    console.log('[push] successfully registered device push token');
     return token;
   } catch (e) {
     // The expected failure on an iOS build without the push entitlement.

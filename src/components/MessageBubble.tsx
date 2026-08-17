@@ -291,7 +291,7 @@ function MessageBubbleImpl({
               <Animated.View
                 style={[
                   styles.bubbleShadow,
-                  mine && !deleted && shadows.glow,
+                  mine && !deleted && Platform.OS === 'ios' && shadows.glow,
                   mine && styles.bubbleShadowMine,
                   isMessageOfTheDay && styles.motdShadow,
                   isMessageOfTheDay && glowStyle,
@@ -550,19 +550,31 @@ const styles = StyleSheet.create({
   },
 
   bubbleShadow: { borderRadius: radius.md + 4 },
-  bubbleShadowMine: { shadowOpacity: 0.28, shadowRadius: 14 },
-  motdShadow: { shadowColor: colors.yellow },
+  bubbleShadowMine: {
+    ...(Platform.OS === 'ios'
+      ? {
+          shadowColor: '#6366F1',
+          shadowOpacity: 0.28,
+          shadowRadius: 14,
+          shadowOffset: { width: 0, height: 4 },
+        }
+      : { elevation: 0 }),
+  },
+  motdShadow: {
+    ...(Platform.OS === 'ios' ? { shadowColor: colors.yellow } : { elevation: 0 }),
+  },
 
   bubble: {
     borderRadius: radius.md + 4,
     paddingHorizontal: spacing.md + 2,
     paddingVertical: spacing.sm + 2,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   bubbleMine: { borderBottomRightRadius: radius.sm },
   bubbleTheirs: {
-    backgroundColor: Platform.OS === 'web' ? 'rgba(55, 51, 61, 0.55)' : glass.fillStrong,
-    borderColor: glass.stroke,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderBottomLeftRadius: radius.sm,
   },
   bubbleDeleted: {

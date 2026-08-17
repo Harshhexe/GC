@@ -1,6 +1,7 @@
 import { Component, ReactNode, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as NavigationBar from 'expo-navigation-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -76,6 +77,13 @@ export default function App() {
     // bakes into the final PNG, so the on-device editor previews match.
     StickerFont: require('./src/assets/fonts/Anton-Regular.ttf'),
   });
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync('#07060B').catch(() => {});
+      NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     if (fontError) {

@@ -14,6 +14,7 @@ export function GlassPanel({
   borderRadius = radius.lg,
   tone = 'neutral',
   intensity = 35,
+  blur = false,
 }: {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -21,6 +22,7 @@ export function GlassPanel({
   tone?: 'neutral' | 'primary' | 'secondary' | 'tertiary';
   intensity?: number;
   sheen?: boolean;
+  blur?: boolean;
 }) {
   const strokeColor =
     tone === 'primary'
@@ -40,8 +42,13 @@ export function GlassPanel({
         style,
       ]}
     >
-      {Platform.OS !== 'web' && (
-        <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
+      {blur && Platform.OS !== 'web' && (
+        <BlurView
+          intensity={intensity}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
       )}
       {children}
     </View>
