@@ -71,8 +71,7 @@ export default function App() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-    Ionicons: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
-    ionicons: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
+    ...Ionicons.font,
     // Sticker text overlay — same family the render-sticker edge function
     // bakes into the final PNG, so the on-device editor previews match.
     StickerFont: require('./src/assets/fonts/Anton-Regular.ttf'),
@@ -82,9 +81,18 @@ export default function App() {
     if (fontError) {
       console.warn('Font loading error:', fontError);
     }
+
+    // Safety timeout: ALWAYS dismiss splash screen within 1.2s even if font loading stalls
+    const timeout = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 1200);
+
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync().catch(() => {});
+      clearTimeout(timeout);
     }
+
+    return () => clearTimeout(timeout);
   }, [fontsLoaded, fontError]);
 
   return (
@@ -92,13 +100,9 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         <ErrorBoundary>
-          {!fontsLoaded && !fontError ? (
-            <View style={styles.loadingContainer} />
-          ) : (
-            <AuthProvider>
-              <RootNavigator />
-            </AuthProvider>
-          )}
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
         </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
