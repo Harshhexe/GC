@@ -60,8 +60,8 @@ export const config = {
     maxOutputTokens: num('GC_AI_MAX_OUTPUT_TOKENS', 4_000),
 
     /** Rate limits, counted from ai_usage over a rolling window. */
-    requestsPerUserPerHour: num('GC_AI_MAX_REQUESTS_PER_USER', 20),
-    requestsPerGroupPerHour: num('GC_AI_MAX_REQUESTS_PER_GROUP', 60),
+    requestsPerUserPerHour: num('GC_AI_MAX_REQUESTS_PER_USER', 120),
+    requestsPerGroupPerHour: num('GC_AI_MAX_REQUESTS_PER_GROUP', 240),
 
     /**
      * @gc gets its own, more generous per-user allowance: it's the one
@@ -70,7 +70,7 @@ export const config = {
      * Sharing the default would make a normal conversation with GC feel
      * broken. The per-group ceiling still applies on top.
      */
-    commandsPerUserPerHour: num('GC_AI_COMMANDS_PER_USER', 40),
+    commandsPerUserPerHour: num('GC_AI_COMMANDS_PER_USER', 120),
 
     /** Upper bound on the question text a user may send with @gc. */
     maxQuestionChars: num('GC_AI_MAX_QUESTION_CHARS', 300),

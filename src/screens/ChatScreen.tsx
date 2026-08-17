@@ -82,13 +82,33 @@ import { useTyping } from '../hooks/useTyping';
 import { useElevenEleven } from '../hooks/useElevenEleven';
 import { useDailyRecap } from '../hooks/useDailyRecap';
 import { useGCCommands, type GCCommandEntry } from '../hooks/useGCCommands';
-import { GC_TOKEN, matchesGCQuery, parseGCCommand } from '../lib/gcCommand';
+import {
+  GC_TOKEN,
+  filterSlashCommands,
+  findActiveSlashQuery,
+  matchesGCQuery,
+  matchesWordyIntent,
+  parseGCCommand,
+  parseSlashCommand,
+  matchesPollIntent,
+  type SlashCommandDef,
+} from '../lib/gcCommand';
+import {
+  invokeGCAI,
+  aiErrorMessage,
+  type PollDraftResult,
+} from '../lib/ai';
+import { SlashCommandSuggestions } from '../components/SlashCommandSuggestions';
 import { describeMedia } from '../lib/media';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { markGroupRead } from '../lib/readState';
+import { setActiveGroup } from '../lib/push';
+import { PollComposer } from '../components/PollComposer';
+import { usePolls } from '../hooks/usePolls';
+import { createPoll, type PollDraft } from '../lib/polls';
 import { dayLabel } from '../utils/time';
-import { warningFeedback } from '../utils/haptics';
+import { successFeedback, warningFeedback } from '../utils/haptics';
 import {
   EVERYONE_TOKEN,
   deriveMentionsFromText,
@@ -141,6 +161,8 @@ export default function ChatScreen({ route, navigation }: Props) {
     editMessage,
     deleteMessage,
     hideMessage,
+    clearChatForMe,
+    reloadMessages,
     markMediaViewed,
     toggleReaction,
   } = useMessages(groupId);
@@ -376,6 +398,12 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [gifPickerVisible, setGifPickerVisible] = useState(false);
   const [stickerPickerVisible, setStickerPickerVisible] = useState(false);
   const [stickerCreatorVisible, setStickerCreatorVisible] = useState(false);
+  const [pollComposerVisible, setPollComposerVisible] = useState(false);
+  // Pre-fills the composer when @gc drafted the poll. Null for a blank one.
+  const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
+  const [creatingPoll, setCreatingPoll] = useState(false);
+  const [draftingPoll, setDraftingPoll] = useState(false);
+  const { polls, myVotes: myPollVotes, vote: votePoll } = usePolls(groupId);
   const { favoriteIds: favoriteStickerIds, toggleFavorite: toggleStickerFavorite } = useStickers();
   const pendingPickerRef = useRef<(() => Promise<PickResult | null>) | null>(null);
   const pickerLaunchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -504,13 +532,47 @@ export default function ChatScreen({ route, navigation }: Props) {
     };
   }, [groupId, loadGroup]);
 
-  // Re-fetch group info whenever ChatScreen gains focus (e.g. popping back from GroupInfoScreen)
+  // Re-fetch group info & messages whenever ChatScreen gains focus (e.g. popping back from GroupInfoScreen)
   useFocusEffect(
     useCallback(() => {
       loadGroup();
       tea.refresh();
-    }, [loadGroup, tea.refresh])
+      reloadMessages();
+    }, [loadGroup, tea.refresh, reloadMessages])
   );
+
+  // A push banner for the conversation already open on screen is noise — the
+  // message is arriving live in the transcript behind it. Cleared on blur so
+  // leaving the chat restores normal delivery.
+  useFocusEffect(
+    useCallback(() => {
+      setActiveGroup(groupId);
+      return () => setActiveGroup(null);
+    }, [groupId])
+  );
+
+  const confirmClearChat = useCallback(() => {
+    const title = 'Clear this chat?';
+    const message =
+      'Messages in this chat will be cleared for you only. Other members will still see them.';
+    const go = async () => {
+      warningFeedback();
+      const { error } = await clearChatForMe();
+      if (error) {
+        Alert.alert('Error', error);
+      } else {
+        successFeedback();
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${message}`)) go();
+      return;
+    }
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear for Me', style: 'destructive', onPress: go },
+    ]);
+  }, [clearChatForMe]);
 
   async function handleSend() {
     if (uploading) return;
@@ -520,7 +582,82 @@ export default function ChatScreen({ route, navigation }: Props) {
     // message, so none of the send paths below should see it. Editing is
     // excluded because an edit targets an existing real message — there is
     // nothing to reroute.
+    // Checked before @gc and before anything is sent: a slash command is a
+    // navigation, not a message, so it must never reach the transcript.
+    const slash = editingMessage ? null : parseSlashCommand(draft);
+    if (slash) {
+      setDraft('');
+      switch (slash.feature) {
+        case 'wordy':
+          navigation.navigate('Wordy', { groupId });
+          break;
+        case 'poll':
+          openPollComposer(null);
+          break;
+        case 'missed':
+          navigation.navigate('WhatDidIMiss', { groupId, groupName: groupInfo?.name });
+          break;
+        case 'dna':
+          navigation.navigate('GCDNA', { groupId, groupName: groupInfo?.name });
+          break;
+        case 'tea':
+          confirmStartTea();
+          break;
+        case 'awards':
+          (navigation as any).navigate('MainTabs', { screen: 'Explore' });
+          break;
+        case 'pinned':
+          navigation.navigate('PinnedMessages', { groupId });
+          break;
+        case 'media':
+          navigation.navigate('MediaLinksFiles', { groupId });
+          break;
+        case 'clear':
+          confirmClearChat();
+          break;
+      }
+      return;
+    }
+
     const gcCommand = editingMessage ? null : parseGCCommand(draft);
+    // "@gc wordy" is a navigation, not a question. Handled before the AI
+    // call so it costs nothing — and so the model is never asked to play,
+    // which it would happily fake a board for.
+    if (gcCommand && matchesWordyIntent(gcCommand.question)) {
+      setDraft('');
+      setReplyTo(null);
+      navigation.navigate('Wordy', { groupId });
+      return;
+    }
+    // "@gc make a poll ..." drafts rather than answers. The draft opens in
+    // the normal poll editor and is created by the normal poll API only once
+    // the user presses send — the AI never posts to the group itself.
+    if (gcCommand && matchesPollIntent(gcCommand.question)) {
+      const request = gcCommand.question;
+      setDraft('');
+      setDraftingPoll(true);
+      const response = await invokeGCAI<PollDraftResult>(groupId, 'poll_draft', { request });
+      setDraftingPoll(false);
+
+      if (!response.ok) {
+        Alert.alert('GC AI', aiErrorMessage(response.error));
+        return;
+      }
+      if (response.result.needsClarification) {
+        // Opening an empty editor beats inventing a poll nobody asked for.
+        Alert.alert('Need a bit more', response.result.clarification);
+        openPollComposer(null);
+        return;
+      }
+      openPollComposer({
+        question: response.result.question,
+        options: response.result.options,
+        allowMultiple: response.result.allowMultiple,
+        anonymous: false,
+      });
+      return;
+    }
+
     if (gcCommand) {
       // Swiping to reply and then asking @gc means "about this message" — the
       // reply is the subject, so it anchors the context server-side instead
@@ -688,6 +825,53 @@ export default function ChatScreen({ route, navigation }: Props) {
     setStickerCreatorVisible(true);
   }
 
+  /** Opens the poll editor. Closes the attachment sheet first — two RN
+   *  Modals presented at once freeze touch handling, the same trap the
+   *  sticker creator hit. */
+  function openPollComposer(draft: PollDraft | null = null) {
+    setAttachmentSheetVisible(false);
+    setPollDraft(draft);
+    setPollComposerVisible(true);
+  }
+
+  /**
+   * Creates the poll, then the message that carries it.
+   *
+   * Order matters: the poll must exist before the message can point at it.
+   * Both creation routes (📊 button and @gc draft) land here, so an AI poll
+   * is created by exactly the same code as a hand-made one.
+   */
+  async function handleCreatePoll(draft: PollDraft) {
+    if (creatingPoll) return;
+    setCreatingPoll(true);
+    try {
+      const { poll, error } = await createPoll(groupId, session?.user.id ?? '', draft);
+      if (!poll) {
+        Alert.alert("Couldn't create the poll", error ?? 'Try again.');
+        return;
+      }
+
+      await sendMessage(
+        '',
+        replyTo?.id ?? null,
+        [],
+        false,
+        null,
+        null,
+        null,
+        poll.id
+      );
+      setReplyTo(null);
+      setPollComposerVisible(false);
+      setPollDraft(null);
+      // polls.message_id is filled by the messages_link_poll trigger. Doing
+      // it here would race: the message is inserted, then arrives back over
+      // realtime, so there is nothing to find yet at this point.
+    } finally {
+      setCreatingPoll(false);
+    }
+  }
+
   /** Same shape as sendGif — a sticker is already a saved, hosted image
    *  (rendered once at creation time), so this points a message straight at
    *  it rather than going through the upload pipeline. */
@@ -838,6 +1022,55 @@ export default function ChatScreen({ route, navigation }: Props) {
         ? filterMembersForQuery(groupMembers, activeMentionQuery.query, session?.user.id)
         : [],
     [activeMentionQuery, groupMembers, session?.user.id]
+  );
+
+  // The /slash command query currently under cursor, if any
+  const activeSlashQuery = useMemo(
+    () => (composerFocused ? findActiveSlashQuery(draft, selection?.start ?? draft.length) : null),
+    [composerFocused, draft, selection]
+  );
+
+  const slashMatches = useMemo(
+    () => (activeSlashQuery ? filterSlashCommands(activeSlashQuery.query) : []),
+    [activeSlashQuery]
+  );
+
+  const handleSelectSlashCommand = useCallback(
+    (cmd: SlashCommandDef) => {
+      setDraft('');
+      if (inputRef.current) inputRef.current.blur();
+
+      switch (cmd.feature) {
+        case 'wordy':
+          navigation.navigate('Wordy', { groupId });
+          break;
+        case 'poll':
+          openPollComposer(null);
+          break;
+        case 'missed':
+          navigation.navigate('WhatDidIMiss', { groupId, groupName: groupInfo?.name });
+          break;
+        case 'dna':
+          navigation.navigate('GCDNA', { groupId, groupName: groupInfo?.name });
+          break;
+        case 'tea':
+          confirmStartTea();
+          break;
+        case 'awards':
+          (navigation as any).navigate('MainTabs', { screen: 'Explore' });
+          break;
+        case 'pinned':
+          navigation.navigate('PinnedMessages', { groupId });
+          break;
+        case 'media':
+          navigation.navigate('MediaLinksFiles', { groupId });
+          break;
+        case 'clear':
+          confirmClearChat();
+          break;
+      }
+    },
+    [groupId, groupInfo?.name, navigation, confirmStartTea, confirmClearChat]
   );
 
   const showEveryoneOption = !!(
@@ -1129,13 +1362,12 @@ export default function ChatScreen({ route, navigation }: Props) {
     [invertedMessages, loadUntilMessage]
   );
 
-  const pendingJumpId = useRef(route.params.jumpToMessageId ?? null);
   useEffect(() => {
-    if (!pendingJumpId.current || loading || messages.length === 0) return;
-    const id = pendingJumpId.current;
-    pendingJumpId.current = null;
-    jumpToMessage(id);
-  }, [loading, messages.length, jumpToMessage]);
+    const jumpId = route.params.jumpToMessageId;
+    if (!jumpId || loading || messages.length === 0) return;
+    navigation.setParams({ jumpToMessageId: undefined });
+    jumpToMessage(jumpId);
+  }, [route.params.jumpToMessageId, loading, messages.length, jumpToMessage, navigation]);
 
   // ── Stable per-row callbacks handed to every MessageBubble ───────────────
   const handleLongPress = useCallback((message: Message, pageY: number) => {
@@ -1323,6 +1555,9 @@ export default function ChatScreen({ route, navigation }: Props) {
             selected={selectedIds.has(item.id)}
             isVisible={isItemVisible}
             downloaded={!!item.media?.url && downloadedIds.has(item.id)}
+            poll={item.pollId ? polls.get(item.pollId) : undefined}
+            myPollVotes={item.pollId ? myPollVotes.get(item.pollId) : undefined}
+            onPollVote={votePoll}
             onLongPress={handleLongPress}
             onPress={selectMode ? handleBubblePress : undefined}
             onToggleReaction={handleToggleReaction}
@@ -1345,6 +1580,9 @@ export default function ChatScreen({ route, navigation }: Props) {
     pinnedIds,
     readersByMessage,
     downloadedIds,
+    polls,
+    myPollVotes,
+    votePoll,
     highlightedId,
     selectMode,
     selectedIds,
@@ -1613,6 +1851,12 @@ export default function ChatScreen({ route, navigation }: Props) {
               </Animated.View>
             )}
 
+            <SlashCommandSuggestions
+              visible={!!activeSlashQuery}
+              commands={slashMatches}
+              onSelect={handleSelectSlashCommand}
+            />
+
             <MentionSuggestions
               visible={!!activeMentionQuery}
               members={mentionMatches}
@@ -1823,6 +2067,8 @@ export default function ChatScreen({ route, navigation }: Props) {
         onDocument={() => choosePicker(pickDocument)}
         onGif={openGifPicker}
         onSticker={openStickerPicker}
+        onPoll={() => openPollComposer(null)}
+        onWordy={() => navigation.navigate('Wordy', { groupId })}
         onStartTea={confirmStartTea}
         teaActive={tea.isActive}
         onClose={() => setAttachmentSheetVisible(false)}
@@ -1840,6 +2086,18 @@ export default function ChatScreen({ route, navigation }: Props) {
         onClose={() => setStickerPickerVisible(false)}
         onSelect={sendSticker}
         onCreateNew={openStickerCreator}
+      />
+
+      <PollComposer
+        visible={pollComposerVisible}
+        initial={pollDraft}
+        theme={theme}
+        submitting={creatingPoll}
+        onClose={() => {
+          setPollComposerVisible(false);
+          setPollDraft(null);
+        }}
+        onSubmit={handleCreatePoll}
       />
 
       <StickerCreator
@@ -1870,9 +2128,11 @@ export default function ChatScreen({ route, navigation }: Props) {
       <DailyRecapModal
         visible={dailyRecapOpen}
         recap={dailyRecap}
+        groupId={groupId}
         themeGradient={theme.colors}
         onClose={() => setDailyRecapOpen(false)}
         onJumpToMessage={jumpToMessage}
+        onOpenWordy={() => navigation.navigate('Wordy', { groupId })}
       />
 
       <TeaInfoSheet

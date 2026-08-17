@@ -1,7 +1,9 @@
-import { ReactNode, useEffect, useRef, useState } from 'react';
-import { LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { LayoutChangeEvent, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
@@ -12,7 +14,7 @@ import {
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { AmbientBackground } from '../components/ui/AmbientBackground';
+import { groupTheme, GroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
@@ -33,6 +35,7 @@ import type { WeeklyAwardsResult } from '../lib/ai';
 import { AIThinking, AIErrorState } from '../components/ui/AIState';
 import { DailyRecapModal } from '../components/DailyRecapModal';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { clockTime, timeAgo } from '../utils/time';
 import type { MissedCategory, MissedHighlight, DailyRecapResult } from '../lib/ai';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -46,6 +49,102 @@ const TABS: { id: MissedTab; label: string }[] = [
   { id: 'tea', label: 'Tea' },
   { id: 'pulse', label: 'Stats' },
 ];
+
+/**
+ * Atmospheric glowing background tailored to the group's theme palette.
+ * Features a deep dark base, a vibrant top spotlight, and corner glowing mesh blobs
+ * diffused by a deep BlurView for an ultra-rich, radiant feel (just like GC Awards).
+ */
+function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
+  const [c1, c2] = theme.colors;
+  const accent = theme.accent;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
+      {/* Deep Dark Base Gradient */}
+      <LinearGradient
+        colors={['#100E17', '#0A0910', '#050508']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Top Atmospheric Theme Spotlight */}
+      <LinearGradient
+        colors={[`${c1}36`, `${c2}1C`, 'rgba(5, 5, 8, 0)']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 0.65 }}
+        style={styles.topSpotlight}
+      />
+
+      {/* Corner Glowing Mesh Blobs */}
+      {/* Top-Left Corner Blob */}
+      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
+        <LinearGradient
+          colors={[c1, c2, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      {/* Top-Right Corner Blob */}
+      <View style={[styles.cornerBlob, styles.blobTopRight]}>
+        <LinearGradient
+          colors={[c2, accent, 'transparent']}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      {/* Bottom-Left Corner Blob */}
+      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
+        <LinearGradient
+          colors={[accent, c1, 'transparent']}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      {/* Bottom-Right Corner Blob */}
+      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
+        <LinearGradient
+          colors={[c2, c1, 'transparent']}
+          start={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 0 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      {/* Center Atmosphere Blob */}
+      <View style={[styles.cornerBlob, styles.blobCenter]}>
+        <LinearGradient
+          colors={[`${c1}2E`, `${c2}14`, 'transparent']}
+          start={{ x: 0.5, y: 0.5 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      {/* Deep Blur View diffusing blobs into dreamy glowing ambient clouds */}
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 75 : 90}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Top Sheen & Subtle Dark Vignette */}
+      <LinearGradient
+        colors={[`${c1}18`, 'transparent', 'rgba(5, 5, 8, 0.45)']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </View>
+  );
+}
 
 function Section({
   icon,
@@ -151,20 +250,81 @@ function HighlightCard({
   );
 }
 
+const TEN_MINS_MS = 10 * 60 * 1000;
+
+function formatRemainingTimer(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+function RecapTimerBadge({
+  createdAt,
+  now,
+  accentColor,
+}: {
+  createdAt: string;
+  now: number;
+  accentColor?: string;
+}) {
+  const createdTime = new Date(createdAt).getTime();
+  const remaining = Number.isNaN(createdTime) ? 0 : Math.max(0, TEN_MINS_MS - (now - createdTime));
+  const isExpiringSoon = remaining < 2 * 60 * 1000;
+  const tint = accentColor ?? '#818CF8';
+
+  return (
+    <View
+      style={[
+        styles.recapTimerPill,
+        {
+          backgroundColor: `${tint}18`,
+          borderColor: `${tint}40`,
+        },
+        isExpiringSoon && styles.recapTimerUrgent,
+      ]}
+    >
+      <Ionicons
+        name={isExpiringSoon ? 'hourglass-outline' : 'timer-outline'}
+        size={11}
+        color={isExpiringSoon ? '#F87171' : tint}
+      />
+      <Text
+        style={[
+          styles.recapTimerText,
+          { color: tint },
+          isExpiringSoon && styles.recapTimerUrgentText,
+        ]}
+      >
+        {formatRemainingTimer(remaining)} left
+      </Text>
+    </View>
+  );
+}
+
 function RecapCard({
   entry,
+  now,
+  accentColor,
   onJump,
   isLast,
 }: {
   entry: MissedRecapEntry;
+  now: number;
+  accentColor?: string;
   onJump: (messageId: string) => void;
   isLast: boolean;
 }) {
   return (
     <View style={[styles.recapCard, isLast && styles.recapCardLast]}>
       <View style={styles.recapCardHead}>
-        <Text style={styles.aiHeadline}>{entry.headline}</Text>
-        <Text style={styles.recapTime}>{timeAgo(entry.createdAt)}</Text>
+        <View style={styles.recapHeadInfo}>
+          <Text style={styles.aiHeadline}>{entry.headline}</Text>
+          <View style={styles.recapMetaRow}>
+            <Text style={styles.recapTime}>{timeAgo(entry.createdAt)}</Text>
+            <RecapTimerBadge createdAt={entry.createdAt} now={now} accentColor={accentColor} />
+          </View>
+        </View>
       </View>
       <Text style={styles.aiSummary}>{entry.summary}</Text>
 
@@ -284,6 +444,20 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   const [openTea, setOpenTea] = useState<TeaSession | null>(null);
   const [openAwards, setOpenAwards] = useState<WeeklyAwardsResult | null>(null);
   const ai = useWhatDidIMiss(groupId);
+  const [groupThemeKey, setGroupThemeKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('groups')
+      .select('theme')
+      .eq('id', groupId)
+      .single()
+      .then(({ data }) => {
+        if (data?.theme) setGroupThemeKey(data.theme);
+      });
+  }, [groupId]);
+
+  const activeTheme = groupTheme(groupThemeKey);
 
   const [activeTab, setActiveTab] = useState<MissedTab>(
     focusSection === 'missedElevenEleven' ? 'pulse' : 'missed'
@@ -319,17 +493,101 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ai.loading, ai.error]);
 
-  const jumpTo = (messageId: string) =>
-    navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+  const [now, setNow] = useState(() => Date.now());
+  const [activeRecaps, setActiveRecaps] = useState<MissedRecapEntry[]>([]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Merge unexpired history entries on mount
+  useEffect(() => {
+    if (history.entries.length > 0) {
+      setActiveRecaps((prev) => {
+        const prevIds = new Set(prev.map((e) => e.id));
+        const unexpired = history.entries.filter(
+          (e) => !prevIds.has(e.id) && Date.now() - new Date(e.createdAt).getTime() < TEN_MINS_MS
+        );
+        if (unexpired.length === 0) return prev;
+        return [...prev, ...unexpired];
+      });
+    }
+  }, [history.entries]);
+
+  // No card is built from `ai.result` here on purpose. The server already
+  // persists every genuinely fresh generation to ai_recap_history (and only a
+  // fresh one — a cache hit writes nothing), so the refresh above is what puts
+  // the recap on screen. Building a second card from the same response stacked
+  // the identical recap twice: once client-side with a `catchup-` id, once
+  // from history with its real uuid, which the merge could not recognise as
+  // the same thing. It only looked correct on the *next* visit, where the
+  // plain Postgres read beat the edge function and the `prev.length > 0` guard
+  // suppressed the duplicate — the bug hid itself.
+  //
+  // Leaning on the persisted row also keeps the countdown honest: it runs from
+  // when the recap was generated, not from when this screen happened to
+  // render it.
+
+  // The server's answer to "what did I miss *right now*" — the caught-up line
+  // or the too-few-messages roast. Deliberately independent of the recap
+  // stack: it used to live inside the same if/else chain, so any unexpired
+  // recap still on screen meant it never rendered at all. Those answer
+  // different questions — this one is about now, the stack is what was already
+  // generated — so both should be able to show at once.
+  const serverNote =
+    !ai.loading && ai.result && !ai.result.hasMissedContent && ai.result.headline
+      ? { headline: ai.result.headline, summary: ai.result.summary }
+      : null;
+
+  const validEntries = activeRecaps.filter((entry) => {
+    const createdTime = new Date(entry.createdAt).getTime();
+    if (Number.isNaN(createdTime)) return false;
+    return now - createdTime < TEN_MINS_MS;
+  });
+
+  const handleJumpToChat = useCallback(
+    (messageId?: string) => {
+      const state = navigation.getState();
+      const previousRoute = state.routes[state.routes.length - 2];
+      if (
+        previousRoute &&
+        previousRoute.name === 'Chat' &&
+        (previousRoute.params as any)?.groupId === groupId
+      ) {
+        navigation.navigate({
+          name: 'Chat',
+          params: { groupId, jumpToMessageId: messageId },
+          merge: true,
+        });
+      } else {
+        navigation.replace('Chat', { groupId, jumpToMessageId: messageId });
+      }
+    },
+    [navigation, groupId]
+  );
+
+  const jumpTo = (messageId: string) => handleJumpToChat(messageId);
 
   const handleTabChange = (tab: MissedTab) => {
     setActiveTab(tab);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
+  const handleCatchUp = async () => {
+    if (ai.loading) return;
+    await ai.retry();
+    // Refresh alone, for the same reason as the mount path: the server has
+    // already written any fresh recap to history, so adding a card from the
+    // response here too stacked the same recap twice.
+    await history.refresh();
+  };
+
   return (
     <View style={styles.root}>
-      <AmbientBackground variant="vivid" />
+      <ThemedGlowBackground theme={activeTheme} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
           wordmark
@@ -408,35 +666,106 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
               {/* The recap stack */}
               <Section
                 icon="sparkles"
-                iconColor={colors.primary}
+                iconColor={activeTheme.accent}
                 title="What You Missed"
                 delay={STAGGER_MS * 2}
                 trailing={
-                  ai.loading ? <Ionicons name="sync" size={14} color={colors.outline} /> : undefined
+                  <PressableScale
+                    style={styles.catchUpHeaderBtnWrap}
+                    scaleTo={0.92}
+                    haptic="medium"
+                    onPress={handleCatchUp}
+                    disabled={ai.loading}
+                  >
+                    <LinearGradient
+                      colors={
+                        ai.loading
+                          ? ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.04)']
+                          : activeTheme.colors
+                      }
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[
+                        styles.catchUpHeaderBtnGradient,
+                        !ai.loading && {
+                          borderColor: glass.strokeBright,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="sparkles"
+                        size={12}
+                        color={ai.loading ? colors.outline : '#FFFFFF'}
+                      />
+                      <Text
+                        style={[
+                          styles.catchUpHeaderBtnText,
+                          ai.loading && { color: colors.outline },
+                        ]}
+                      >
+                        {ai.loading ? 'Updating...' : 'Catch Up'}
+                      </Text>
+                    </LinearGradient>
+                  </PressableScale>
                 }
               >
-                {history.loading ? (
-                  <AIThinking />
-                ) : history.entries.length > 0 ? (
+                {/* 1. If catching up / regenerating, new loading card appears on TOP */}
+                {ai.loading && (
+                  <Animated.View
+                    entering={FadeInDown.duration(300)}
+                    style={[styles.newCatchUpLoadingCard, { borderColor: `${activeTheme.accent}40` }]}
+                  >
+                    <AIThinking tint={activeTheme.accent} />
+                    <Text style={styles.newCatchUpLoadingText}>
+                      Catching up on latest messages & drama...
+                    </Text>
+                  </Animated.View>
+                )}
+
+                {/* 2. The current answer, above the stack and outside the
+                    branch chain below — with unexpired recaps on screen the
+                    chain would otherwise pick the stack and never show it. */}
+                {serverNote && (
+                  <Animated.View
+                    entering={FadeInDown.duration(300).reduceMotion(reduceMotion)}
+                    style={styles.serverNote}
+                  >
+                    <Text style={styles.emptyRecapHeadline}>{serverNote.headline}</Text>
+                    {!!serverNote.summary && (
+                      <Text style={styles.emptyMentions}>{serverNote.summary}</Text>
+                    )}
+                  </Animated.View>
+                )}
+
+                {/* 3. Existing / previous unexpired recaps rendered underneath */}
+                {history.loading && !ai.loading ? (
+                  <AIThinking tint={activeTheme.accent} />
+                ) : validEntries.length > 0 ? (
                   <View style={styles.aiBody}>
-                    {history.entries.map((entry, i) => (
+                    {validEntries.map((entry, i) => (
                       <RecapCard
                         key={entry.id}
                         entry={entry}
+                        now={now}
+                        accentColor={activeTheme.accent}
                         onJump={jumpTo}
-                        isLast={i === history.entries.length - 1}
+                        isLast={i === validEntries.length - 1}
                       />
                     ))}
                   </View>
-                ) : ai.loading ? (
-                  <AIThinking />
-                ) : ai.error ? (
-                  <AIErrorState error={ai.error} onRetry={ai.retry} />
-                ) : (
-                  <Text style={styles.emptyMentions}>
-                    Nothing missed in the last 24h. You're all caught up! ✨
-                  </Text>
-                )}
+                ) : !ai.loading && ai.error ? (
+                  <AIErrorState error={ai.error} onRetry={handleCatchUp} />
+                ) : !ai.loading ? (
+                  !serverNote ? (
+                    <View style={styles.emptyRecapWrap}>
+                      <Text style={styles.emptyMentions}>
+                        {history.entries.length > 0
+                          ? 'Previous recap expired (10m limit). Tap Catch Up above to generate a fresh one! ✨'
+                          : "Nothing missed yet. Tap Catch Up above to see what's new! ✨"}
+                      </Text>
+                    </View>
+                  ) : null
+                ) : null}
               </Section>
 
               {/* Mentions */}
@@ -464,7 +793,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                       style={styles.mention}
                       scaleTo={0.98}
                       haptic="light"
-                      onPress={() => navigation.navigate('Chat', { groupId, jumpToMessageId: m.id })}
+                      onPress={() => handleJumpToChat(m.id)}
                     >
                       <View style={styles.mentionHead}>
                         <Avatar
@@ -744,7 +1073,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
               label="Jump to Chat"
               variant="gradient"
               icon={<Ionicons name="chatbubble" size={18} color="#FFFFFF" />}
-              onPress={() => navigation.navigate('Chat', { groupId })}
+              onPress={() => handleJumpToChat()}
             />
           </Animated.View>
         </ScrollView>
@@ -756,13 +1085,13 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
         onClose={() => setOpenTea(null)}
         onJumpToMessage={(messageId) => {
           setOpenTea(null);
-          navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+          handleJumpToChat(messageId);
         }}
         // Retrying from here has no live session hook; the chat screen owns
         // that. Send them there rather than silently doing nothing.
         onRetry={() => {
           setOpenTea(null);
-          navigation.navigate('Chat', { groupId });
+          handleJumpToChat();
         }}
       />
 
@@ -772,17 +1101,23 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
         onClose={() => setOpenAwards(null)}
         onJumpToMessage={(messageId) => {
           setOpenAwards(null);
-          navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+          handleJumpToChat(messageId);
         }}
       />
 
       <DailyRecapModal
         visible={openDailyRecap !== null}
         recap={openDailyRecap}
+        groupId={groupId}
+        themeGradient={activeTheme.colors}
         onClose={() => setOpenDailyRecap(null)}
         onJumpToMessage={(messageId) => {
           setOpenDailyRecap(null);
-          navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+          handleJumpToChat(messageId);
+        }}
+        onOpenWordy={() => {
+          setOpenDailyRecap(null);
+          navigation.navigate('Wordy', { groupId });
         }}
       />
     </View>
@@ -790,7 +1125,61 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: '#07060B' },
+  glowBgRoot: {
+    backgroundColor: '#07060B',
+    overflow: 'hidden',
+  },
+  topSpotlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 480,
+  },
+  cornerBlob: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  blobFill: {
+    flex: 1,
+    borderRadius: 999,
+  },
+  blobTopLeft: {
+    top: -60,
+    left: -60,
+    width: 270,
+    height: 270,
+    opacity: 0.75,
+  },
+  blobTopRight: {
+    top: -50,
+    right: -50,
+    width: 260,
+    height: 260,
+    opacity: 0.7,
+  },
+  blobBottomLeft: {
+    bottom: -60,
+    left: -50,
+    width: 270,
+    height: 270,
+    opacity: 0.65,
+  },
+  blobBottomRight: {
+    bottom: -70,
+    right: -60,
+    width: 290,
+    height: 290,
+    opacity: 0.7,
+  },
+  blobCenter: {
+    top: '35%',
+    left: '20%',
+    width: 250,
+    height: 250,
+    opacity: 0.55,
+  },
   safe: { flex: 1 },
   hero: { alignItems: 'center', gap: 4, paddingVertical: spacing.sm, paddingHorizontal: CONTAINER_MARGIN },
   heroTitle: {
@@ -871,12 +1260,12 @@ const styles = StyleSheet.create({
   vibeCard: { padding: spacing.lg, alignItems: 'center', gap: spacing.sm },
   vibeLabel: { ...typography.label, fontSize: 11, color: colors.tertiary, letterSpacing: 1 },
   vibePill: {
-    backgroundColor: colors.surfaceLowest,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: radius.pill,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderWidth: 1,
-    borderColor: glass.stroke,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     width: '100%',
   },
   vibeValue: { ...typography.titleMd, fontSize: 17, color: colors.onSurface, textAlign: 'center' },
@@ -885,13 +1274,13 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   cardTitle: { ...typography.title, fontSize: 18, color: colors.onSurface },
   spacer: { flex: 1 },
-  divider: { height: 1, backgroundColor: glass.stroke, marginVertical: spacing.md },
+  divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.06)', marginVertical: spacing.md },
   aiBody: { gap: spacing.lg },
   recapCard: {
     gap: spacing.md,
     paddingBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: glass.stroke,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   recapCardLast: { paddingBottom: 0, borderBottomWidth: 0 },
   recapCardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
@@ -899,7 +1288,7 @@ const styles = StyleSheet.create({
   aiHeadline: { ...typography.title, fontSize: 20, color: colors.onSurface, flex: 1 },
   aiSummary: { ...typography.body, color: colors.onSurfaceVariant, lineHeight: 21 },
   highlight: {
-    backgroundColor: 'rgba(0,0,0,0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: radius.md,
     borderWidth: 1,
     padding: spacing.md,
@@ -917,15 +1306,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: spacing.md,
   },
   dailyRowDate: {
-    backgroundColor: `${colors.tertiary}1F`,
+    backgroundColor: `${colors.tertiary}1A`,
     borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: `${colors.tertiary}33`,
   },
   dailyRowDateText: { ...typography.label, fontSize: 11, color: colors.tertiary },
   dailyRowCopy: { flex: 1, gap: 1 },
@@ -935,9 +1328,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: 'rgba(245, 158, 11, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.22)',
+    borderColor: 'rgba(245, 158, 11, 0.18)',
     borderRadius: radius.md,
     padding: spacing.md,
   },
@@ -947,17 +1340,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    backgroundColor: 'rgba(251, 191, 36, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.22)',
+    borderColor: 'rgba(251, 191, 36, 0.18)',
     borderRadius: radius.md,
     padding: spacing.md,
   },
   awardsRowEmoji: { fontSize: 20 },
   awardsRowTitle: { ...typography.bodyMedium, color: colors.onSurface },
   statRow: {
-    backgroundColor: 'rgba(0,0,0,0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: spacing.md,
     marginBottom: spacing.sm,
     gap: 2,
@@ -976,9 +1371,29 @@ const styles = StyleSheet.create({
   },
   countBadgeText: { ...typography.label, color: colors.onSecondary },
   emptyMentions: { ...typography.body, color: colors.outline },
-  mention: {
-    backgroundColor: 'rgba(0,0,0,0.22)',
+  // Sits above the recap stack, so it needs its own edges rather than relying
+  // on the empty state's padding.
+  serverNote: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: 2,
+  },
+  // The roast's punchline, so it lands as a line rather than as filler text.
+  emptyRecapHeadline: {
+    ...typography.titleMd,
+    fontSize: 17,
+    color: colors.onSurface,
+    marginBottom: spacing.xs,
+  },
+  mention: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: spacing.md,
     marginBottom: spacing.sm,
     gap: spacing.sm,
@@ -988,7 +1403,7 @@ const styles = StyleSheet.create({
   mentionTime: { ...typography.micro, color: colors.outline },
   mentionText: { ...typography.body, color: colors.onSurfaceVariant },
   missedCard: {
-    backgroundColor: 'rgba(0,0,0,0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -1000,12 +1415,12 @@ const styles = StyleSheet.create({
   missedAuthorInfo: { flex: 1, gap: 1 },
   missedSubtitle: { ...typography.micro, fontSize: 11, color: colors.onSurfaceVariant },
   timeTag: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: 'rgba(245, 158, 11, 0.25)',
   },
   timeTagText: { ...typography.label, fontSize: 10.5, color: colors.yellow },
   missedQuoteBox: {
@@ -1032,7 +1447,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderColor: 'rgba(255, 107, 107, 0.25)',
     alignSelf: 'flex-start',
     marginTop: 2,
   },
@@ -1041,6 +1456,99 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#FF6B6B',
     fontWeight: '600',
+  },
+  recapHeadInfo: { flex: 1, gap: 4 },
+  recapMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  recapTimerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.28)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  recapTimerText: {
+    ...typography.micro,
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#818CF8',
+  },
+  recapTimerUrgent: {
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderColor: 'rgba(248, 113, 113, 0.32)',
+  },
+  recapTimerUrgentText: {
+    color: '#F87171',
+  },
+  recapTimerExpired: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  recapTimerExpiredText: {
+    color: colors.outline,
+    fontWeight: '500',
+  },
+  catchUpHeaderBtnWrap: {
+    borderRadius: radius.pill,
+  },
+  catchUpHeaderBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  catchUpHeaderBtnText: {
+    ...typography.micro,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  newCatchUpLoadingCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    padding: spacing.md,
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  newCatchUpLoadingText: {
+    ...typography.micro,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  emptyRecapWrap: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  emptyCatchUpBtnWrap: {
+    marginTop: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  emptyCatchUpBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.strokeBright,
+  },
+  emptyCatchUpBtnText: {
+    ...typography.label,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   ctaWrap: { marginTop: spacing.sm },
 });

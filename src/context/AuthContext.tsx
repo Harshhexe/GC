@@ -3,6 +3,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { uploadUserAvatar } from '../lib/uploadAvatar';
 import { friendlySignUpError } from '../lib/username';
+import { unregisterPush } from '../lib/push';
 
 export type Profile = {
   id: string;
@@ -94,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     displayName: string,
     avatar?: SignUpAvatar
   ) {
+    setJustSignedUp(true);
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -108,8 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
-    if (error) return friendlySignUpError(error.message);
-    setJustSignedUp(true);
+    if (error) {
+      setJustSignedUp(false);
+      return friendlySignUpError(error.message);
+    }
 
     // A picked photo can only be uploaded once a session exists — storage
     // policies key off auth.uid(). With email confirmation on there's no
@@ -137,6 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     setJustSignedUp(false);
+    // Before the session goes: the delete is RLS-scoped to the signed-in
+    // user, so doing it after signOut() would silently no-op and leave this
+    // device receiving the previous account's messages.
+    await unregisterPush();
     await supabase.auth.signOut();
   }
 

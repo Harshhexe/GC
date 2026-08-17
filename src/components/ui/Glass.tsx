@@ -1,24 +1,19 @@
 import { ReactNode } from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, glass, gradients, radius } from '../../theme/theme';
+import { colors, glass, radius } from '../../theme/theme';
 
 /**
- * The Glass Stack from the design spec:
- *   mesh background → translucent fill → 1.5px stroke → colour glow.
- *
- * BlurView is native-only here; on web the fill is composited a little more
- * opaque instead, because backdrop blur over an animated mesh is expensive
- * and reads muddy in the browser preview.
+ * Frosted Glass Panel:
+ * Clean blurred opacity aesthetic (iOS / VisionOS style) with smooth backdrop blur,
+ * refined 1px border stroke, and zero glossy reflection noise.
  */
 export function GlassPanel({
   children,
   style,
   borderRadius = radius.lg,
   tone = 'neutral',
-  intensity = 24,
-  sheen = true,
+  intensity = 35,
 }: {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -29,11 +24,11 @@ export function GlassPanel({
 }) {
   const strokeColor =
     tone === 'primary'
-      ? 'rgba(208, 188, 255, 0.35)'
+      ? 'rgba(129, 140, 248, 0.25)'
       : tone === 'secondary'
-        ? 'rgba(255, 176, 205, 0.35)'
+        ? 'rgba(244, 114, 182, 0.25)'
         : tone === 'tertiary'
-          ? 'rgba(76, 215, 246, 0.35)'
+          ? 'rgba(56, 189, 248, 0.25)'
           : glass.stroke;
 
   return (
@@ -47,18 +42,6 @@ export function GlassPanel({
     >
       {Platform.OS !== 'web' && (
         <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
-      )}
-      <LinearGradient
-        colors={gradients.glassPanel}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.6, y: 1 }}
-        style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
-      />
-      {sheen && (
-        <LinearGradient
-          colors={gradients.sheen}
-          style={[styles.sheen, { borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius, pointerEvents: 'none' }]}
-        />
       )}
       {children}
     </View>
@@ -77,19 +60,19 @@ export function Chip({
 }) {
   const bg =
     tone === 'primary'
-      ? 'rgba(208, 188, 255, 0.16)'
+      ? 'rgba(129, 140, 248, 0.12)'
       : tone === 'secondary'
-        ? 'rgba(255, 176, 205, 0.18)'
+        ? 'rgba(244, 114, 182, 0.12)'
         : tone === 'tertiary'
-          ? 'rgba(76, 215, 246, 0.16)'
+          ? 'rgba(56, 189, 248, 0.12)'
           : glass.fill;
   const border =
     tone === 'primary'
-      ? 'rgba(208, 188, 255, 0.4)'
+      ? 'rgba(129, 140, 248, 0.25)'
       : tone === 'secondary'
-        ? 'rgba(255, 176, 205, 0.4)'
+        ? 'rgba(244, 114, 182, 0.25)'
         : tone === 'tertiary'
-          ? 'rgba(76, 215, 246, 0.4)'
+          ? 'rgba(56, 189, 248, 0.25)'
           : glass.stroke;
 
   return <View style={[styles.chip, { backgroundColor: bg, borderColor: border }, style]}>{children}</View>;
@@ -101,8 +84,9 @@ const styles = StyleSheet.create({
     borderWidth: glass.borderWidth,
     backgroundColor: glass.fill,
   },
-  panelWeb: { backgroundColor: 'rgba(45, 40, 58, 0.55)' },
-  sheen: { position: 'absolute', top: 0, left: 0, right: 0, height: 90 },
+  panelWeb: {
+    backgroundColor: 'rgba(20, 20, 32, 0.80)',
+  },
   chip: {
     borderRadius: radius.pill,
     borderWidth: 1,

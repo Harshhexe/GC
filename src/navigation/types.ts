@@ -20,5 +20,11 @@ export type RootStackParamList = {
   GroupSearch: { groupId: string };
   MediaLinksFiles: { groupId: string; initialTab?: 'media' | 'links' | 'files' };
   WhatDidIMiss: { groupId: string; groupName?: string; focusSection?: 'missedElevenEleven' | string };
+  /** 🧬 The group's AI-generated personality. Read-only — there is no
+   *  regenerate path; it updates itself with the weekly GC Awards. */
+  GCDNA: { groupId: string; groupName?: string };
+  /** 🎯 Daily Wordy. `groupId` scopes the leaderboard to that GC; the
+   *  puzzle itself is global and identical for everyone that day. */
+  Wordy: { groupId?: string } | undefined;
   Notifications: undefined;
 };

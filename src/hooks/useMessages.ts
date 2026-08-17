@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
+import { consumeMissedBoundary } from '../lib/readState';
 import { useAuth } from '../context/AuthContext';
 import { AIShare, MediaType, Mention, MediaViewerProfile, Message, MessageKind, MessageMedia, Reaction, ReplyPreview } from '../types';
 import { labelFor } from '../data/reactions';
@@ -36,11 +37,12 @@ type MessageRow = {
   media_height: number | null;
   media_duration_ms: number | null;
   sticker_id: string | null;
+  poll_id: string | null;
   ai_share: AIShare | null;
 };
 
 const MESSAGE_COLUMNS =
-  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once, sticker_id, ai_share';
+  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once, sticker_id, poll_id, ai_share';
 
 /** A shared AI answer, but only on a message that still exists — deleting a
  *  shared answer should blank it like any other message, not leave the AI
@@ -78,6 +80,11 @@ function deletedByAdminFor(row: MessageRow): boolean {
 }
 
 function kindFor(row: MessageRow): MessageKind {
+  // Poll before media: a poll message carries no media_type at all (it has no
+  // file, and the media_url_required_with_type constraint would reject one),
+  // so without this it would fall through to 'text' and render as an empty
+  // bubble. Also what makes a reply preview say "📊 poll" instead of blank.
+  if (row.poll_id) return 'poll';
   return row.media_type ?? 'text';
 }
 
@@ -238,6 +245,7 @@ export function useMessages(groupId: string) {
             mentionEveryone: row.mention_everyone,
             media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
             stickerId: row.is_deleted ? null : row.sticker_id,
+            pollId: row.is_deleted ? null : row.poll_id,
             isMine: false,
             reactions,
             aiShare: aiShareFor(row),
@@ -266,6 +274,7 @@ export function useMessages(groupId: string) {
           mentionEveryone: row.mention_everyone,
           media: row.is_deleted ? null : withViewState(mediaFor(row), row.id),
           stickerId: row.is_deleted ? null : row.sticker_id,
+          pollId: row.is_deleted ? null : row.poll_id,
           isMine: row.author_id === myIdRef.current,
           reactions,
           aiShare: aiShareFor(row),
@@ -708,6 +717,26 @@ export function useMessages(groupId: string) {
           );
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'hidden_messages', filter: `user_id=eq.${myId}` },
+        (payload) => {
+          const row = payload.new as { message_id: string; user_id: string };
+          setHiddenIds((prev) => new Set(prev).add(row.message_id));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'hidden_messages', filter: `user_id=eq.${myId}` },
+        (payload) => {
+          const row = payload.old as { message_id: string; user_id: string };
+          setHiddenIds((prev) => {
+            const next = new Set(prev);
+            next.delete(row.message_id);
+            return next;
+          });
+        }
+      )
       .subscribe(onChannelStatus('chat'));
 
     return () => {
@@ -732,11 +761,17 @@ export function useMessages(groupId: string) {
     mentionEveryone = false,
     media?: MessageMedia | null,
     aiShare?: AIShare | null,
-    stickerId?: string | null
+    stickerId?: string | null,
+    pollId?: string | null
   ) {
     // A media-only message needs no caption; a plain-text one still needs
     // real content — no sending an empty bubble.
-    if (!myId || (!text.trim() && !media)) return;
+    //
+    // A poll counts as content too. It carries no text and no media (it isn't
+    // a media_type — see supabase/polls.sql), so without `pollId` here the
+    // guard silently swallowed every poll: the row was never inserted, and
+    // the composer looked like it had sent something.
+    if (!myId || (!text.trim() && !media && !pollId)) return;
     await supabase.from('messages').insert({
       ai_share: aiShare ?? null,
       group_id: groupId,
@@ -756,7 +791,15 @@ export function useMessages(groupId: string) {
       media_duration_ms: media?.durationMs ?? null,
       media_view_once: media?.viewOnce ?? false,
       sticker_id: stickerId ?? null,
+      poll_id: pollId ?? null,
     });
+
+    // Replying is proof of having caught up, so the preserved "what did I
+    // miss" boundary is spent here rather than left pinned for the rest of
+    // the sitting — otherwise the recap keeps re-reporting the very messages
+    // you just answered. Done inside sendMessage so every path (text, media,
+    // gif, sticker, voice, AI share) is covered by one call instead of six.
+    consumeMissedBoundary(groupId, myId);
   }
 
   async function editMessage(
@@ -909,6 +952,18 @@ export function useMessages(groupId: string) {
     }
     refreshReactions();
   }
+  /** Clear chat for me: hides all messages currently in this group for this viewer only. */
+  async function clearChatForMe(): Promise<{ error: string | null }> {
+    if (!myId) return { error: 'Not signed in.' };
+    // Optimistically hide all current messages locally
+    setHiddenIds(new Set(allMessages.map((m) => m.id)));
+    const { error } = await supabase.rpc('clear_chat_for_me', { p_group_id: groupId });
+    if (error) {
+      load();
+      return { error: error.message };
+    }
+    return { error: null };
+  }
 
   return {
     messages,
@@ -921,6 +976,8 @@ export function useMessages(groupId: string) {
     editMessage,
     deleteMessage,
     hideMessage,
+    clearChatForMe,
+    reloadMessages: load,
     markMediaViewed,
     toggleReaction,
   };

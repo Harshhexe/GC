@@ -301,6 +301,10 @@ export function describeMedia(
       return { icon: 'mic', label: 'Voice message' };
     case 'sticker':
       return { icon: 'happy', label: 'Sticker' };
+    case 'poll':
+      return { icon: 'bar-chart', label: 'Poll' };
+    default:
+      return { icon: 'document-text', label: name || 'Attachment' };
   }
 }
 

@@ -1,0 +1,54 @@
+-- 🎯 Daily GC Wordle.
+--
+-- Applied as migrations: wordle_schema, wordle_functions, wordle_stats_rewrite.
+-- Word lists were loaded once by a throwaway edge function running under the
+-- service role (deleted afterwards) — the tables are write-locked to every
+-- client role, so there was no client path to seed them and no migration
+-- payload worth 86KB of literals.
+--
+-- ── the security model ──────────────────────────────────────────────────
+--
+-- The client never learns the answer and never decides anything. Note what is
+-- deliberately absent below: `wordle_answers` and `daily_wordle_puzzles` have
+-- RLS enabled with NO policies at all, so a normal client selecting from them
+-- gets zero rows — verified. Everything the app can see comes back from a
+-- SECURITY DEFINER function that decides what the caller has earned:
+--
+--   wordle_today()          your board; `answer` is null until you finish
+--   wordle_guess(text)      validates, scores, records, returns colours
+--   wordle_group_results()  other members' colour patterns — never their words
+--   wordle_stats()          your own record
+--
+-- wordle_attempts has an own-rows-only SELECT policy. Other members' results
+-- come from a function instead of a widened policy because a row-level policy
+-- cannot hide a *column*, and the `guess` column would leak the answer to
+-- anyone still playing.
+--
+-- There is no INSERT policy on wordle_attempts either: rows are written only
+-- by wordle_guess() after it has checked the word, the attempt count and the
+-- puzzle. A client that could insert here could award itself a win.
+--
+-- ── the day boundary ────────────────────────────────────────────────────
+--
+-- wordle_today_date() is Asia/Kolkata, matching the awards scheduler and the
+-- read-boundary functions. Never the device clock: two people either side of
+-- midnight must not get different puzzles.
+--
+-- wordle_ensure_puzzle() creates the day's row on first play, picking
+-- deterministically (md5 of date+word, least-recently-used first) so two
+-- simultaneous first-players cannot race into different words. The unique
+-- constraint on puzzle_date makes that race a no-op rather than a duplicate.
+--
+-- ── scoring ─────────────────────────────────────────────────────────────
+--
+-- wordle_score() implements real duplicate-letter rules: greens are taken
+-- first and *consume* their letter, so a repeated letter only earns yellow
+-- while unmatched copies remain. The naive one-pass version tells a player
+-- that CRANE has two E's when the answer has one.
+--
+-- Verified against an independent reference implementation over all 4,170
+-- ordered answer pairs — identical MD5 of the concatenated results.
+--
+-- Pull current definitions before editing:
+--   select pg_get_functiondef(oid) from pg_proc
+--    where proname like 'wordle%' and pronamespace = 'public'::regnamespace;

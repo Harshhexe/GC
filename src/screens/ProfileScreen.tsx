@@ -1,20 +1,25 @@
-import { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { useFocusEffect } from '@react-navigation/native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
   DOCK_HEIGHT,
   colors,
+  fontFamily,
   glass,
+  gradients,
   radius,
+  shadows,
   spacing,
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { GlassPanel } from '../components/ui/Glass';
 import { PressableScale } from '../components/ui/PressableScale';
 import { AppHeader } from '../components/ui/AppHeader';
@@ -23,6 +28,8 @@ import { GCButton } from '../components/ui/Buttons';
 import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../hooks/useGroups';
 import { supabase } from '../lib/supabase';
+import { uploadUserAvatar } from '../lib/uploadAvatar';
+import { selectFeedback, successFeedback, warningFeedback } from '../utils/haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -33,102 +40,283 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-function StatCircle({
-  value,
-  label,
-  color,
-  delay,
-}: {
-  value: string;
-  label: string;
-  color: string;
-  delay: number;
-}) {
+/** Deep moody atmospheric glow background with high blur intensity */
+function DarkAtmosphericBackground() {
   return (
-    <Animated.View
-      entering={FadeInDown.delay(delay).duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-      style={[styles.statCircle, { borderColor: `${color}55` }]}
-    >
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </Animated.View>
+    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
+      {/* Deep Obsidian Dark Base */}
+      <LinearGradient
+        colors={['#050409', '#020204', '#000000']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Top Subtle Violet Spotlight */}
+      <LinearGradient
+        colors={['rgba(99, 102, 241, 0.12)', 'rgba(236, 72, 153, 0.05)', 'transparent']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 0.60 }}
+        style={styles.topSpotlight}
+      />
+
+      {/* Corner Glowing Mesh Blobs (Soft & Dark) */}
+      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
+        <LinearGradient
+          colors={['#6366F1', '#8B5CF6', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      <View style={[styles.cornerBlob, styles.blobTopRight]}>
+        <LinearGradient
+          colors={['#EC4899', '#F43F5E', 'transparent']}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
+        <LinearGradient
+          colors={['#8B5CF6', '#3B82F6', 'transparent']}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
+        <LinearGradient
+          colors={['#F59E0B', '#EC4899', 'transparent']}
+          start={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 0 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 85 : 95}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Dark Vignette Overlay */}
+      <LinearGradient
+        colors={['rgba(99, 102, 241, 0.05)', 'transparent', 'rgba(0, 0, 0, 0.70)']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </View>
   );
 }
 
-function MenuRow({
-  icon,
-  color,
+function StatTile({
   label,
-  onPress,
-  delay,
+  value,
+  icon,
+  accentColor,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
   label: string;
-  onPress: () => void;
-  delay: number;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  accentColor: string;
 }) {
   return (
-    <Animated.View
-      entering={FadeInDown.delay(delay)
-        .duration(duration.slow)
-        .easing(easing.out)
-        .reduceMotion(reduceMotion)}
+    <View style={styles.statTile}>
+      <View style={[styles.statIconWrap, { backgroundColor: `${accentColor}18` }]}>
+        <Ionicons name={icon} size={15} color={accentColor} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function SettingsMenuItem({
+  icon,
+  accentColor,
+  title,
+  subtitle,
+  onPress,
+  isLast,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  accentColor: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <PressableScale
+      style={[styles.menuItem, !isLast && styles.menuItemBorder]}
+      scaleTo={0.97}
+      haptic="light"
+      onPress={onPress}
     >
-      <PressableScale style={styles.menuRow} scaleTo={0.985} onPress={onPress}>
-        <View style={[styles.menuIcon, { backgroundColor: `${color}22`, borderColor: `${color}55` }]}>
-          <Ionicons name={icon} size={20} color={color} />
-        </View>
-        <Text style={styles.menuLabel}>{label}</Text>
-        <Ionicons name="chevron-forward" size={20} color={colors.outline} />
-      </PressableScale>
-    </Animated.View>
+      <View style={[styles.menuIconWrap, { backgroundColor: `${accentColor}18` }]}>
+        <Ionicons name={icon} size={20} color={accentColor} />
+      </View>
+
+      <View style={styles.menuCopy}>
+        <Text style={styles.menuTitle}>{title}</Text>
+        <Text style={styles.menuSubtitle}>{subtitle}</Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={18} color="#64748B" />
+    </PressableScale>
   );
 }
 
 export default function ProfileScreen({ navigation }: Props) {
   const { profile, signOut } = useAuth();
-  // Counts only — no need for a live channel behind the profile tab.
-  const { groups } = useGroups({ realtime: false });
+  const { groups, refetch: refetchGroups } = useGroups({ realtime: true });
   const [totalMessages, setTotalMessages] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  // "Total hype" is this user's own message count — a real number, not a prop.
-  useEffect(() => {
-    let cancelled = false;
-    async function loadCount() {
-      if (!profile?.id) return;
-      const { count } = await supabase
-        .from('messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('author_id', profile.id);
-      if (!cancelled) setTotalMessages(count ?? 0);
-    }
-    loadCount();
-    return () => {
-      cancelled = true;
-    };
+  // Alpha Feedback State
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackPhoto, setFeedbackPhoto] = useState<{ uri: string; base64: string; ext: string } | null>(null);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const loadCount = useCallback(async () => {
+    if (!profile?.id) return;
+    const { count } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('author_id', profile.id);
+    setTotalMessages(count ?? 0);
   }, [profile?.id]);
 
-  // Fetch access token for testing/debugging
-  useEffect(() => {
-    async function loadToken() {
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.access_token) {
-        setAccessToken(data.session.access_token);
-      }
-    }
-    loadToken();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadCount();
+      refetchGroups();
+    }, [loadCount, refetchGroups])
+  );
 
-  async function copySessionToken() {
-    if (!accessToken) {
-      Alert.alert('No session', 'Could not find your session token.');
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const channel = supabase
+      .channel(`profile-hype-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `author_id=eq.${profile.id}`,
+        },
+        () => {
+          loadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, loadCount]);
+
+  async function pickFeedbackImage() {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Please allow access to your photos to attach a screenshot.');
+        return;
+      }
+      selectFeedback();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        base64: true,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      setFeedbackPhoto({ uri: asset.uri, base64: asset.base64 ?? '', ext });
+      successFeedback();
+    } catch (e) {
+      console.warn('Failed to pick photo:', e);
+    }
+  }
+
+  async function submitFeedback() {
+    if (!feedbackText.trim() && !feedbackPhoto) {
+      warningFeedback();
+      Alert.alert('Empty Feedback', 'Please describe the bug or share your thoughts before submitting.');
       return;
     }
-    await Clipboard.setStringAsync(accessToken);
-    Alert.alert('Copied', 'Session token copied to clipboard.');
+
+    setSubmittingFeedback(true);
+    try {
+      let photoUrl: string | null = null;
+      if (feedbackPhoto?.base64 && profile?.id) {
+        const { url, error: uploadErr } = await uploadUserAvatar(feedbackPhoto.base64, profile.id, feedbackPhoto.ext);
+        if (!uploadErr && url) {
+          photoUrl = url;
+        }
+      }
+
+      const { error } = await supabase.from('app_feedback').insert({
+        user_id: profile?.id ?? null,
+        message: feedbackText.trim() || '(Screenshot attached)',
+        photo_url: photoUrl,
+        app_version: '1.0.0-alpha',
+        platform: Platform.OS,
+      });
+
+      if (error) {
+        Alert.alert('Could not submit', error.message);
+        return;
+      }
+
+      // Forward directly to developer's inbox (hdhiman0302@gmail.com)
+      try {
+        await fetch('https://formsubmit.co/ajax/hdhiman0302@gmail.com', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            _subject: `🧪 GC Alpha Feedback from @${profile?.username ?? 'user'}`,
+            _template: 'table',
+            User: `@${profile?.username ?? 'user'} (${profile?.display_name ?? 'Anonymous'})`,
+            UserId: profile?.id ?? 'Unknown',
+            Platform: Platform.OS.toUpperCase(),
+            AppVersion: '1.0.0-alpha',
+            Feedback: feedbackText.trim() || '(Screenshot only)',
+            Screenshot: photoUrl ?? 'No screenshot attached',
+            SubmittedAt: new Date().toLocaleString(),
+          }),
+        });
+      } catch (emailErr) {
+        // Non-blocking: data is already safe in database
+        console.log('Email forward notice:', emailErr);
+      }
+
+      successFeedback();
+      setFeedbackText('');
+      setFeedbackPhoto(null);
+      setFeedbackSent(true);
+      setTimeout(() => setFeedbackSent(false), 5000);
+      Alert.alert(
+        'Feedback Sent! 💜',
+        'Thank you for testing GC! Your feedback and screenshot have been sent directly to the team.'
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Something went wrong.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
   }
 
   function confirmSignOut() {
@@ -136,7 +324,7 @@ export default function ProfileScreen({ navigation }: Props) {
       signOut();
       return;
     }
-    Alert.alert('Leave the GC?', 'You can always come back.', [
+    Alert.alert('Sign Out', 'Are you sure you want to sign out of your account?', [
       { text: 'Stay', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: signOut },
     ]);
@@ -154,184 +342,246 @@ export default function ProfileScreen({ navigation }: Props) {
       else Alert.alert('Account not deleted', msg);
       return;
     }
-    // The row backing this session is gone; sign out locally to clear the
-    // token and drop back to the Auth screen rather than leaving a session
-    // that points at nothing.
     await signOut();
   }
 
-  // Deletion is permanent and takes every GC you own with it (unless someone
-  // else can inherit ownership) — worth a second confirmation, not just one.
   function confirmDeleteAccount() {
     if (Platform.OS === 'web') {
       if (!window.confirm('Delete your account? This removes your profile everywhere and cannot be undone.')) {
         return;
       }
-      if (!window.confirm('Really sure? There is no way to get this back.')) return;
       doDeleteAccount();
       return;
     }
     Alert.alert(
-      'Delete your account?',
-      'Your profile, messages, and any GCs only you belong to are gone for good.',
+      'Delete Account Permanently',
+      'This will permanently delete your account, your messages, and your profile. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: () =>
-            Alert.alert('Are you sure?', 'This is permanent. There is no way to undo it.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Delete Everything', style: 'destructive', onPress: doDeleteAccount },
-            ]),
-        },
+        { text: 'Delete Permanently', style: 'destructive', onPress: doDeleteAccount },
       ]
     );
   }
 
-  const hype =
-    totalMessages === null
-      ? '—'
-      : totalMessages >= 1000
-        ? `${(totalMessages / 1000).toFixed(1)}k`
-        : String(totalMessages);
-
-  const vibeLevel =
-    totalMessages === null
-      ? 'CALIBRATING'
-      : totalMessages > 500
-        ? 'UNHINGED'
-        : totalMessages > 100
-          ? 'HIGH'
-          : totalMessages > 10
-            ? 'WARMING UP'
-            : 'LURKER';
-
   return (
     <View style={styles.root}>
-      <AmbientBackground variant="vivid" />
+      <DarkAtmosphericBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <AppHeader wordmark />
+        <AppHeader title="Settings" />
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 1. Hero Profile Card */}
           <Animated.View
-            entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
-            style={styles.identity}
+            entering={FadeInDown.duration(duration.slow)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
           >
-            <Avatar
-              emoji={profile?.avatar_emoji}
-              imageUrl={profile?.avatar_url}
-              label={profile?.display_name}
-              size={128}
-              glow
-              status="online"
-            />
-            <Text style={styles.name}>{profile?.display_name ?? 'you'}</Text>
-            <Text style={styles.handle}>@{profile?.username ?? 'unknown'}</Text>
+            <GlassPanel borderRadius={radius.xl} style={styles.profileCard}>
+              <Avatar
+                emoji={profile?.avatar_emoji ?? undefined}
+                imageUrl={profile?.avatar_url}
+                label={profile?.display_name ?? 'You'}
+                size={84}
+                ring={true}
+                ringColors={['#818CF8', '#C084FC', '#F472B6']}
+              />
 
-            <View style={styles.vibeChip}>
-              <Ionicons name="flame" size={15} color={colors.tertiary} />
-              <Text style={styles.vibeText}>VIBE LEVEL: {vibeLevel}</Text>
-            </View>
-          </Animated.View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.displayName}>{profile?.display_name ?? 'Anonymous'}</Text>
+                <Text style={styles.handle}>@{profile?.username ?? 'user'}</Text>
+              </View>
 
-          <View style={styles.stats}>
-            <StatCircle value={hype} label={'TOTAL\nHYPE'} color={colors.primary} delay={120} />
-            <StatCircle
-              value={String(groups.length)}
-              label="GROUPS"
-              color={colors.secondary}
-              delay={200}
-            />
-            <StatCircle
-              value={String(groups.filter((g) => g.unreadCount > 0).length)}
-              label={'UNREAD\nGCS'}
-              color={colors.tertiary}
-              delay={280}
-            />
-          </View>
-
-          <View style={styles.menu}>
-            <MenuRow
-              icon="people"
-              color={colors.primary}
-              label="My Groups"
-              delay={STAGGER_MS * 2}
-              onPress={() => navigation.navigate('GroupList')}
-            />
-            <MenuRow
-              icon="trophy"
-              color={colors.secondary}
-              label="Achievements"
-              delay={STAGGER_MS * 3}
-              onPress={() => navigation.navigate('Explore')}
-            />
-            <MenuRow
-              icon="add-circle"
-              color={colors.tertiary}
-              label="Start or Join a GC"
-              delay={STAGGER_MS * 4}
-              onPress={() => navigation.navigate('AddGC')}
-            />
-          </View>
-
-          {accessToken && (
-            <Animated.View
-              entering={FadeInDown.delay(STAGGER_MS * 5)
-                .duration(duration.slow)
-                .easing(easing.out)
-                .reduceMotion(reduceMotion)}
-            >
-              <GlassPanel style={styles.tokenPanel}>
-                <View style={styles.tokenHeader}>
-                  <Ionicons name="key-outline" size={18} color={colors.onSurfaceVariant} />
-                  <Text style={styles.tokenLabel}>Session Token</Text>
-                </View>
-                <Text style={styles.tokenText} numberOfLines={1} ellipsizeMode="middle">
-                  {accessToken.substring(0, 20)}...{accessToken.substring(accessToken.length - 20)}
-                </Text>
-                <GCButton
-                  label="Copy"
-                  variant="ghost"
-                  full={false}
-                  onPress={copySessionToken}
-                  icon={<Ionicons name="copy-outline" size={16} color={colors.primary} />}
+              <View style={styles.statsRow}>
+                <StatTile
+                  label="Active GCs"
+                  value={String(groups.length)}
+                  icon="chatbubbles"
+                  accentColor="#6366F1"
                 />
-              </GlassPanel>
-            </Animated.View>
-          )}
-
-          <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS * 6)
-              .duration(duration.slow)
-              .easing(easing.out)
-              .reduceMotion(reduceMotion)}
-            style={styles.signOut}
-          >
-            <GCButton
-              label="Sign Out"
-              variant="danger"
-              onPress={confirmSignOut}
-              icon={<Ionicons name="log-out-outline" size={19} color={colors.error} />}
-            />
+                <View style={styles.statDivider} />
+                <StatTile
+                  label="Messages"
+                  value={totalMessages !== null ? String(totalMessages) : '...'}
+                  icon="sparkles"
+                  accentColor="#EC4899"
+                />
+                <View style={styles.statDivider} />
+                <StatTile
+                  label="Status"
+                  value="Alpha"
+                  icon="shield-checkmark"
+                  accentColor="#10B981"
+                />
+              </View>
+            </GlassPanel>
           </Animated.View>
 
+          {/* 2. Quick Navigation Shortcuts */}
           <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS * 7)
+            entering={FadeInDown.delay(STAGGER_MS)
               .duration(duration.slow)
               .easing(easing.out)
               .reduceMotion(reduceMotion)}
-            style={styles.dangerZone}
+            style={styles.sectionWrap}
           >
+            <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+            <GlassPanel borderRadius={radius.lg} style={styles.menuCard}>
+              <SettingsMenuItem
+                icon="people-outline"
+                accentColor="#818CF8"
+                title="All Group Chats"
+                subtitle="Browse active conversations & unread badges"
+                onPress={() => navigation.navigate('GroupList')}
+              />
+              <SettingsMenuItem
+                icon="trophy-outline"
+                accentColor="#F59E0B"
+                title="Awards & Achievements"
+                subtitle="Leaderboards and weekly GC highlights"
+                onPress={() => navigation.navigate('Explore')}
+              />
+              <SettingsMenuItem
+                icon="add-circle-outline"
+                accentColor="#22D3EE"
+                title="Create or Join Group"
+                subtitle="Start a fresh GC or enter an invite code"
+                onPress={() => navigation.navigate('AddGC')}
+                isLast
+              />
+            </GlassPanel>
+          </Animated.View>
+
+          {/* 3. Alpha Feedback Form (Replaced Session ID) */}
+          <Animated.View
+            entering={FadeInDown.delay(STAGGER_MS * 2)
+              .duration(duration.slow)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
+            style={styles.sectionWrap}
+          >
+            <View style={styles.feedbackSectionHeader}>
+              <View style={styles.alphaPill}>
+                <Ionicons name="flask" size={12} color="#A855F7" />
+                <Text style={styles.alphaPillText}>ALPHA TEST FEEDBACK</Text>
+              </View>
+            </View>
+
+            <GlassPanel borderRadius={radius.lg} style={styles.feedbackCard}>
+              <View style={styles.feedbackIntro}>
+                <Text style={styles.feedbackTitle}>Report a Bug or Suggestion</Text>
+                <Text style={styles.feedbackSub}>
+                  Help shape the future of GC! Let us know what broke or what you'd love to see next.
+                </Text>
+              </View>
+
+              {/* Text Input */}
+              <View style={styles.feedbackInputContainer}>
+                <TextInput
+                  value={feedbackText}
+                  onChangeText={setFeedbackText}
+                  placeholder="Describe what happened, or share an idea..."
+                  placeholderTextColor="#64748B"
+                  style={styles.feedbackInput}
+                  multiline
+                  numberOfLines={4}
+                  maxLength={1000}
+                  textAlignVertical="top"
+                />
+                <Text style={styles.feedbackCharCounter}>
+                  {feedbackText.length}/1000
+                </Text>
+              </View>
+
+              {/* Attached Photo Preview / Picker Button */}
+              {feedbackPhoto ? (
+                <View style={styles.photoAttachedRow}>
+                  <View style={styles.photoThumbWrapper}>
+                    <Image source={{ uri: feedbackPhoto.uri }} style={styles.photoThumb} />
+                    <PressableScale
+                      style={styles.photoRemoveBtn}
+                      scaleTo={0.88}
+                      hitSlop={6}
+                      onPress={() => setFeedbackPhoto(null)}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#F43F5E" />
+                    </PressableScale>
+                  </View>
+                  <View style={styles.photoMetaCopy}>
+                    <Text style={styles.photoMetaTitle}>Screenshot Attached 📸</Text>
+                    <Text style={styles.photoMetaSub}>Will be sent with your report</Text>
+                  </View>
+                </View>
+              ) : (
+                <PressableScale
+                  style={styles.attachPhotoBtn}
+                  scaleTo={0.96}
+                  haptic="light"
+                  onPress={pickFeedbackImage}
+                >
+                  <Ionicons name="image-outline" size={18} color="#818CF8" />
+                  <Text style={styles.attachPhotoText}>Attach Screenshot / Photo (Optional)</Text>
+                </PressableScale>
+              )}
+
+              {/* Success Banner */}
+              {feedbackSent && (
+                <Animated.View entering={FadeIn.duration(150)} style={styles.feedbackSentBanner}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                  <Text style={styles.feedbackSentText}>
+                    Feedback received! Thank you for testing GC 💜
+                  </Text>
+                </Animated.View>
+              )}
+
+              {/* Submit Button */}
+              <View style={styles.feedbackSubmitWrap}>
+                <GCButton
+                  label={submittingFeedback ? 'Sending Feedback...' : 'Send Feedback 🚀'}
+                  variant="gradient"
+                  neo
+                  disabled={submittingFeedback || (!feedbackText.trim() && !feedbackPhoto)}
+                  onPress={submitFeedback}
+                  icon={<Ionicons name="send" size={16} color="#FFFFFF" />}
+                />
+              </View>
+            </GlassPanel>
+          </Animated.View>
+
+          {/* 4. Account Actions */}
+          <Animated.View
+            entering={FadeInDown.delay(STAGGER_MS * 3)
+              .duration(duration.slow)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
+            style={styles.actionsSection}
+          >
+            {/* Sign Out Button */}
             <PressableScale
-              style={styles.deleteRow}
-              scaleTo={0.98}
+              style={styles.signOutBtnWrap}
+              scaleTo={0.96}
+              haptic="medium"
+              onPress={confirmSignOut}
+            >
+              <View style={styles.signOutBtnInner}>
+                <Ionicons name="log-out-outline" size={18} color="#F87171" />
+                <Text style={styles.signOutBtnText}>Sign Out</Text>
+              </View>
+            </PressableScale>
+
+            {/* Delete Account Discreet Option */}
+            <PressableScale
+              style={styles.deleteAccountBtn}
+              scaleTo={0.96}
               disabled={deleting}
               onPress={confirmDeleteAccount}
             >
-              <Ionicons name="skull-outline" size={16} color={colors.outline} />
-              <Text style={styles.deleteText}>
-                {deleting ? 'deleting your account…' : 'Delete Account'}
+              <Ionicons name="trash-outline" size={15} color="#64748B" />
+              <Text style={styles.deleteAccountText}>
+                {deleting ? 'Deleting account...' : 'Delete Account Permanently'}
               </Text>
             </PressableScale>
           </Animated.View>
@@ -342,87 +592,338 @@ export default function ProfileScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: '#020204' },
   safe: { flex: 1 },
   scroll: {
     padding: CONTAINER_MARGIN,
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
-    gap: spacing.xl,
+    gap: spacing.lg,
   },
-  identity: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.lg },
-  name: { ...typography.headline, fontSize: 28, color: colors.onSurface, marginTop: spacing.md },
-  handle: { ...typography.bodyLg, color: colors.primary },
-  vibeChip: {
+
+  // Glow Background
+  glowBgRoot: { backgroundColor: '#020204', overflow: 'hidden' },
+  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
+  cornerBlob: { position: 'absolute', borderRadius: 999 },
+  blobFill: { flex: 1, borderRadius: 999 },
+  blobTopLeft: { top: -70, left: -70, width: 280, height: 280, opacity: 0.35 },
+  blobTopRight: { top: -60, right: -60, width: 270, height: 270, opacity: 0.30 },
+  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.25 },
+  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.30 },
+
+  // Profile Card
+  profileCard: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  profileInfo: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  displayName: {
+    ...typography.headline,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  handle: {
+    ...typography.caption,
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+
+  // Stats Row
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.tertiary,
-    backgroundColor: 'rgba(76,215,246,0.12)',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
+    justifyContent: 'space-between',
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  vibeText: { ...typography.label, color: colors.onSurface },
-  stats: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
-  statCircle: {
+  statTile: {
     flex: 1,
-    aspectRatio: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  statIconWrap: {
+    width: 28,
+    height: 28,
     borderRadius: radius.pill,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.04)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
+  },
+  statValue: {
+    ...typography.title,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  statLabel: {
+    ...typography.micro,
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+
+  // Sections
+  sectionWrap: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    ...typography.micro,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: colors.onSurfaceVariant,
+    paddingHorizontal: 4,
+  },
+
+  // Menu Card
+  menuCard: {
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+  },
+  menuItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  menuIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuCopy: {
+    flex: 1,
     gap: 2,
   },
-  statValue: { ...typography.headline, fontSize: 26 },
-  statLabel: {
-    ...typography.label,
-    fontSize: 10,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
+  menuTitle: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  menu: { gap: spacing.md },
-  menuRow: {
+  menuSubtitle: {
+    ...typography.caption,
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+
+  // Alpha Feedback Form
+  feedbackSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.lg,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: glass.borderWidth,
-    borderColor: glass.stroke,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    paddingHorizontal: 2,
   },
-  menuIcon: {
-    width: 44,
-    height: 44,
+  alphaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: radius.pill,
+  },
+  alphaPillText: {
+    ...typography.micro,
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+    color: '#C084FC',
+  },
+  feedbackCard: {
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.25)',
+  },
+  feedbackIntro: {
+    gap: 3,
+  },
+  feedbackTitle: {
+    ...typography.title,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  feedbackSub: {
+    ...typography.caption,
+    fontSize: 12.5,
+    color: '#94A3B8',
+    lineHeight: 18,
+  },
+  feedbackInputContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: spacing.md,
+    minHeight: 100,
+  },
+  feedbackInput: {
+    fontFamily: fontFamily.body,
+    fontSize: 14,
+    color: '#FFFFFF',
+    minHeight: 64,
+    padding: 0,
+    margin: 0,
+  },
+  feedbackCharCounter: {
+    ...typography.micro,
+    fontSize: 10,
+    color: '#64748B',
+    alignSelf: 'flex-end',
+    marginTop: 4,
+  },
+
+  attachPhotoBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(129, 140, 248, 0.10)',
+    borderRadius: radius.md,
     borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.25)',
+    paddingVertical: 11,
   },
-  menuLabel: { ...typography.titleMd, color: colors.onSurface, flex: 1 },
-  tokenPanel: {
-    gap: spacing.md,
-    alignItems: 'center',
+  attachPhotoText: {
+    fontFamily: fontFamily.bodyMedium,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#818CF8',
   },
-  tokenHeader: {
+
+  photoAttachedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: spacing.sm + 2,
   },
-  tokenLabel: {
-    ...typography.label,
-    color: colors.onSurfaceVariant,
+  photoThumbWrapper: {
+    position: 'relative',
   },
-  tokenText: {
+  photoThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+  },
+  photoMetaCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  photoMetaTitle: {
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  photoMetaSub: {
+    ...typography.micro,
+    fontSize: 11.5,
+    color: '#94A3B8',
+  },
+
+  feedbackSentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  feedbackSentText: {
     ...typography.caption,
-    color: colors.onSurfaceVariant,
-    fontFamily: 'monospace',
+    fontSize: 12.5,
+    color: '#34D399',
+    fontWeight: '700',
+    flex: 1,
   },
-  signOut: { marginTop: spacing.sm },
-  dangerZone: { alignItems: 'center', paddingTop: spacing.xs },
-  deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: spacing.sm },
-  deleteText: { ...typography.caption, color: colors.outline },
+  feedbackSubmitWrap: {
+    marginTop: 2,
+  },
+
+  // Actions Section
+  actionsSection: {
+    gap: spacing.md,
+    alignItems: 'center',
+    paddingTop: spacing.xs,
+  },
+  signOutBtnWrap: {
+    width: '100%',
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  signOutBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: spacing.md,
+  },
+  signOutBtnText: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F87171',
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.xs,
+  },
+  deleteAccountText: {
+    ...typography.micro,
+    fontSize: 12,
+    color: '#64748B',
+    textDecorationLine: 'underline',
+  },
 });

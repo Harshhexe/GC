@@ -37,14 +37,14 @@ export function useWhatDidIMiss(groupId: string) {
   }, []);
 
   const run = useCallback(async () => {
-    if (inFlight.current) return;
+    if (inFlight.current) return null;
     inFlight.current = true;
     setState((s) => ({ ...s, loading: true, error: null }));
 
     const response = await invokeGCAI<WhatDidIMissResult>(groupId, 'what_did_i_miss');
 
     inFlight.current = false;
-    if (!mounted.current) return;
+    if (!mounted.current) return response;
 
     if (response.ok) {
       setState({
@@ -53,9 +53,16 @@ export function useWhatDidIMiss(groupId: string) {
         error: null,
         cached: response.cached,
       });
+      // Deliberately does NOT retire the missed boundary. A recap is alive for
+      // ten minutes and the screen shows a countdown saying so, so leaving and
+      // coming back inside that window has to show the same recap — spending
+      // the boundary here made it resolve to "you're caught up" instead, and
+      // the recap vanished while its own timer was still running. Sending a
+      // message is what retires it (see sendMessage in useMessages).
     } else {
       setState({ loading: false, result: null, error: response.error, cached: false });
     }
+    return response;
   }, [groupId]);
 
   useEffect(() => {

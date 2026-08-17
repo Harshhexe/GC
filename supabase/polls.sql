@@ -1,0 +1,55 @@
+-- 📊 Polls.
+--
+-- Applied as migrations: polls_schema, poll_vote_rpcs, poll_message_backlink.
+--
+-- ── a poll is a message, not text ───────────────────────────────────────
+--
+-- messages.poll_id carries it, exactly like sticker_id. Deliberately NOT a
+-- media_type: the media_url_required_with_type constraint would reject it,
+-- and rightly — a poll has no file behind it. kindFor() in useMessages checks
+-- poll_id *before* media_type, so a poll renders as a poll and a reply to one
+-- previews as "📊 Poll" rather than an empty bubble.
+--
+-- ── why vote_counts is denormalised ─────────────────────────────────────
+--
+-- polls.vote_counts is maintained by the poll_recount trigger, and it is what
+-- the realtime subscription carries. That is the only way anonymous polls can
+-- also be live: subscribing to poll_votes would stream user ids to every
+-- member, so the client subscribes to `polls` instead and receives counts
+-- with no voter attached.
+--
+-- A full recount per change rather than an incremental +1/-1 — a poll has at
+-- most ten options and a handful of voters, and a counter that drifts is far
+-- worse than a recount that cannot.
+--
+-- ── anonymity is enforced, not decorative ───────────────────────────────
+--
+-- poll_votes has an own-rows-only SELECT policy, so nobody can read who voted
+-- for what by querying. Voter names come from poll_voters(), which refuses
+-- outright when polls.anonymous is set. Expressing that as RLS on poll_votes
+-- would mean every read re-deriving a property of the *poll*, and one missed
+-- join would quietly unmask an anonymous poll.
+--
+-- ── vote integrity ──────────────────────────────────────────────────────
+--
+-- poll_vote() replaces the caller's whole selection in one transaction, which
+-- makes "change your vote" correct by construction: no window where both the
+-- old and new vote count, and no way for a retry to leave two. It validates
+-- membership of the poll's own group, that every option belongs to the poll,
+-- and the single-vs-multiple rule. There is no INSERT policy on poll_votes at
+-- all, so that function is the only way a vote is ever written.
+--
+-- Verified: change-vote does not accumulate, duplicate option ids in one call
+-- do not double count, a second option on a single-choice poll is refused, an
+-- unknown option is refused, and an anonymous poll refuses to name voters.
+--
+-- ── the message back-link ───────────────────────────────────────────────
+--
+-- polls.message_id is set by the messages_link_poll trigger, not the client.
+-- The client cannot do it without a race: it inserts the message, which then
+-- arrives back over realtime, so "find the message I just sent" runs before
+-- the row exists. messages.poll_id remains the direction of truth.
+--
+-- Pull current definitions before editing:
+--   select pg_get_functiondef(oid) from pg_proc
+--    where proname like 'poll%' and pronamespace = 'public'::regnamespace;

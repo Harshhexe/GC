@@ -81,10 +81,51 @@ as $$
     and gm.user_id = auth.uid();
 $$;
 
+/**
+ * Retire the current boundary — "I have caught up to here".
+ *
+ * Applied as migration `consume_missed_boundary`.
+ *
+ * The two functions above gave prev_read_at a writer and a reader but no way
+ * to spend it, so within one sitting gc_missed_since returned the same
+ * preserved point forever and What Did I Miss? re-answered a question already
+ * answered: you read the messages, replied to them, opened the recap, and it
+ * recapped what you had just replied to. Opening it again matched the same
+ * message set, so ai_cache's context hash matched too and returned the
+ * byte-identical recap — the "same recap twice" symptom, same root cause.
+ *
+ * Called from the client when the user sends a message in the group: you do
+ * not reply to a conversation you have not read. This retires the current
+ * boundary; it does not disable the mechanism — mark_group_read re-arms it
+ * the next time they return after a real absence.
+ *
+ * Deliberately NOT called when a recap is merely displayed. A recap stays
+ * alive for ten minutes and the screen renders a countdown saying so, so
+ * leaving and returning inside that window must show the same recap. Spending
+ * the boundary on view made the next resolve return "you're caught up" and
+ * the recap disappeared while its own timer was still ticking.
+ */
+create or replace function public.gc_consume_missed_boundary(p_group_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.group_members
+  set prev_read_at = last_read_at
+  where group_id = p_group_id
+    and user_id = auth.uid()
+    -- Nothing read yet means no boundary to spend; gc_missed_since correctly
+    -- falls back to joined_at in that case.
+    and last_read_at is not null;
+$$;
+
 revoke all on function public.mark_group_read(uuid) from public;
 revoke all on function public.gc_missed_since(uuid) from public;
+revoke all on function public.gc_consume_missed_boundary(uuid) from public;
 grant execute on function public.mark_group_read(uuid) to authenticated;
 grant execute on function public.gc_missed_since(uuid) to authenticated;
+grant execute on function public.gc_consume_missed_boundary(uuid) to authenticated;
 grant execute on function public.gc_read_session_gap() to authenticated;
 
 -- Existing rows have no preserved boundary. Seed it from the current watermark

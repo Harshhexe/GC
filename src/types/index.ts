@@ -10,7 +10,7 @@ export type Reaction = {
 
 /** What kind of content the message is, for the reply-preview icon/label and
  *  for choosing how MessageBubble renders it. */
-export type MessageKind = 'text' | 'image' | 'video' | 'gif' | 'file' | 'voice' | 'sticker';
+export type MessageKind = 'text' | 'image' | 'video' | 'gif' | 'file' | 'voice' | 'sticker' | 'poll';
 
 export type MediaType = 'image' | 'video' | 'gif' | 'file' | 'voice' | 'sticker';
 
@@ -110,6 +110,10 @@ export type Message = {
    *  at, so a long-press can favorite the underlying sticker rather than
    *  just this one send of it. */
   stickerId?: string | null;
+  /** Set when this message carries a poll. Like `stickerId`, the message
+   *  points at the poll rather than embedding it, so votes changing never
+   *  rewrites the transcript. */
+  pollId?: string | null;
   reactions: Reaction[];
   isMine: boolean;
   /**

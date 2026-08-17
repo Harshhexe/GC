@@ -1,17 +1,20 @@
+import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, spacing, typography, fontFamily } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { GlassPanel } from './ui/Glass';
 import { Avatar } from './ui/Avatar';
 import { GCButton } from './ui/Buttons';
 import { PressableScale } from './ui/PressableScale';
 import { AmbientBackground } from './ui/AmbientBackground';
+import { supabase } from '../lib/supabase';
 import type { DailyRecapResult } from '../lib/ai';
+import type { WordleGroupResult, WordleState } from '../hooks/useWordle';
 
 function StatCard({
   icon,
@@ -45,7 +48,7 @@ function StatCard({
         <Text style={[styles.cardLabel, { color: iconColor }]}>{label}</Text>
         {!!onPress && (
           <View style={styles.jumpPill}>
-            <Text style={styles.jumpText}>Jump</Text>
+            <Text style={styles.jumpText}>Play / Jump</Text>
             <Ionicons name="arrow-forward" size={12} color={colors.primary} />
           </View>
         )}
@@ -79,17 +82,51 @@ function StatCard({
 export function DailyRecapModal({
   visible,
   recap,
+  groupId,
   themeGradient,
   onClose,
   onJumpToMessage,
+  onOpenWordy,
+  onOpenWordle,
 }: {
   visible: boolean;
   recap: DailyRecapResult | null;
+  groupId?: string;
   themeGradient?: readonly [string, string];
   onClose: () => void;
   onJumpToMessage: (messageId: string) => void;
+  onOpenWordy?: () => void;
+  onOpenWordle?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const [wordleState, setWordleState] = useState<WordleState | null>(null);
+  const [wordleTop3, setWordleTop3] = useState<WordleGroupResult[]>([]);
+
+  useEffect(() => {
+    if (!visible || !recap?.date) return;
+    const targetDate = recap.date;
+
+    supabase.rpc('wordle_for_date', { p_date: targetDate }).then(({ data }) => {
+      if (data) setWordleState(data as WordleState);
+      else setWordleState(null);
+    });
+
+    if (groupId) {
+      supabase
+        .rpc('wordle_group_results', { p_group_id: groupId, p_date: targetDate })
+        .then(({ data }) => {
+          if (data) {
+            const results = (data as WordleGroupResult[])
+              .filter((r) => r.solved)
+              .sort((a, b) => a.attempts - b.attempts)
+              .slice(0, 3);
+            setWordleTop3(results);
+          } else {
+            setWordleTop3([]);
+          }
+        });
+    }
+  }, [visible, recap?.date, groupId]);
 
   if (!recap) return null;
 
@@ -106,6 +143,12 @@ export function DailyRecapModal({
   function jump(messageId: string) {
     onClose();
     onJumpToMessage(messageId);
+  }
+
+  function handleWordyPress() {
+    onClose();
+    if (onOpenWordy) onOpenWordy();
+    else onOpenWordle?.();
   }
 
   return (
@@ -212,13 +255,113 @@ export function DailyRecapModal({
             </StatCard>
           )}
 
+          {/* Today's Wordy Word & Top 3 Guessers */}
+          <StatCard
+            icon="grid"
+            iconColor="#10B981"
+            label="🎯 TODAY'S WORDY"
+            delay={140}
+            onPress={onOpenWordy || onOpenWordle ? handleWordyPress : undefined}
+            accentBorderColor="rgba(16, 185, 129, 0.4)"
+          >
+            {/* Wordy Target Word */}
+            <View style={styles.wordleWordRow}>
+              <View style={styles.wordleWordLeft}>
+                <Text style={styles.wordleWordLabel}>TODAY'S WORD</Text>
+                {wordleState?.finished && wordleState?.answer ? (
+                  <View style={styles.wordleAnswerBox}>
+                    {wordleState.answer
+                      .toUpperCase()
+                      .split('')
+                      .map((char, ci) => (
+                        <View key={ci} style={styles.wordleLetterTile}>
+                          <Text style={styles.wordleLetterText}>{char}</Text>
+                        </View>
+                      ))}
+                  </View>
+                ) : (
+                  <View style={styles.wordleUnsolvedBox}>
+                    <Ionicons name="lock-closed" size={13} color="#10B981" />
+                    <Text style={styles.wordleUnsolvedText}>
+                      {wordleState?.solved ? 'SOLVED ✨' : 'PLAY TO REVEAL'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {(!!onOpenWordy || !!onOpenWordle) && (
+                <PressableScale
+                  style={styles.playWordleBtn}
+                  scaleTo={0.92}
+                  haptic="medium"
+                  onPress={handleWordyPress}
+                >
+                  <Text style={styles.playWordleText}>Play 🟩</Text>
+                </PressableScale>
+              )}
+            </View>
+
+            {/* Top 3 Guessers List */}
+            <View style={styles.guessersList}>
+              <Text style={styles.guessersSectionTitle}>TOP 3 GUESSERS IN GC</Text>
+              {wordleTop3.length === 0 ? (
+                <View style={styles.emptyGuessers}>
+                  <Text style={styles.emptyGuessersEmoji}>☕</Text>
+                  <Text style={styles.emptyGuessersText}>
+                    No one has solved today's Wordy yet. Be #1!
+                  </Text>
+                </View>
+              ) : (
+                wordleTop3.map((guesser, idx) => {
+                  const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉';
+                  return (
+                    <View key={guesser.user_id} style={styles.guesserRow}>
+                      <Text style={styles.guesserMedal}>{medal}</Text>
+                      <Avatar
+                        emoji={guesser.avatar_emoji ?? undefined}
+                        imageUrl={guesser.avatar_url}
+                        label={guesser.display_name}
+                        size={36}
+                        ring={true}
+                        ringColors={[guesser.avatar_color ?? '#10B981', '#10B981']}
+                      />
+                      <View style={styles.guesserCopy}>
+                        <Text style={styles.guesserName} numberOfLines={1}>
+                          {guesser.display_name}
+                        </Text>
+                        <Text style={styles.guesserMeta}>
+                          Solved in{' '}
+                          <Text style={styles.guesserAttemptsHighlight}>
+                            {guesser.attempts}/6
+                          </Text>{' '}
+                          attempts
+                        </Text>
+                      </View>
+                      <View style={styles.miniPattern}>
+                        {guesser.patterns.slice(-1)[0] && (
+                          <Text style={styles.miniPatternText}>
+                            {guesser.patterns
+                              .slice(-1)[0]
+                              .split('')
+                              .map((m) => (m === 'g' ? '🟩' : m === 'y' ? '🟨' : '⬛'))
+                              .join('')}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </StatCard>
+
           {/* Message of the Day */}
           {recap.messageOfTheDay && (
             <StatCard
               icon="trophy"
               iconColor={colors.yellow}
               label="🏆 MESSAGE OF THE DAY"
-              delay={140}
+              delay={200}
               onPress={() => jump(recap.messageOfTheDay!.messageId)}
               accentBorderColor="rgba(255, 209, 102, 0.4)"
             >
@@ -246,7 +389,7 @@ export function DailyRecapModal({
               icon="cafe"
               iconColor="#34D399"
               label="☕ THE BIGGEST TEA"
-              delay={200}
+              delay={240}
               onPress={() => jump(recap.bestTea!.messageId)}
               accentBorderColor="rgba(52, 211, 153, 0.4)"
             >
@@ -260,7 +403,7 @@ export function DailyRecapModal({
               icon="skull"
               iconColor="#F472B6"
               label="💀 PEAK UNHINGED MOMENT"
-              delay={260}
+              delay={280}
               onPress={() => jump(recap.mostUnhinged!.messageId)}
               accentBorderColor="rgba(244, 114, 182, 0.4)"
             >
@@ -282,7 +425,7 @@ export function DailyRecapModal({
 
           {/* Back to Chat Button */}
           <Animated.View
-            entering={FadeInDown.delay(320).duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+            entering={FadeInDown.delay(340).duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
             style={styles.ctaWrap}
           >
             <GCButton
@@ -320,8 +463,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   wrappedBadgeText: {
-    ...typography.micro,
-    fontWeight: '800',
+    ...typography.label,
+    fontSize: 12,
     color: '#FFD166',
     letterSpacing: 1,
   },
@@ -330,19 +473,13 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   scroll: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
     gap: spacing.lg,
+    paddingTop: spacing.sm,
   },
   hero: {
     alignItems: 'center',
@@ -350,93 +487,94 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   dateLabel: {
-    ...typography.micro,
+    ...typography.label,
     color: colors.onSurfaceVariant,
     letterSpacing: 1.5,
-    fontWeight: '600',
+    fontSize: 13,
   },
   wordWrapper: {
-    marginVertical: spacing.xs,
-    shadowColor: '#000',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    elevation: 12,
+    marginVertical: spacing.xs,
   },
   wordChip: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.md + 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: spacing.xxl + 4,
+    paddingVertical: spacing.md + 4,
+    borderRadius: radius.xxl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   wordText: {
-    ...typography.displayXl,
-    fontSize: 32,
+    ...typography.hero,
+    fontSize: 40,
     color: '#FFFFFF',
-    fontWeight: '900',
-    letterSpacing: -0.5,
     textTransform: 'lowercase',
+    textAlign: 'center',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   statPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   totalText: {
     ...typography.caption,
     color: colors.onSurface,
+    fontSize: 13,
     fontWeight: '600',
   },
   truncatedNote: {
-    ...typography.micro,
-    color: colors.outline,
+    ...typography.caption,
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-    marginTop: 2,
+    fontSize: 12,
+    maxWidth: 280,
   },
+
+  // Stat Card
   card: {
     padding: spacing.lg,
     gap: spacing.md,
+    backgroundColor: 'rgba(25, 20, 38, 0.65)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   cardHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 8,
   },
   cardIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardLabel: {
     ...typography.label,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.8,
     flex: 1,
-    letterSpacing: 0.5,
-  },
-  cardBody: {
-    gap: spacing.sm,
   },
   jumpPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
     backgroundColor: 'rgba(129, 140, 248, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -447,6 +585,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
+  cardBody: {
+    gap: spacing.sm,
+  },
+
+  // User of the Day
   personRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -454,7 +597,7 @@ const styles = StyleSheet.create({
   },
   personCopy: {
     flex: 1,
-    gap: 3,
+    gap: 2,
   },
   personName: {
     ...typography.title,
@@ -467,13 +610,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   personBold: {
+    color: colors.onSurface,
     fontWeight: '700',
-    color: '#FF6B6B',
   },
   yapperBadge: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: 'rgba(255, 107, 107, 0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderColor: 'rgba(255, 107, 107, 0.4)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: radius.sm,
@@ -482,53 +625,204 @@ const styles = StyleSheet.create({
     ...typography.micro,
     color: '#FF6B6B',
     fontWeight: '800',
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
+
+  // Today's Wordle Card Elements
+  wordleWordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  wordleWordLeft: {
+    gap: 6,
+  },
+  wordleWordLabel: {
+    ...typography.micro,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.6,
+  },
+  wordleAnswerBox: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  wordleLetterTile: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wordleLetterText: {
+    fontFamily: fontFamily.displayBold,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  wordleUnsolvedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  wordleUnsolvedText: {
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '800',
+  },
+  playWordleBtn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.20)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+  },
+  playWordleText: {
+    fontFamily: fontFamily.bodyBold,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#34D399',
+  },
+
+  // Guessers List
+  guessersList: {
+    gap: 8,
+    paddingTop: 4,
+  },
+  guessersSectionTitle: {
+    ...typography.micro,
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.6,
+  },
+  emptyGuessers: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: 4,
+  },
+  emptyGuessersEmoji: {
+    fontSize: 22,
+  },
+  emptyGuessersText: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  guesserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  guesserMedal: {
+    fontSize: 18,
+  },
+  guesserCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  guesserName: {
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  guesserMeta: {
+    ...typography.micro,
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  guesserAttemptsHighlight: {
+    color: '#10B981',
+    fontWeight: '800',
+  },
+  miniPattern: {
+    alignItems: 'flex-end',
+  },
+  miniPatternText: {
+    fontSize: 10,
+    letterSpacing: -1,
+  },
+
+  // Message of the Day
   quoteWrapper: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   quoteIcon: {
     marginTop: 2,
   },
   quoteText: {
     ...typography.body,
-    fontSize: 15,
     color: colors.onSurface,
+    fontSize: 14.5,
     fontStyle: 'italic',
-    lineHeight: 22,
     flex: 1,
+    lineHeight: 20,
   },
   quoteFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    paddingHorizontal: spacing.xs,
   },
   quoteAuthor: {
-    ...typography.label,
-    fontSize: 12,
-    color: colors.outline,
+    ...typography.caption,
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
   },
   reactionPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 107, 107, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.pill,
   },
   reactionCount: {
     ...typography.micro,
-    color: colors.onSurfaceVariant,
-    fontWeight: '600',
+    color: '#FF6B6B',
+    fontWeight: '700',
   },
+
+  // Captions
   captionText: {
     ...typography.body,
-    fontSize: 15,
     color: colors.onSurface,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
+
   quietBox: {
     alignItems: 'center',
     gap: spacing.sm,
@@ -538,9 +832,9 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.outline,
     textAlign: 'center',
-    maxWidth: 240,
+    maxWidth: 260,
   },
   ctaWrap: {
-    marginTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
 });

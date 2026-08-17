@@ -1,9 +1,10 @@
-import { useCallback, useState, memo } from 'react';
+import { useCallback, useEffect, useState, memo } from 'react';
 import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
@@ -18,14 +19,11 @@ import {
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
 import { groupTheme, GroupTheme } from '../theme/groupThemes';
-import { copy, pick } from '../theme/copy';
+import { setBadgeCount } from '../lib/push';
 import { EmptyState } from '../components/EmptyState';
-import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { GlassPanel } from '../components/ui/Glass';
-import { GCButton } from '../components/ui/Buttons';
 import { Avatar } from '../components/ui/Avatar';
-import { AppHeader } from '../components/ui/AppHeader';
 import { timeAgo } from '../utils/time';
 import { Group } from '../types';
 import { useGroups } from '../hooks/useGroups';
@@ -43,7 +41,82 @@ type Props = CompositeScreenProps<
 >;
 
 const DEAD_CHAT_MS = 1000 * 60 * 60 * 24;
-const GROUP_LIST_BG = require('../../assets/GroupListBG.png');
+const APP_LOGO_TRANSPARENT = require('../../assets/gc_app_logo-transparent.png');
+
+/** Deep moody atmospheric glow background for Group List */
+function GroupListAtmosphericBackground() {
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
+      {/* Deep Obsidian Dark Base */}
+      <LinearGradient
+        colors={['#0C0A14', '#06050A', '#030206']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Top Atmosphere Spotlight */}
+      <LinearGradient
+        colors={['rgba(139, 92, 246, 0.16)', 'rgba(99, 102, 241, 0.06)', 'transparent']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.topSpotlight}
+      />
+
+      {/* Subtle Corner Ambient Glows */}
+      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.25)', 'rgba(236, 72, 153, 0.10)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      <View style={[styles.cornerBlob, styles.blobTopRight]}>
+        <LinearGradient
+          colors={['rgba(76, 215, 246, 0.16)', 'rgba(99, 102, 241, 0.10)', 'transparent']}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
+        <LinearGradient
+          colors={['rgba(251, 113, 133, 0.14)', 'rgba(139, 92, 246, 0.10)', 'transparent']}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
+        <LinearGradient
+          colors={['rgba(99, 102, 241, 0.18)', 'transparent']}
+          start={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 0 }}
+          style={styles.blobFill}
+        />
+      </View>
+
+      {/* Velvety Smooth Dark Blur */}
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 85 : 95}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Subtle Ambient Sheen & Dark Vignette */}
+      <LinearGradient
+        colors={['rgba(255, 255, 255, 0.02)', 'transparent', 'rgba(3, 2, 6, 0.65)']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </View>
+  );
+}
 
 function isDeadChat(group: Group) {
   if (!group.lastMessageAt) return false;
@@ -51,7 +124,7 @@ function isDeadChat(group: Group) {
 }
 
 /**
- * Evaluates the real-time activity state of the GC to build the dynamic live pill badge.
+ * Evaluates the real-time activity state of the GC to build the dynamic live pill badge without emojis.
  */
 function getLiveBadgeConfig(
   group: Group,
@@ -70,7 +143,7 @@ function getLiveBadgeConfig(
   // 1. Live Tea in progress
   if (group.hasActiveTea) {
     return {
-      icon: 'cafe',
+      icon: 'cafe-outline',
       label: 'Live Tea',
       gradient: ['#10B981', '#059669'],
       glowStyle: shadows.glowCyan,
@@ -81,7 +154,7 @@ function getLiveBadgeConfig(
   // 2. Fresh weekly awards available
   if (group.hasRecentAwards) {
     return {
-      icon: 'trophy',
+      icon: 'trophy-outline',
       label: 'GC Awards',
       gradient: ['#F59E0B', '#D97706'],
       glowStyle: shadows.glow,
@@ -92,7 +165,7 @@ function getLiveBadgeConfig(
   // 3. Popping off — large unread message burst (20+ messages)
   if (group.unreadCount >= 20) {
     return {
-      icon: 'flame',
+      icon: 'flame-outline',
       label: 'Popping Off',
       gradient: ['#F43F5E', '#BE185D'],
       glowStyle: shadows.glowPink,
@@ -103,7 +176,7 @@ function getLiveBadgeConfig(
   // 4. Unread messages needing catch-up
   if (group.unreadCount > 0) {
     return {
-      icon: 'sparkles',
+      icon: 'sparkles-outline',
       label: `Catch Up (${group.unreadCount})`,
       gradient: theme.colors,
       glowStyle: shadows.glow,
@@ -114,7 +187,7 @@ function getLiveBadgeConfig(
   // 5. Dead chat needing a revive
   if (dead) {
     return {
-      icon: 'skull-outline',
+      icon: 'pulse-outline',
       label: 'Revive Chat',
       gradient: ['#374151', '#1F2937'],
       glowStyle: {},
@@ -124,7 +197,7 @@ function getLiveBadgeConfig(
 
   // 6. Default all caught up state
   return {
-    icon: 'sparkles',
+    icon: 'sparkles-outline',
     label: 'Catch Up',
     gradient: theme.colors,
     glowStyle: shadows.glow,
@@ -160,10 +233,10 @@ const GroupCard = memo(function GroupCardImpl({
       <GlassPanel borderRadius={radius.lg}>
         <PressableScale style={styles.cardTop} scaleTo={0.985} onPress={onOpen}>
           <Avatar
-            emoji={dead ? '🪦' : group.emoji}
             imageUrl={dead ? undefined : group.avatarUrl}
+            label={group.name}
             ringColors={theme.colors}
-            size={58}
+            size={56}
             status={dead ? 'offline' : 'online'}
           />
 
@@ -182,7 +255,7 @@ const GroupCard = memo(function GroupCardImpl({
             <View style={styles.cardMessageRow}>
               <Text style={[styles.lastMessage, dead && styles.lastMessageDead]} numberOfLines={2}>
                 {dead ? (
-                  copy.deadChat
+                  'Chat has been quiet for a while'
                 ) : group.lastMessage ? (
                   <>
                     {!!group.lastMessageAuthor && (
@@ -191,7 +264,7 @@ const GroupCard = memo(function GroupCardImpl({
                     {group.lastMessage}
                   </>
                 ) : (
-                  'nothing yet. suspicious.'
+                  'No messages yet'
                 )}
               </Text>
               {group.unreadCount > 0 && (
@@ -205,7 +278,7 @@ const GroupCard = memo(function GroupCardImpl({
           </View>
         </PressableScale>
 
-        {/* Action Row with Dynamic Live Pulse Badge and Crew Button */}
+        {/* Action Row with Dynamic Live Pill Badge and Crew Button */}
         <View style={styles.actionRow}>
           <PressableScale style={styles.dynamicBadgeWrap} haptic="medium" scaleTo={0.94} onPress={badge.onPress}>
             <LinearGradient
@@ -222,14 +295,14 @@ const GroupCard = memo(function GroupCardImpl({
           <PressableScale
             style={[
               styles.crewButton,
-              { backgroundColor: `${theme.accent}1A`, borderColor: `${theme.accent}4D` },
+              { backgroundColor: `${theme.accent}14`, borderColor: `${theme.accent}33` },
             ]}
             scaleTo={0.94}
             onPress={onCrew}
           >
-            <Ionicons name="people" size={15} color={theme.accent} />
+            <Ionicons name="people-outline" size={14} color={theme.accent} />
             <Text style={[styles.crewText, { color: theme.accent }]}>{group.memberCount}</Text>
-            <Ionicons name="chevron-forward" size={14} color={theme.accent} />
+            <Ionicons name="chevron-forward" size={13} color={theme.accent} />
           </PressableScale>
         </View>
       </GlassPanel>
@@ -242,14 +315,16 @@ export default function GroupListScreen({ navigation }: Props) {
   const { groups, loading, refetch } = useGroups();
   const { unreadCount: unreadNotifications } = useNotifications(session?.user?.id);
 
-  const [emptyText] = useState(() => pick(copy.emptyGroups));
-  const [loadingText] = useState(() => pick(copy.loadingGroups));
-
   useFocusEffect(
     useCallback(() => {
       refetch();
     }, [refetch])
   );
+
+  const totalUnread = groups.reduce((sum, g) => sum + g.unreadCount, 0);
+  useEffect(() => {
+    setBadgeCount(totalUnread);
+  }, [totalUnread]);
 
   const renderGroupItem = useCallback(
     ({ item, index }: { item: Group; index: number }) => (
@@ -273,69 +348,88 @@ export default function GroupListScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <Image
-        source={GROUP_LIST_BG}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-      />
-      <AmbientBackground hideBaseBackground />
+      <GroupListAtmosphericBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <AppHeader
-          title="GC"
-          subtitle="group chat with personality"
-          right={
-            <View style={styles.headerRight}>
-              <PressableScale
-                style={styles.bellButton}
-                scaleTo={0.88}
-                hitSlop={6}
-                onPress={() => navigation.navigate('Notifications')}
-              >
-                <Ionicons name="notifications-outline" size={21} color={colors.onSurface} />
-                {unreadNotifications > 0 && (
-                  <View style={styles.bellBadge}>
-                    <Text style={styles.bellBadgeText}>
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </PressableScale>
+        {/* Modern Top Header Bar */}
+        <View style={styles.topBar}>
+          <PressableScale scaleTo={0.94} style={styles.appLogoButton}>
+            <Image
+              source={APP_LOGO_TRANSPARENT}
+              style={styles.headerAppLogo}
+              contentFit="contain"
+            />
+          </PressableScale>
 
-              <PressableScale
-                scaleTo={0.9}
-                onPress={() => navigation.navigate('Profile')}
-                style={styles.profileAvatarButton}
-              >
-                <Avatar
-                  emoji={profile?.avatar_emoji ?? '😎'}
-                  imageUrl={profile?.avatar_url}
-                  label={profile?.display_name ?? 'Me'}
-                  size={32}
-                />
-              </PressableScale>
-            </View>
-          }
-        />
+          <View style={styles.headerRight}>
+            <PressableScale
+              style={styles.bellButton}
+              scaleTo={0.88}
+              hitSlop={6}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Ionicons name="notifications-outline" size={20} color={colors.onSurface} />
+              {unreadNotifications > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </PressableScale>
 
+            <PressableScale
+              scaleTo={0.9}
+              onPress={() => navigation.navigate('Profile')}
+              style={styles.profileAvatarButton}
+            >
+              <Avatar
+                imageUrl={profile?.avatar_url}
+                label={profile?.display_name ?? 'Me'}
+                ringColors={gradients.brandSoft}
+                size={34}
+              />
+            </PressableScale>
+          </View>
+        </View>
+
+        {/* Hero Title Section */}
         <View style={styles.heroSection}>
-          <Text style={styles.heroTitle}>Your GCs</Text>
-          <Text style={styles.heroGreeting}>
-            hey {profile?.display_name ? profile.display_name.split(' ')[0] : 'friend'} 👋
-          </Text>
+          <View style={styles.heroRow}>
+            <View style={styles.heroTextCol}>
+              <Text style={styles.heroTitle}>Chats</Text>
+              <View style={styles.countPill}>
+                <Text style={styles.countPillText}>
+                  {groups.length} {groups.length === 1 ? 'group' : 'groups'}
+                </Text>
+              </View>
+            </View>
+
+            <PressableScale
+              scaleTo={0.92}
+              haptic="medium"
+              onPress={() => navigation.navigate('AddGC', { mode: 'create' })}
+            >
+              <LinearGradient
+                colors={gradients.brand}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.newGCBtn}
+              >
+                <Ionicons name="add" size={16} color="#FFFFFF" />
+                <Text style={styles.newGCBtnText}>New GC</Text>
+              </LinearGradient>
+            </PressableScale>
+          </View>
         </View>
 
         {loading ? (
-          <EmptyState emoji="⏳" text={loadingText} />
+          <EmptyState icon="hourglass-outline" text="Loading your group chats..." iconColor={colors.primary} />
         ) : groups.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <EmptyState emoji="🦗" text={emptyText} />
-            <GCButton
-              label="Create a GC"
-              onPress={() => navigation.navigate('AddGC', { mode: 'create' })}
-              variant="gradient"
-              neo
-              style={styles.emptyAction}
+            <EmptyState
+              icon="chatbubbles-outline"
+              text="No group chats yet. Tap + New GC above to get started!"
+              iconColor={colors.primary}
             />
           </View>
         ) : (
@@ -357,20 +451,50 @@ export default function GroupListScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: '#07060B' },
   safe: { flex: 1 },
+  glowBgRoot: { backgroundColor: '#07060B', overflow: 'hidden' },
+  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
+  cornerBlob: { position: 'absolute', borderRadius: 999 },
+  blobFill: { flex: 1, borderRadius: 999 },
+  blobTopLeft: { top: -70, left: -70, width: 280, height: 280, opacity: 0.75 },
+  blobTopRight: { top: -60, right: -60, width: 270, height: 270, opacity: 0.7 },
+  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.65 },
+  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.7 },
+  blobCenterAnimated: { top: '15%', left: '15%', width: 280, height: 280 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: CONTAINER_MARGIN,
+    height: 48,
+    position: 'relative',
+  },
+  appLogoButton: {
+    position: 'absolute',
+    left: -10,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  headerAppLogo: {
+    width: 120,
+    height: 56,
+    transform: [{ scale: 1.25 }],
+  },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm + 2,
+    marginLeft: 'auto',
   },
   bellButton: {
     width: 38,
     height: 38,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -395,18 +519,55 @@ const styles = StyleSheet.create({
   heroSection: {
     paddingHorizontal: CONTAINER_MARGIN,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    gap: 2,
+    paddingBottom: spacing.sm + 2,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heroTextCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 2,
   },
   heroTitle: {
     ...typography.headline,
     fontSize: 28,
-    color: colors.onSurface,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
-  heroGreeting: {
-    ...typography.caption,
-    fontSize: 14,
+  countPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  countPillText: {
+    ...typography.micro,
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
+  },
+  newGCBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.strokeBright,
+    ...shadows.glow,
+  },
+  newGCBtnText: {
+    ...typography.label,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   list: {
     paddingHorizontal: CONTAINER_MARGIN,
@@ -428,15 +589,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  groupName: { ...typography.title, fontSize: 18, color: colors.onSurface, flex: 1 },
-  time: { ...typography.caption, fontSize: 12, fontWeight: '600' },
+  groupName: { ...typography.title, fontSize: 17, fontWeight: '700', color: colors.onSurface, flex: 1 },
+  time: { ...typography.caption, fontSize: 11.5, fontWeight: '600' },
   cardMessageRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  lastMessage: { ...typography.body, fontSize: 14, color: colors.onSurfaceVariant, flex: 1 },
+  lastMessage: { ...typography.body, fontSize: 13.5, color: colors.onSurfaceVariant, flex: 1 },
   lastMessageDead: { color: colors.outline },
   lastMessageAuthor: { fontWeight: '600', color: colors.onSurface },
   badge: {
@@ -462,24 +623,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderRadius: radius.pill,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: glass.strokeBright,
   },
-  dynamicBadgeText: { ...typography.label, fontSize: 12.5, color: '#FFFFFF', fontWeight: '700' },
+  dynamicBadgeText: { ...typography.label, fontSize: 12, color: '#FFFFFF', fontWeight: '700' },
   crewButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     borderRadius: radius.pill,
-    paddingVertical: 8,
-    paddingHorizontal: spacing.md,
-    backgroundColor: 'rgba(208, 188, 255, 0.10)',
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: 'rgba(208, 188, 255, 0.30)',
   },
-  crewText: { ...typography.label, fontSize: 12.5, color: colors.primary, fontWeight: '600' },
+  crewText: { ...typography.label, fontSize: 12, fontWeight: '600' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyAction: { marginTop: spacing.md, width: '100%', maxWidth: 260 },
 });

@@ -72,6 +72,20 @@ export type AIOperation<TResult = unknown> = {
   emptyResult?(params: OperationParams): TResult;
 
   /**
+   * A chance to answer from the built context alone, before the cache is read
+   * or the provider is called.
+   *
+   * `emptyResult` covers the window being empty; this covers it being real but
+   * too small to be worth spending a model call on — a handful of messages the
+   * user could simply scroll up and read. Return null to proceed normally.
+   *
+   * Runs after buildGCContext so the decision can use what is actually in the
+   * window (own messages excluded, truncation known) rather than a count
+   * guessed before assembly.
+   */
+  trivialResult?(ctx: GCContext, params: OperationParams): TResult | null;
+
+  /**
    * Append this result to the caller's `ai_recap_history` instead of only
    * caching it. Called once per freshly-generated (non-cached) result — a
    * cache hit means the same window was already stacked, so inserting again

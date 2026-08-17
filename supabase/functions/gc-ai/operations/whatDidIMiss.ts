@@ -35,6 +35,30 @@ export type WhatDidIMissResult = {
 const MAX_LOOKBACK_DAYS = 14;
 
 /**
+ * Below this many genuinely-missed messages, `trivialResult` roasts instead of
+ * summarising. Not a cost tweak dressed up as a joke: a recap of six messages
+ * is longer than the six messages, so the model call buys the reader nothing
+ * and costs a request. Scrolling is the better product here.
+ */
+const MIN_MESSAGES_FOR_RECAP = 10;
+
+/** Shared by emptyResult() (the window is literally empty) and trivialResult()
+ *  (the window has content, but none of it is unread) — two different ways of
+ *  reaching the same "nothing to report" outcome. */
+function caughtUpResult(): WhatDidIMissResult {
+  return {
+    hasMissedContent: false,
+    headline: "You're caught up, chill 👀",
+    summary: 'Literally nothing happened, bhai. Go outside or something.',
+    highlights: [],
+    mentionedMessageIds: [],
+    pinnedMessageIds: [],
+    truncated: false,
+    messageCount: 0,
+  };
+}
+
+/**
  * "What happened in this GC since I last caught up?"
  *
  * Distinct from a generic summary in one way that drives the whole design: the
@@ -71,7 +95,7 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
    * stamps last_read_at continuously) can't quietly move it. Called through
    * the user's own client, so it can only ever answer for the caller.
    */
-  async resolveWindow({ db, groupId }) {
+  async resolveWindow({ db, groupId, userId }) {
     const { data, error } = await db.rpc('gc_missed_since', { p_group_id: groupId });
     if (error) {
       throw new GCAIError('internal', `Could not resolve read boundary: ${error.message}`);
@@ -80,23 +104,116 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
     const floor = new Date(Date.now() - MAX_LOOKBACK_DAYS * 86_400_000);
     const boundary = data ? new Date(data as string) : floor;
 
+    // The *unread* mark, which is a different and always-later line than the
+    // missed boundary above: gc_missed_since deliberately reaches back past
+    // this sitting, while last_read_at is where the chat list's unread badge
+    // counts from. The recap still covers the wider window — only the
+    // "is this even worth summarising" check uses this, so the number it
+    // quotes back is the same one the badge showed.
+    let unreadSince: string | null = null;
+    if (userId) {
+      const { data: member } = await db
+        .from('group_members')
+        .select('last_read_at')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      unreadSince = (member?.last_read_at as string | null) ?? null;
+    }
+
     return {
       from: (boundary > floor ? boundary : floor).toISOString(),
+      extraParams: { unreadSince },
     };
   },
 
-  /** Nothing after the boundary is the good case, not a failure. */
-  emptyResult() {
+  /**
+   * Under a handful of messages, the honest answer is "scroll up" — so say
+   * that, in this operation's own voice, without paying a model to summarise
+   * something shorter than the summary would be.
+   *
+   * Counts only what the reader actually missed: `requireOthers` guarantees
+   * somebody else spoke, but their own messages still sit in the window as
+   * context for replies, and "you can't read 8 messages" is a worse roast when
+   * three of them are theirs.
+   *
+   * Truncation is a hard override — if messages were dropped to fit the token
+   * budget then the window was never small, and calling it trivial would
+   * dismiss a genuinely busy stretch as nothing.
+   */
+  trivialResult(ctx, params) {
+    if (ctx.truncated) return null;
+
+    // Counted the same way the chat list's unread badge counts (see
+    // unread_counts): after last_read_at, and not your own. Sizing this off
+    // the recap window instead was wrong in a way that showed — the window
+    // starts at prev_read_at, which reaches back before this sitting on
+    // purpose, so a single unread message in a chat you had already opened
+    // got roasted as three. The recap itself still covers the wider window;
+    // it is only this count, and the number quoted back at the user, that
+    // has to agree with the badge they just looked at.
+    const unreadSince = typeof params.unreadSince === 'string' ? params.unreadSince : null;
+    const missed = unreadSince
+      ? ctx.messages.filter((m) => !m.isOwn && m.timestamp > unreadSince).length
+      : ctx.messages.length - ctx.ownMessageIds.length;
+
+    // 10+ genuinely missed: a real recap earns its keep, hand it to the model.
+    if (missed >= MIN_MESSAGES_FOR_RECAP) return null;
+
+    // The bug this exists to close: the badge can read 0 (nothing from
+    // others since last_read_at) while the *recap* window — which starts
+    // further back, at prev_read_at, on purpose — still holds a message or
+    // two you already read earlier this sitting. That window isn't empty, so
+    // buildGCContext never throws empty_context and emptyResult() never runs;
+    // without this, a 0-unread open still reached the model. Badge-zero is
+    // caught-up, full stop, regardless of what the wider window still holds.
+    if (missed <= 0) return caughtUpResult();
+
+    const plural = missed === 1 ? '' : 's';
+    // Indexed by the count rather than randomised: the screen refetches on
+    // every open, and a line that reshuffles each time reads like a bug.
+    const roasts = [
+      {
+        headline: `${missed} message${plural}. Seriously?`,
+        summary: `Bhai, you couldn't read ${missed} message${plural} yourself and came running to an AI? Scroll up. It takes nine seconds.`,
+      },
+      {
+        headline: `You want a recap of ${missed} message${plural}?`,
+        summary: `Arre that's not a backlog, that's a text. Scroll up and read it like a normal person, matlab come on.`,
+      },
+      {
+        headline: `Absolutely not. ${missed} message${plural}?`,
+        summary: `I'm not summarising ${missed} message${plural} for you. Use your eyes they came free with the phone, Ig you are not andha.`,
+      },
+      {
+        headline: `${missed} message${plural} and you're here?`,
+        summary: `Chal, scroll up. If ${missed} message${plural} is too much, the group chat isn't your real problem.`,
+      },
+    ];
+    const roast = roasts[missed % roasts.length];
+
     return {
+      // False on purpose: this is not a recap. It keeps the result out of
+      // ai_recap_history (toHistoryRow returns null) and stops the screen
+      // rendering it as a card with a ten-minute countdown.
       hasMissedContent: false,
-      headline: "You're caught up, chill 👀",
-      summary: "Literally nothing happened, bhai. Go outside or something.",
+      headline: roast.headline,
+      summary: roast.summary,
       highlights: [],
       mentionedMessageIds: [],
       pinnedMessageIds: [],
       truncated: false,
-      messageCount: 0,
+      // The unread count, not the window size — this is the number the roast
+      // just quoted, so anything else here would contradict it.
+      messageCount: missed,
     };
+  },
+
+  /** Nothing after the boundary is the good case, not a failure. Also reused
+   *  by trivialResult below for the badge-says-zero case, which is the same
+   *  outcome reached a different way. */
+  emptyResult() {
+    return caughtUpResult();
   },
 
   buildSystemPrompt() {

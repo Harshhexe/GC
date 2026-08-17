@@ -26,6 +26,8 @@ import { PressableScale } from './ui/PressableScale';
 import { Avatar } from './ui/Avatar';
 import { MessageQuotePreview } from './MessageQuotePreview';
 import { MessageMediaView } from './MessageMediaView';
+import { PollCard } from './PollCard';
+import type { Poll } from '../lib/polls';
 import { LinkPreviewCard, extractFirstUrl } from './LinkPreviewCard';
 import { tapFeedback } from '../utils/haptics';
 import { segmentMentionText } from '../lib/mentions';
@@ -54,6 +56,9 @@ function MessageBubbleImpl({
   selected,
   isVisible = true,
   downloaded,
+  poll,
+  myPollVotes,
+  onPollVote,
   onLongPress,
   onPress,
   onToggleReaction,
@@ -83,6 +88,10 @@ function MessageBubbleImpl({
   isVisible?: boolean;
   /** Whether this message's photo/video has been saved to the device. */
   downloaded?: boolean;
+  /** Resolved poll for a `pollId` message — undefined until it loads. */
+  poll?: Poll;
+  myPollVotes?: string[];
+  onPollVote?: (pollId: string, optionIds: string[]) => void;
   /** Screen-space Y of the touch is passed along so the caller can anchor a menu there. */
   onLongPress: (message: Message, pageY: number) => void;
   onPress?: (message: Message) => void;
@@ -314,6 +323,15 @@ function MessageBubbleImpl({
                         onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY)}
                       />
                     )}
+                    {poll && (
+                      <PollCard
+                        poll={poll}
+                        myVotes={myPollVotes ?? []}
+                        tint={theme.accent}
+                        onVote={(ids) => onPollVote?.(poll.id, ids)}
+                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
+                      />
+                    )}
                     {message.media && (
                       <MessageMediaView
                         media={message.media}
@@ -368,6 +386,15 @@ function MessageBubbleImpl({
                       </View>
                     ) : (
                       <>
+                        {poll && (
+                          <PollCard
+                            poll={poll}
+                            myVotes={myPollVotes ?? []}
+                            tint={theme.accent}
+                            onVote={(ids) => onPollVote?.(poll.id, ids)}
+                            onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
+                          />
+                        )}
                         {message.media && (
                           <MessageMediaView
                             media={message.media}
@@ -458,6 +485,9 @@ function arePropsEqual(prev: any, next: any) {
     prev.selectMode === next.selectMode &&
     prev.selected === next.selected &&
     prev.downloaded === next.downloaded &&
+    prev.poll === next.poll &&
+    prev.myPollVotes === next.myPollVotes &&
+    prev.onPollVote === next.onPollVote &&
     prev.onLongPress === next.onLongPress &&
     prev.onPress === next.onPress &&
     prev.onToggleReaction === next.onToggleReaction &&

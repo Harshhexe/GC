@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,8 +11,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
-import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOutLeft } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
   DOCK_HEIGHT,
@@ -21,15 +22,14 @@ import {
   glass,
   gradients,
   radius,
+  shadows,
   spacing,
   typography,
 } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
-import { GROUP_THEMES, GroupThemeKey, groupTheme } from '../theme/groupThemes';
-import { AmbientBackground } from '../components/ui/AmbientBackground';
+import { GROUP_THEMES, GroupThemeKey, groupTheme, GroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
-import { GCButton, LightFieldShell } from '../components/ui/Buttons';
-import { AppHeader } from '../components/ui/AppHeader';
+import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { InviteCodeCard } from '../components/InviteCodeCard';
@@ -48,31 +48,64 @@ type Props = CompositeScreenProps<
 >;
 
 const CODE_LENGTH = 6;
-const EMOJI_OPTIONS = ['💬', '🏝️', '📚', '🔥', '💀', '🍵', '🎬', '🎮', '👾', '🪩', '🍕', '🧃'];
-const STEPS = ['Name', 'Picture', 'Theme', 'Share'] as const;
 
 function normaliseCode(raw: string) {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH);
 }
 
-/** Four-segment progress rail across the top of the wizard. */
-function StepRail({ step }: { step: number }) {
+/** Dynamic multi-layered ambient glow background tied to selected theme */
+function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
+  const [c1, c2] = theme.colors;
+
   return (
-    <View style={styles.rail}>
-      {STEPS.map((label, i) => {
-        const done = i < step;
-        const active = i === step;
-        return (
-          <View key={label} style={styles.railItem}>
-            <View
-              style={[styles.railBar, (done || active) && styles.railBarOn, active && styles.railBarActive]}
-            />
-            <Text style={[styles.railLabel, active && styles.railLabelActive]} numberOfLines={1}>
-              {label}
-            </Text>
-          </View>
-        );
-      })}
+    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
+      {/* Deep Dark Base */}
+      <LinearGradient
+        colors={['#100E17', '#08070C', '#050508']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Top Atmosphere Spotlight */}
+      <LinearGradient
+        colors={[`${c1}30`, `${c2}15`, 'transparent']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.topSpotlight}
+      />
+
+      {/* 4-Corner Glowing Blobs */}
+      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
+        <LinearGradient colors={[c1, c2, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.blobFill} />
+      </View>
+      <View style={[styles.cornerBlob, styles.blobTopRight]}>
+        <LinearGradient colors={[c2, c1, 'transparent']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={styles.blobFill} />
+      </View>
+      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
+        <LinearGradient colors={[c1, c2, 'transparent']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.blobFill} />
+      </View>
+      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
+        <LinearGradient colors={[c2, c1, 'transparent']} start={{ x: 1, y: 1 }} end={{ x: 0, y: 0 }} style={styles.blobFill} />
+      </View>
+      <View style={[styles.cornerBlob, styles.blobCenter]}>
+        <LinearGradient colors={[`${c1}26`, `${c2}14`, 'transparent']} start={{ x: 0.5, y: 0.5 }} end={{ x: 1, y: 1 }} style={styles.blobFill} />
+      </View>
+
+      {/* Diffuse Blur Layer */}
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 75 : 90}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Top Ambient Sheen */}
+      <LinearGradient
+        colors={[`${c1}18`, 'transparent', 'rgba(5, 5, 8, 0.45)']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
     </View>
   );
 }
@@ -81,35 +114,29 @@ export default function AddGCScreen({ navigation, route }: Props) {
   const { session, profile } = useAuth();
   const [mode, setMode] = useState<'create' | 'join'>(route.params?.mode ?? 'create');
 
-  // The empty chat list links here with a mode already chosen. This is a tab,
-  // so it stays mounted between visits — without this it would keep whichever
-  // mode was last used instead of the one just asked for.
   const requestedMode = route.params?.mode;
   useEffect(() => {
     if (requestedMode) setMode(requestedMode);
   }, [requestedMode]);
 
-  // ── create wizard ──────────────────────────────────────────────────
-  const [step, setStep] = useState(0);
+  // ── Create State ──────────────────────────────────────────────────
   const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState(EMOJI_OPTIONS[0]);
   const [photo, setPhoto] = useState<{ uri: string; base64: string; ext: string } | null>(null);
   const [theme, setTheme] = useState<GroupThemeKey>('violet');
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; name: string; code: string } | null>(null);
 
-  // ── join ───────────────────────────────────────────────────────────
+  // ── Join State ────────────────────────────────────────────────────
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const codeInputRef = useRef<TextInput>(null);
 
   const activeTheme = groupTheme(theme);
 
   function resetWizard() {
-    setStep(0);
     setName('');
-    setEmoji(EMOJI_OPTIONS[0]);
     setPhoto(null);
     setTheme('violet');
     setCreated(null);
@@ -120,14 +147,14 @@ export default function AddGCScreen({ navigation, route }: Props) {
     setCreateError(null);
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      setCreateError('Photo access is off — allow it in Settings, or pick an emoji instead.');
+      setCreateError('Photo access is required — allow it in Settings to choose a group photo.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 0.75,
       base64: true,
     });
     if (result.canceled || !result.assets?.[0]?.base64) return;
@@ -138,17 +165,16 @@ export default function AddGCScreen({ navigation, route }: Props) {
   }
 
   async function handleCreate() {
-    if (!session?.user || busy) return;
+    if (!session?.user || busy || !name.trim()) return;
     setBusy(true);
     setCreateError(null);
 
-    // Upload only now — bailing out mid-wizard shouldn't leave orphan files.
     let avatarUrl: string | null = null;
     if (photo) {
       const { url, error } = await uploadGroupAvatar(photo.base64, session.user.id, photo.ext);
       if (error) {
         setBusy(false);
-        setCreateError(`Couldn't upload that photo: ${error}`);
+        setCreateError(`Couldn't upload photo: ${error}`);
         return;
       }
       avatarUrl = url;
@@ -158,7 +184,6 @@ export default function AddGCScreen({ navigation, route }: Props) {
       .from('groups')
       .insert({
         name: name.trim(),
-        emoji,
         avatar_url: avatarUrl,
         theme,
         created_by: session.user.id,
@@ -168,7 +193,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
 
     if (error || !group) {
       setBusy(false);
-      setCreateError(error?.message ?? 'Something went wrong. Blame the Wi-Fi.');
+      setCreateError(error?.message ?? 'Failed to create group. Please try again.');
       return;
     }
 
@@ -178,7 +203,6 @@ export default function AddGCScreen({ navigation, route }: Props) {
     setBusy(false);
     successFeedback();
     setCreated({ id: group.id, name: group.name, code: group.invite_code });
-    setStep(3);
   }
 
   async function handleJoin() {
@@ -195,7 +219,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
     }
     const result = Array.isArray(data) ? data[0] : data;
     if (!result?.group_id) {
-      setJoinError('No GC found with that code.');
+      setJoinError('No group found with that invite code.');
       return;
     }
     successFeedback();
@@ -203,23 +227,21 @@ export default function AddGCScreen({ navigation, route }: Props) {
     navigation.navigate('Chat', { groupId: result.group_id });
   }
 
-  const preview = (size: number) => (
-    <Avatar
-      emoji={emoji}
-      imageUrl={photo?.uri}
-      size={size}
-      ringColors={activeTheme.colors}
-      glow
-    />
-  );
-
   return (
     <View style={styles.root}>
-      <AmbientBackground variant="vivid" />
+      <ThemedGlowBackground theme={activeTheme} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
           wordmark
-          right={<Avatar emoji={profile?.avatar_emoji} imageUrl={profile?.avatar_url} label={profile?.display_name} size={36} />}
+          left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
+          right={
+            <Avatar
+              imageUrl={profile?.avatar_url}
+              label={profile?.display_name ?? 'Me'}
+              ringColors={gradients.brandSoft}
+              size={34}
+            />
+          }
         />
 
         <KeyboardAvoidingView
@@ -231,317 +253,396 @@ export default function AddGCScreen({ navigation, route }: Props) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Mode switch — hidden once the wizard is under way so there's
-                one obvious path forward. */}
-            {step === 0 && !created && (
-              <Animated.View entering={FadeIn.reduceMotion(reduceMotion)} style={styles.segment}>
-                {(['create', 'join'] as const).map((m) => (
-                  <PressableScale
-                    key={m}
-                    style={[styles.segmentBtn, mode === m && styles.segmentBtnActive]}
-                    scaleTo={0.97}
-                    onPress={() => setMode(m)}
-                  >
-                    <Ionicons
-                      name={m === 'create' ? 'sparkles' : 'key-outline'}
-                      size={15}
-                      color={mode === m ? colors.onPrimary : colors.onSurfaceVariant}
-                    />
-                    <Text style={[styles.segmentText, mode === m && styles.segmentTextActive]}>
-                      {m === 'create' ? 'Create' : 'Join'}
-                    </Text>
-                  </PressableScale>
-                ))}
+            {/* Mode Switcher Segment (WhatsApp / Modern Messenger Style) */}
+            {!created && (
+              <Animated.View entering={FadeIn.reduceMotion(reduceMotion)} style={styles.segmentTrack}>
+                <PressableScale
+                  style={[styles.segmentBtn, mode === 'create' && styles.segmentBtnActive]}
+                  scaleTo={0.97}
+                  onPress={() => setMode('create')}
+                >
+                  <Ionicons
+                    name="add-circle"
+                    size={16}
+                    color={mode === 'create' ? '#FFFFFF' : colors.onSurfaceVariant}
+                  />
+                  <Text style={[styles.segmentText, mode === 'create' && styles.segmentTextActive]}>
+                    New Group
+                  </Text>
+                </PressableScale>
+
+                <PressableScale
+                  style={[styles.segmentBtn, mode === 'join' && styles.segmentBtnActive]}
+                  scaleTo={0.97}
+                  onPress={() => {
+                    setMode('join');
+                    setTimeout(() => codeInputRef.current?.focus(), 150);
+                  }}
+                >
+                  <Ionicons
+                    name="key"
+                    size={15}
+                    color={mode === 'join' ? '#FFFFFF' : colors.onSurfaceVariant}
+                  />
+                  <Text style={[styles.segmentText, mode === 'join' && styles.segmentTextActive]}>
+                    Join with Code
+                  </Text>
+                </PressableScale>
               </Animated.View>
             )}
 
-            {mode === 'join' && step === 0 && !created ? (
-              /* ── JOIN ─────────────────────────────────────────────── */
+            {/* ═══════════════════════════════════════════════════════════════
+                MODE 1: SUCCESS / GROUP CREATED
+            ═══════════════════════════════════════════════════════════════ */}
+            {created ? (
               <Animated.View
                 entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+                style={styles.createdCardWrap}
               >
-                <GlassPanel borderRadius={radius.xl} tone="tertiary" style={styles.card}>
-                  <Text style={styles.stepEyebrow}>JOIN A VIBE</Text>
-                  <Text style={styles.stepTitle}>Got a code?</Text>
-                  <Text style={styles.stepHelp}>
-                    Six characters from whoever made the GC.
-                  </Text>
-
-                  <LightFieldShell style={styles.codeField}>
-                    <TextInput
-                      style={[styles.input, styles.codeInput]}
-                      placeholder="ENTER CODE"
-                      placeholderTextColor={colors.outline}
-                      value={code}
-                      onChangeText={(t) => {
-                        setCode(normaliseCode(t));
-                        setJoinError(null);
-                      }}
-                      autoCapitalize="characters"
-                      autoCorrect={false}
-                      maxLength={CODE_LENGTH}
-                    />
-                  </LightFieldShell>
-
-                  <View style={styles.dots}>
-                    {Array.from({ length: CODE_LENGTH }).map((_, i) => (
-                      <View key={i} style={[styles.dot, i < code.length && styles.dotFilledCyan]} />
-                    ))}
+                <GlassPanel borderRadius={radius.xl} style={styles.createdCard}>
+                  <View style={styles.createdBadgeRow}>
+                    <View style={[styles.celebrationBadge, { backgroundColor: `${activeTheme.accent}20` }]}>
+                      <Ionicons name="sparkles" size={24} color={activeTheme.accent} />
+                    </View>
+                    <Text style={styles.createdHeadline}>Group Created!</Text>
+                    <Text style={styles.createdSubtext}>
+                      Your GC is live. Share the invite code with your squad.
+                    </Text>
                   </View>
 
-                  {!!joinError && (
-                    <Animated.Text entering={FadeIn.reduceMotion(reduceMotion)} style={styles.error}>
-                      {joinError}
-                    </Animated.Text>
-                  )}
+                  <View style={styles.createdAvatarWrap}>
+                    <Avatar
+                      imageUrl={photo?.uri}
+                      label={created.name}
+                      size={90}
+                      ringColors={activeTheme.colors}
+                      glow
+                    />
+                    <Text style={styles.createdGroupName} numberOfLines={1}>
+                      {created.name}
+                    </Text>
+                  </View>
 
-                  <GCButton
-                    label={joining ? 'letting you in…' : 'Join the GC'}
-                    variant="cyan"
-                    disabled={code.length !== CODE_LENGTH || joining}
-                    onPress={handleJoin}
-                  />
+                  <View style={styles.codeBlock}>
+                    <InviteCodeCard code={created.code} groupName={created.name} />
+                  </View>
+
+                  <View style={styles.createdActions}>
+                    <PressableScale
+                      style={styles.openChatBtnWrap}
+                      scaleTo={0.96}
+                      haptic="medium"
+                      onPress={() => {
+                        const id = created.id;
+                        resetWizard();
+                        navigation.navigate('Chat', { groupId: id });
+                      }}
+                    >
+                      <LinearGradient
+                        colors={activeTheme.colors}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.openChatBtnGradient}
+                      >
+                        <Ionicons name="chatbubbles" size={18} color="#FFFFFF" />
+                        <Text style={styles.openChatBtnText}>Open Group Chat</Text>
+                      </LinearGradient>
+                    </PressableScale>
+
+                    <PressableScale style={styles.anotherLinkBtn} scaleTo={0.95} onPress={resetWizard}>
+                      <Text style={styles.anotherLinkText}>Create another group</Text>
+                    </PressableScale>
+                  </View>
                 </GlassPanel>
               </Animated.View>
-            ) : (
-              /* ── CREATE WIZARD ───────────────────────────────────── */
-              <>
-                <StepRail step={step} />
+            ) : mode === 'create' ? (
+              /* ═══════════════════════════════════════════════════════════════
+                 MODE 2: WHATSAPP-STYLE UNIFIED CREATE GROUP
+              ═══════════════════════════════════════════════════════════════ */
+              <Animated.View
+                entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+                style={styles.createContainer}
+              >
+                {/* 1. WhatsApp-Style Group Identity Card */}
+                <GlassPanel borderRadius={radius.xl} style={styles.profileCard}>
+                  <Text style={styles.sectionHeaderLabel}>GROUP INFO</Text>
 
-                <Animated.View
-                  key={step}
-                  entering={FadeInRight.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-                  exiting={FadeOutLeft.duration(duration.fast).reduceMotion(reduceMotion)}
-                >
-                  <GlassPanel borderRadius={radius.xl} tone="primary" style={styles.card}>
-                    {/* Step 1 — name */}
-                    {step === 0 && (
-                      <>
-                        <Text style={styles.stepEyebrow}>STEP 1 OF 4</Text>
-                        <Text style={styles.stepTitle}>Name your GC</Text>
-                        <Text style={styles.stepHelp}>
-                          You can be normal about this. You won't be.
-                        </Text>
-                        <LightFieldShell style={styles.field}>
-                          <TextInput
-                            style={styles.input}
-                            placeholder="the goa plan"
-                            placeholderTextColor={colors.outline}
-                            value={name}
-                            onChangeText={(t) => {
-                              setName(t);
-                              setCreateError(null);
-                            }}
-                            maxLength={40}
-                          />
-                        </LightFieldShell>
-                        <Text style={styles.counter}>{name.length}/40</Text>
-                      </>
-                    )}
-
-                    {/* Step 2 — picture */}
-                    {step === 1 && (
-                      <>
-                        <Text style={styles.stepEyebrow}>STEP 2 OF 4</Text>
-                        <Text style={styles.stepTitle}>Give it a face</Text>
-                        <Text style={styles.stepHelp}>Upload a photo, or pick an emoji.</Text>
-
-                        <View style={styles.previewRow}>{preview(96)}</View>
-
-                        <View style={styles.photoRow}>
-                          <PressableScale
-                            style={styles.photoButton}
-                            haptic="medium"
-                            onPress={pickPhoto}
-                          >
-                            <Ionicons name="image-outline" size={18} color={colors.primary} />
-                            <Text style={styles.photoText}>
-                              {photo ? 'Change photo' : 'Upload photo'}
-                            </Text>
-                          </PressableScale>
-
-                          {photo && (
-                            <PressableScale
-                              style={styles.clearButton}
-                              scaleTo={0.9}
-                              onPress={() => setPhoto(null)}
-                            >
-                              <Ionicons name="close" size={16} color={colors.error} />
-                            </PressableScale>
-                          )}
-                        </View>
-
-                        <Text style={styles.orLabel}>OR PICK AN EMOJI</Text>
-                        <View style={styles.emojiGrid}>
-                          {EMOJI_OPTIONS.map((e) => (
-                            <PressableScale
-                              key={e}
-                              scaleTo={0.85}
-                              haptic="medium"
-                              onPress={() => {
-                                setEmoji(e);
-                                setPhoto(null);
-                              }}
-                              style={[
-                                styles.emojiChip,
-                                !photo && emoji === e && styles.emojiChipActive,
-                              ]}
-                            >
-                              <Text style={styles.emojiText}>{e}</Text>
-                            </PressableScale>
-                          ))}
-                        </View>
-                      </>
-                    )}
-
-                    {/* Step 3 — theme */}
-                    {step === 2 && (
-                      <>
-                        <Text style={styles.stepEyebrow}>STEP 3 OF 4</Text>
-                        <Text style={styles.stepTitle}>Pick a vibe</Text>
-                        <Text style={styles.stepHelp}>
-                          Colours this GC everywhere it shows up.
-                        </Text>
-
-                        <View style={styles.previewRow}>
-                          {preview(88)}
-                          <Text style={styles.previewName} numberOfLines={1}>
-                            {name.trim() || 'your GC'}
-                          </Text>
-                        </View>
-
-                        <View style={styles.themeGrid}>
-                          {GROUP_THEMES.map((t) => (
-                            <PressableScale
-                              key={t.key}
-                              scaleTo={0.92}
-                              haptic="medium"
-                              onPress={() => setTheme(t.key)}
-                              style={[
-                                styles.themeChip,
-                                theme === t.key && {
-                                  borderColor: t.accent,
-                                  backgroundColor: `${t.accent}1F`,
-                                },
-                              ]}
-                            >
-                              <LinearGradient
-                                colors={t.colors}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.themeSwatch}
-                              />
-                              <Text
-                                style={[
-                                  styles.themeName,
-                                  theme === t.key && { color: t.accent },
-                                ]}
-                              >
-                                {t.name}
-                              </Text>
-                              {theme === t.key && (
-                                <Ionicons name="checkmark-circle" size={16} color={t.accent} />
-                              )}
-                            </PressableScale>
-                          ))}
-                        </View>
-                      </>
-                    )}
-
-                    {/* Step 4 — code & share */}
-                    {step === 3 && created && (
-                      <>
-                        <Text style={styles.stepEyebrow}>STEP 4 OF 4</Text>
-                        <Text style={styles.stepTitle}>It's alive 🎉</Text>
-                        <Text style={styles.stepHelp}>Share the code so the squad can get in.</Text>
-
-                        <View style={styles.previewRow}>
-                          {preview(88)}
-                          <Text style={styles.previewName} numberOfLines={1}>
-                            {created.name}
-                          </Text>
-                        </View>
-
-                        <View style={styles.codeBlock}>
-                          <InviteCodeCard code={created.code} groupName={created.name} />
-                        </View>
-                      </>
-                    )}
-
-                    {!!createError && (
-                      <Animated.Text
-                        entering={FadeIn.reduceMotion(reduceMotion)}
-                        style={styles.error}
-                      >
-                        {createError}
-                      </Animated.Text>
-                    )}
-                  </GlassPanel>
-                </Animated.View>
-
-                {/* Footer controls */}
-                <View style={styles.footer}>
-                  {step === 3 && created ? (
-                    <>
-                      <GCButton
-                        label="Open the GC"
-                        variant="gradient"
-                        onPress={() => {
-                          const id = created.id;
-                          resetWizard();
-                          navigation.navigate('Chat', { groupId: id });
-                        }}
+                  <View style={styles.identityRow}>
+                    {/* WhatsApp-Style Circular Avatar with Camera Badge */}
+                    <PressableScale style={styles.avatarPickerWrap} scaleTo={0.95} haptic="medium" onPress={pickPhoto}>
+                      <Avatar
+                        imageUrl={photo?.uri}
+                        label={name.trim() || 'GC'}
+                        size={82}
+                        ringColors={activeTheme.colors}
+                        glow
                       />
-                      <PressableScale
-                        style={styles.linkButton}
-                        scaleTo={0.97}
-                        onPress={resetWizard}
-                      >
-                        <Text style={styles.linkText}>make another one</Text>
-                      </PressableScale>
-                    </>
-                  ) : (
-                    <View style={styles.footerRow}>
-                      {step > 0 && (
-                        <PressableScale
-                          style={styles.backButton}
-                          scaleTo={0.94}
-                          onPress={() => setStep((s) => s - 1)}
-                        >
-                          <Ionicons name="chevron-back" size={18} color={colors.onSurface} />
-                          <Text style={styles.backText}>Back</Text>
-                        </PressableScale>
-                      )}
+                      <View style={[styles.cameraBadge, { backgroundColor: activeTheme.accent }]}>
+                        <Ionicons name="camera" size={14} color="#000000" />
+                      </View>
+                    </PressableScale>
 
-                      <View style={styles.footerGrow}>
-                        {step < 2 ? (
-                          <GCButton
-                            label="Next"
-                            variant="primary"
-                            disabled={step === 0 && !name.trim()}
-                            onPress={() => setStep((s) => s + 1)}
-                            icon={
-                              <Ionicons
-                                name="arrow-forward"
-                                size={18}
-                                color={step === 0 && !name.trim() ? colors.outline : colors.onPrimary}
-                              />
-                            }
-                          />
-                        ) : (
-                          <GCButton
-                            label={busy ? 'summoning…' : 'Create GC'}
-                            variant="gradient"
-                            disabled={busy}
-                            onPress={handleCreate}
-                            icon={<Ionicons name="sparkles" size={18} color="#FFFFFF" />}
-                          />
-                        )}
+                    {/* Group Subject & Details */}
+                    <View style={styles.identityInputsCol}>
+                      <View style={styles.nameFieldWrap}>
+                        <TextInput
+                          style={styles.nameInput}
+                          placeholder="Type group subject..."
+                          placeholderTextColor={colors.outline}
+                          value={name}
+                          onChangeText={(t) => {
+                            setName(t);
+                            setCreateError(null);
+                          }}
+                          maxLength={40}
+                        />
+                      </View>
+                      <View style={styles.nameMetaRow}>
+                        <Text style={styles.nameHelpText}>Provide a group name and icon</Text>
+                        <Text style={styles.charCounter}>{name.length}/40</Text>
                       </View>
                     </View>
+                  </View>
+
+                  {/* Photo Actions if photo chosen */}
+                  {photo && (
+                    <View style={styles.photoActionsRow}>
+                      <PressableScale style={styles.photoActionChip} scaleTo={0.94} onPress={pickPhoto}>
+                        <Ionicons name="image-outline" size={14} color={activeTheme.accent} />
+                        <Text style={[styles.photoActionText, { color: activeTheme.accent }]}>Change photo</Text>
+                      </PressableScale>
+                      <PressableScale style={styles.photoActionChip} scaleTo={0.94} onPress={() => setPhoto(null)}>
+                        <Ionicons name="trash-outline" size={14} color="#F87171" />
+                        <Text style={[styles.photoActionText, { color: '#F87171' }]}>Remove</Text>
+                      </PressableScale>
+                    </View>
                   )}
-                </View>
-              </>
+                </GlassPanel>
+
+                {/* 2. Theme & Vibe Customization Palette */}
+                <GlassPanel borderRadius={radius.xl} style={styles.themeCard}>
+                  <View style={styles.themeHeaderRow}>
+                    <Text style={styles.sectionHeaderLabel}>GROUP THEME & VIBE</Text>
+                    <Text style={styles.selectedThemeName}>{activeTheme.name}</Text>
+                  </View>
+
+                  <View style={styles.themeGrid}>
+                    {GROUP_THEMES.map((t) => {
+                      const isSelected = theme === t.key;
+                      return (
+                        <PressableScale
+                          key={t.key}
+                          scaleTo={0.94}
+                          haptic="light"
+                          onPress={() => setTheme(t.key)}
+                          style={[
+                            styles.themeChip,
+                            isSelected && {
+                              borderColor: t.accent,
+                              backgroundColor: `${t.accent}1A`,
+                            },
+                          ]}
+                        >
+                          <LinearGradient
+                            colors={t.colors}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.themeSwatch}
+                          />
+                          <Text
+                            style={[
+                              styles.themeChipTitle,
+                              isSelected && { color: '#FFFFFF', fontWeight: '700' },
+                            ]}
+                          >
+                            {t.name}
+                          </Text>
+                          {isSelected && (
+                            <Ionicons name="checkmark-circle" size={16} color={t.accent} />
+                          )}
+                        </PressableScale>
+                      );
+                    })}
+                  </View>
+                </GlassPanel>
+
+                {/* 3. Live Card Preview */}
+                <GlassPanel borderRadius={radius.xl} style={styles.previewCard}>
+                  <Text style={styles.sectionHeaderLabel}>CHAT LIST PREVIEW</Text>
+                  <View style={styles.previewContent}>
+                    <Avatar
+                      imageUrl={photo?.uri}
+                      label={name.trim() || 'GC'}
+                      size={52}
+                      ringColors={activeTheme.colors}
+                      status="online"
+                    />
+                    <View style={styles.previewTextCol}>
+                      <View style={styles.previewTopRow}>
+                        <Text style={styles.previewGroupName} numberOfLines={1}>
+                          {name.trim() || 'Your Group Name'}
+                        </Text>
+                        <Text style={[styles.previewTime, { color: activeTheme.accent }]}>just now</Text>
+                      </View>
+                      <Text style={styles.previewSnippet} numberOfLines={1}>
+                        You created this group. Tap to start chatting!
+                      </Text>
+                    </View>
+                  </View>
+                </GlassPanel>
+
+                {/* Error Banner */}
+                {!!createError && (
+                  <Animated.View entering={FadeIn} style={styles.errorBanner}>
+                    <Ionicons name="alert-circle-outline" size={18} color={colors.error} />
+                    <Text style={styles.errorText}>{createError}</Text>
+                  </Animated.View>
+                )}
+
+                {/* Create CTA Button */}
+                <PressableScale
+                  style={styles.createBtnWrap}
+                  scaleTo={0.96}
+                  haptic="medium"
+                  onPress={handleCreate}
+                  disabled={busy || !name.trim()}
+                >
+                  <LinearGradient
+                    colors={name.trim() ? activeTheme.colors : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                      styles.createBtnGradient,
+                      name.trim() && {
+                        shadowColor: activeTheme.accent,
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.5,
+                        shadowRadius: 14,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={busy ? 'sync' : 'sparkles'}
+                      size={18}
+                      color={name.trim() ? '#FFFFFF' : colors.outline}
+                    />
+                    <Text
+                      style={[
+                        styles.createBtnText,
+                        !name.trim() && { color: colors.outline },
+                      ]}
+                    >
+                      {busy ? 'Creating GC...' : 'Create Group'}
+                    </Text>
+                  </LinearGradient>
+                </PressableScale>
+              </Animated.View>
+            ) : (
+              /* ═══════════════════════════════════════════════════════════════
+                 MODE 3: WHATSAPP-STYLE JOIN VIA INVITE CODE
+              ═══════════════════════════════════════════════════════════════ */
+              <Animated.View
+                entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+                style={styles.joinContainer}
+              >
+                <GlassPanel borderRadius={radius.xl} style={styles.joinCard}>
+                  <View style={styles.joinIconOrb}>
+                    <Ionicons name="key" size={32} color="#22D3EE" />
+                  </View>
+
+                  <Text style={styles.joinTitle}>Join Group Chat</Text>
+                  <Text style={styles.joinSubtext}>
+                    Enter the 6-character code from your group invite.
+                  </Text>
+
+                  {/* 6-Box Pin Input Layout */}
+                  <PressableScale
+                    scaleTo={0.99}
+                    onPress={() => codeInputRef.current?.focus()}
+                    style={styles.boxesContainer}
+                  >
+                    {Array.from({ length: CODE_LENGTH }).map((_, i) => {
+                      const char = code[i] ?? '';
+                      const isFocused = i === code.length && code.length < CODE_LENGTH;
+                      const isFilled = !!char;
+
+                      return (
+                        <View
+                          key={i}
+                          style={[
+                            styles.codeDigitBox,
+                            isFilled && styles.codeDigitBoxFilled,
+                            isFocused && styles.codeDigitBoxFocused,
+                          ]}
+                        >
+                          <Text style={styles.codeDigitText}>{char}</Text>
+                        </View>
+                      );
+                    })}
+                  </PressableScale>
+
+                  {/* Hidden Native Input overlaid for smooth typing */}
+                  <TextInput
+                    ref={codeInputRef}
+                    style={styles.hiddenInput}
+                    value={code}
+                    onChangeText={(t) => {
+                      setCode(normaliseCode(t));
+                      setJoinError(null);
+                    }}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={CODE_LENGTH}
+                    keyboardType="default"
+                  />
+
+                  {/* Error display */}
+                  {!!joinError && (
+                    <Animated.View entering={FadeIn} style={styles.errorBanner}>
+                      <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                      <Text style={styles.errorText}>{joinError}</Text>
+                    </Animated.View>
+                  )}
+
+                  {/* Join Action Button */}
+                  <PressableScale
+                    style={styles.joinBtnWrap}
+                    scaleTo={0.96}
+                    haptic="medium"
+                    onPress={handleJoin}
+                    disabled={code.length !== CODE_LENGTH || joining}
+                  >
+                    <LinearGradient
+                      colors={code.length === CODE_LENGTH ? ['#06B6D4', '#3B82F6'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[
+                        styles.joinBtnGradient,
+                        code.length === CODE_LENGTH && {
+                          shadowColor: '#22D3EE',
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.5,
+                          shadowRadius: 14,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={joining ? 'sync' : 'arrow-forward-circle'}
+                        size={19}
+                        color={code.length === CODE_LENGTH ? '#FFFFFF' : colors.outline}
+                      />
+                      <Text
+                        style={[
+                          styles.joinBtnText,
+                          code.length !== CODE_LENGTH && { color: colors.outline },
+                        ]}
+                      >
+                        {joining ? 'Joining Group...' : 'Join Group'}
+                      </Text>
+                    </LinearGradient>
+                  </PressableScale>
+                </GlassPanel>
+              </Animated.View>
             )}
           </ScrollView>
         </KeyboardAvoidingView>
@@ -551,22 +652,34 @@ export default function AddGCScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: '#07060B' },
   safe: { flex: 1 },
   flex: { flex: 1 },
   scroll: {
     padding: CONTAINER_MARGIN,
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
 
-  segment: {
+  // Glow Background Styles
+  glowBgRoot: { backgroundColor: '#07060B', overflow: 'hidden' },
+  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
+  cornerBlob: { position: 'absolute', borderRadius: 999 },
+  blobFill: { flex: 1, borderRadius: 999 },
+  blobTopLeft: { top: -60, left: -60, width: 270, height: 270, opacity: 0.75 },
+  blobTopRight: { top: -50, right: -50, width: 260, height: 260, opacity: 0.7 },
+  blobBottomLeft: { bottom: -60, left: -50, width: 270, height: 270, opacity: 0.65 },
+  blobBottomRight: { bottom: -70, right: -60, width: 290, height: 290, opacity: 0.7 },
+  blobCenter: { top: '35%', left: '20%', width: 250, height: 250, opacity: 0.55 },
+
+  // Segmented Mode Switcher Track
+  segmentTrack: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: radius.pill,
-    padding: 4,
+    padding: 3,
     borderWidth: 1,
-    borderColor: glass.stroke,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   segmentBtn: {
     flex: 1,
@@ -574,155 +687,272 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 11,
+    paddingVertical: 9,
     borderRadius: radius.pill,
   },
-  segmentBtnActive: { backgroundColor: colors.primary },
-  segmentText: { ...typography.label, fontSize: 13, color: colors.onSurfaceVariant },
-  segmentTextActive: { color: colors.onPrimary },
-
-  rail: { flexDirection: 'row', gap: spacing.sm },
-  railItem: { flex: 1, gap: 6 },
-  railBar: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)' },
-  railBarOn: { backgroundColor: colors.primaryContainer },
-  railBarActive: { backgroundColor: colors.primary },
-  railLabel: { ...typography.micro, fontSize: 10, color: colors.outline },
-  railLabelActive: { color: colors.primary, fontFamily: typography.label.fontFamily },
-
-  card: { padding: spacing.xl, gap: spacing.sm },
-  stepEyebrow: { ...typography.label, color: colors.primary },
-  stepTitle: { ...typography.headline, fontSize: 28, color: colors.onSurface },
-  stepHelp: { ...typography.body, color: colors.onSurfaceVariant, marginBottom: spacing.sm },
-
-  field: { marginTop: spacing.sm },
-  input: {
-    flex: 1,
-    height: 52,
-    fontFamily: fontFamily.bodyBold,
-    fontSize: 17,
-    lineHeight: 22,
-    color: colors.onSurface,
-    paddingTop: 0,
-    paddingBottom: 0,
-    paddingVertical: 0,
-    marginTop: 0,
-    marginBottom: 0,
-    marginVertical: 0,
-    textAlignVertical: 'center',
-    includeFontPadding: false,
+  segmentBtnActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
-  counter: { ...typography.micro, color: colors.outline, alignSelf: 'flex-end' },
+  segmentText: { ...typography.label, fontSize: 13, color: colors.onSurfaceVariant, fontWeight: '600' },
+  segmentTextActive: { color: '#FFFFFF', fontWeight: '700' },
 
-  previewRow: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  previewName: { ...typography.title, fontSize: 20, color: colors.onSurface },
-
-  photoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  photoButton: {
-    flex: 1,
+  // WhatsApp-Style Create Layout
+  createContainer: { gap: spacing.md },
+  profileCard: { padding: spacing.lg, gap: spacing.md },
+  sectionHeaderLabel: {
+    ...typography.label,
+    fontSize: 11,
+    color: colors.outline,
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: 'rgba(208,188,255,0.4)',
-    backgroundColor: 'rgba(208,188,255,0.10)',
-    paddingVertical: 13,
+    gap: spacing.lg,
   },
-  photoText: { ...typography.bodyMedium, color: colors.primary },
-  clearButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
+  avatarPickerWrap: {
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#07060B',
+  },
+  identityInputsCol: {
+    flex: 1,
+    gap: 6,
+  },
+  nameFieldWrap: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,180,171,0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
   },
+  nameInput: {
+    fontFamily: fontFamily.bodyBold,
+    fontSize: 16,
+    color: '#FFFFFF',
+    padding: 0,
+  },
+  nameMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  nameHelpText: { ...typography.micro, color: colors.outline, fontSize: 11 },
+  charCounter: { ...typography.micro, color: colors.outline, fontSize: 11 },
 
-  orLabel: {
-    ...typography.label,
-    fontSize: 10,
-    color: colors.outline,
-    marginTop: spacing.md,
-    textAlign: 'center',
+  photoActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: 2,
   },
-  emojiGrid: {
+  photoActionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  photoActionText: { ...typography.micro, fontSize: 11, fontWeight: '600' },
+
+  // Theme Section
+  themeCard: { padding: spacing.lg, gap: spacing.md },
+  themeHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectedThemeName: {
+    ...typography.label,
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  themeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    justifyContent: 'center',
-    marginTop: spacing.sm,
   },
-  emojiChip: {
-    width: 50,
-    height: 50,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
-  emojiChipActive: { borderColor: colors.primary, backgroundColor: 'rgba(208,188,255,0.18)' },
-  emojiText: { fontSize: 24 },
-
-  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   themeChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     width: '48%',
     borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
-  themeSwatch: { width: 24, height: 24, borderRadius: 12 },
-  themeName: { ...typography.caption, color: colors.onSurfaceVariant, flex: 1 },
+  themeSwatch: { width: 20, height: 20, borderRadius: 10 },
+  themeChipTitle: { ...typography.caption, fontSize: 13, color: colors.onSurfaceVariant, flex: 1 },
 
-  codeBlock: { marginTop: spacing.sm },
-
-  codeField: { marginTop: spacing.md, paddingHorizontal: spacing.md },
-  codeInput: {
-    letterSpacing: 4,
-    fontFamily: typography.headline.fontFamily,
-    fontSize: 20,
-    lineHeight: 24,
-    textAlign: 'center',
-    color: colors.onSurface,
-    height: 52,
-    paddingTop: 0,
-    paddingBottom: 0,
-    paddingVertical: 0,
-    marginTop: 0,
-    marginBottom: 0,
-    marginVertical: 0,
-    textAlignVertical: 'center',
-    includeFontPadding: false,
-  },
-  dots: { flexDirection: 'row', gap: spacing.sm, alignSelf: 'center', marginVertical: spacing.sm },
-  dot: { width: 22, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.16)' },
-  dotFilledCyan: { backgroundColor: colors.tertiary },
-
-  error: { ...typography.caption, color: colors.error, marginTop: spacing.sm },
-
-  footer: { gap: spacing.sm },
-  footerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  footerGrow: { flex: 1 },
-  backButton: {
+  // Live Chat Preview Card
+  previewCard: { padding: spacing.lg, gap: spacing.sm },
+  previewContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingVertical: 16,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.pill,
-    borderWidth: glass.borderWidth,
-    borderColor: glass.stroke,
+    gap: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  backText: { ...typography.bodyMedium, color: colors.onSurface },
-  linkButton: { alignSelf: 'center', paddingVertical: spacing.sm },
-  linkText: { ...typography.caption, color: colors.onSurfaceVariant },
+  previewTextCol: { flex: 1, gap: 2 },
+  previewTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  previewGroupName: { ...typography.title, fontSize: 16, color: '#FFFFFF', fontWeight: '700', flex: 1 },
+  previewTime: { ...typography.micro, fontSize: 11, fontWeight: '600' },
+  previewSnippet: { ...typography.body, fontSize: 12.5, color: colors.onSurfaceVariant },
+
+  // Error Banner
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  errorText: { ...typography.caption, color: '#F87171', flex: 1 },
+
+  // Create Button
+  createBtnWrap: { borderRadius: radius.pill, marginTop: spacing.xs },
+  createBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.strokeBright,
+  },
+  createBtnText: { ...typography.label, fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+
+  // Join Flow Styles
+  joinContainer: { gap: spacing.md },
+  joinCard: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  joinIconOrb: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(34, 211, 238, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  joinTitle: { ...typography.headline, fontSize: 24, color: '#FFFFFF', fontWeight: '800' },
+  joinSubtext: { ...typography.body, color: colors.onSurfaceVariant, textAlign: 'center', fontSize: 13 },
+  boxesContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginVertical: spacing.md,
+  },
+  codeDigitBox: {
+    width: 44,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeDigitBoxFilled: {
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    borderColor: 'rgba(34, 211, 238, 0.4)',
+  },
+  codeDigitBoxFocused: {
+    borderColor: '#22D3EE',
+    shadowColor: '#22D3EE',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+  },
+  codeDigitText: {
+    fontFamily: typography.headline.fontFamily,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  hiddenInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0.01,
+  },
+  joinBtnWrap: { width: '100%', borderRadius: radius.pill, marginTop: spacing.sm },
+  joinBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.strokeBright,
+  },
+  joinBtnText: { ...typography.label, fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+
+  // Created Success Card
+  createdCardWrap: { width: '100%' },
+  createdCard: { padding: spacing.xl, alignItems: 'center', gap: spacing.lg },
+  createdBadgeRow: { alignItems: 'center', gap: 6 },
+  celebrationBadge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  createdHeadline: { ...typography.headline, fontSize: 26, color: '#FFFFFF', fontWeight: '800' },
+  createdSubtext: { ...typography.body, color: colors.onSurfaceVariant, textAlign: 'center', fontSize: 13 },
+  createdAvatarWrap: { alignItems: 'center', gap: spacing.sm },
+  createdGroupName: { ...typography.title, fontSize: 20, color: '#FFFFFF', fontWeight: '700' },
+  codeBlock: { width: '100%' },
+  createdActions: { width: '100%', gap: spacing.sm },
+  openChatBtnWrap: { width: '100%', borderRadius: radius.pill },
+  openChatBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.strokeBright,
+  },
+  openChatBtnText: { ...typography.label, fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  anotherLinkBtn: { alignSelf: 'center', paddingVertical: spacing.xs },
+  anotherLinkText: { ...typography.caption, color: colors.onSurfaceVariant, fontSize: 13 },
 });

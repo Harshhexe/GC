@@ -61,17 +61,16 @@ export const colors = {
   scrim: 'rgba(5, 5, 10, 0.80)',
 } as const;
 
-/** The glass recipe. Every floating panel uses this, not ad-hoc rgba. */
+/** The frosted glass recipe — clean blurred opacity look. */
 export const glass = {
-  fill: 'rgba(255, 255, 255, 0.05)',
-  fillStrong: 'rgba(255, 255, 255, 0.08)',
-  /** Spec calls for a 1.5px stroke on every glass element. */
-  stroke: 'rgba(255, 255, 255, 0.10)',
-  strokeBright: 'rgba(255, 255, 255, 0.18)',
-  borderWidth: 1.5,
-  blur: 40,
-  /** Inputs sit *darker* than the surface behind them. */
-  inputFill: 'rgba(0, 0, 0, 0.20)',
+  fill: 'rgba(255, 255, 255, 0.04)',
+  fillStrong: 'rgba(255, 255, 255, 0.07)',
+  stroke: 'rgba(255, 255, 255, 0.08)',
+  strokeBright: 'rgba(255, 255, 255, 0.14)',
+  borderWidth: 1,
+  blur: 35,
+  /** Inputs sit darker than the surface behind them. */
+  inputFill: 'rgba(0, 0, 0, 0.25)',
 } as const;
 
 export const gradients = {

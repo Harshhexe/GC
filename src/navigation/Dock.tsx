@@ -17,7 +17,7 @@ import { selectFeedback } from '../utils/haptics';
 const ICONS: Record<string, { on: keyof typeof Ionicons.glyphMap; off: keyof typeof Ionicons.glyphMap; label: string }> = {
   GroupList: { on: 'chatbubble', off: 'chatbubble-outline', label: 'Chat' },
   AddGC: { on: 'add-circle', off: 'add-circle-outline', label: 'Create' },
-  Explore: { on: 'compass', off: 'compass-outline', label: 'Explore' },
+  Explore: { on: 'trophy', off: 'trophy-outline', label: 'Awards' },
   Profile: { on: 'settings', off: 'settings-outline', label: 'Profile' },
 };
 

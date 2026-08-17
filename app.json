@@ -7,9 +7,15 @@
     "icon": "./assets/gc-logo.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0B12",
+    "updates": {
+      "url": "https://u.expo.dev/eda4be96-0e54-4b02-88a8-d7a456652f83"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.GC",
+      "bundleIdentifier": "com.harsh.GC",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -23,9 +29,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.anonymous.GC"
+      "package": "com.harsh.GC"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,6 +56,15 @@
           "cameraPermission": "Let GC use your camera so you can snap something for the group."
         }
       ],
+      "./plugins/withPushEntitlement",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/gc-logo.png",
+          "color": "#818CF8",
+          "defaultChannel": "messages"
+        }
+      ],
       [
         "expo-media-library",
         {
@@ -56,8 +72,7 @@
           "savePhotosPermission": "Let GC save photos and videos from the chat to your device.",
           "isAccessMediaLocationEnabled": false
         }
-      ],
-      "expo-audio"
+      ]
     ],
     "extra": {
       "eas": {

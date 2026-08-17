@@ -1,6 +1,12 @@
+import { useCallback, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  DarkTheme,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import { colors } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import AuthScreen from '../screens/AuthScreen';
@@ -13,9 +19,15 @@ import GroupSearchScreen from '../screens/GroupSearchScreen';
 import MediaLinksFilesScreen from '../screens/MediaLinksFilesScreen';
 import WhatDidIMissScreen from '../screens/WhatDidIMissScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import GCDNAScreen from '../screens/GCDNAScreen';
+import WordyScreen from '../screens/WordyScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+/** Lets the push tap handler navigate from outside the React tree — the tap
+ *  is delivered by a native listener, not by anything rendering. */
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const navTheme = {
   ...DarkTheme,
@@ -32,6 +44,31 @@ const navTheme = {
 export default function RootNavigator() {
   const { session, loading, justSignedUp } = useAuth();
 
+  // A cold-start tap resolves before the container mounts, so the target is
+  // parked here and replayed from onReady — navigating before that is a
+  // silent no-op, which reads as "the notification just opened the app".
+  const pendingTap = useRef<{ groupId: string; messageId?: string } | null>(null);
+
+  const goToChat = useCallback((target: { groupId: string; messageId?: string }) => {
+    if (!navigationRef.isReady()) {
+      pendingTap.current = target;
+      return;
+    }
+    navigationRef.navigate('Chat', {
+      groupId: target.groupId,
+      jumpToMessageId: target.messageId,
+    });
+  }, []);
+
+  usePushNotifications(session?.user.id, goToChat);
+
+  const flushPendingTap = useCallback(() => {
+    const target = pendingTap.current;
+    if (!target) return;
+    pendingTap.current = null;
+    goToChat(target);
+  }, [goToChat]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
@@ -41,7 +78,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme} onReady={flushPendingTap}>
       <Stack.Navigator
         initialRouteName={session ? (justSignedUp ? 'Welcome' : 'MainTabs') : 'Auth'}
         screenOptions={{
@@ -53,12 +90,21 @@ export default function RootNavigator() {
       >
         {session ? (
           <>
+            {justSignedUp ? (
+              <Stack.Screen
+                name="Welcome"
+                component={WelcomeScreen}
+                options={{ animation: 'fade', animationDuration: 500 }}
+              />
+            ) : null}
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
-            <Stack.Screen
-              name="Welcome"
-              component={WelcomeScreen}
-              options={{ animation: 'fade', animationDuration: 500 }}
-            />
+            {!justSignedUp ? (
+              <Stack.Screen
+                name="Welcome"
+                component={WelcomeScreen}
+                options={{ animation: 'fade', animationDuration: 500 }}
+              />
+            ) : null}
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="GroupInfo" component={GroupInfoScreen} />
             <Stack.Screen name="PinnedMessages" component={PinnedMessagesScreen} />
@@ -68,6 +114,16 @@ export default function RootNavigator() {
               options={{ animation: 'slide_from_bottom' }}
             />
             <Stack.Screen name="MediaLinksFiles" component={MediaLinksFilesScreen} />
+            <Stack.Screen
+              name="Wordy"
+              component={WordyScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="GCDNA"
+              component={GCDNAScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
             <Stack.Screen
               name="WhatDidIMiss"
               component={WhatDidIMissScreen}

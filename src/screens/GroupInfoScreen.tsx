@@ -61,6 +61,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [clearingChat, setClearingChat] = useState(false);
   const [changingTheme, setChangingTheme] = useState(false);
   const [actionTarget, setActionTarget] = useState<Member | null>(null);
 
@@ -168,6 +169,32 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     Alert.alert('Leave this GC?', message, [
       { text: 'Stay', style: 'cancel' },
       { text: 'Leave', style: 'destructive', onPress: doLeave },
+    ]);
+  }
+
+  async function doClearChat() {
+    setClearingChat(true);
+    const { error } = await supabase.rpc('clear_chat_for_me', { p_group_id: groupId });
+    setClearingChat(false);
+    if (error) {
+      Alert.alert('Error', error.message || 'Could not clear chat.');
+    } else {
+      successFeedback();
+      Alert.alert('Chat Cleared', 'Messages in this group chat have been cleared for you. Other members are not affected.');
+      load();
+    }
+  }
+
+  function confirmClearChat() {
+    const title = 'Clear this chat?';
+    const message = 'Messages in this chat will be cleared for you only. Other members will still see them.';
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${message}`)) doClearChat();
+      return;
+    }
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear for Me', style: 'destructive', onPress: doClearChat },
     ]);
   }
 
@@ -314,6 +341,14 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                 label="Media, Links & Files"
                 onPress={() => navigation.navigate('MediaLinksFiles', { groupId })}
               />
+              <View style={styles.quickLinkDivider} />
+              <QuickLinkRow
+                icon="finger-print"
+                label="GC DNA"
+                onPress={() =>
+                  navigation.navigate('GCDNA', { groupId, groupName: group?.name })
+                }
+              />
             </GlassPanel>
           </Animated.View>
 
@@ -443,6 +478,13 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               icon={<Ionicons name="person-add" size={19} color="#FFFFFF" />}
             />
             <GCButton
+              label={clearingChat ? 'Clearing…' : 'Clear Chat'}
+              variant="danger"
+              disabled={clearingChat}
+              onPress={confirmClearChat}
+              icon={<Ionicons name="trash-outline" size={19} color={colors.error} />}
+            />
+            <GCButton
               label={leaving ? 'leaving…' : 'Leave Group'}
               variant="danger"
               disabled={leaving}
@@ -470,16 +512,18 @@ function QuickLinkRow({
   icon,
   label,
   onPress,
+  destructive = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  destructive?: boolean;
 }) {
   return (
     <PressableScale style={quickLinkStyles.row} scaleTo={0.98} onPress={onPress}>
-      <Ionicons name={icon} size={18} color={colors.primary} />
-      <Text style={quickLinkStyles.label}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+      <Ionicons name={icon} size={18} color={destructive ? colors.error : colors.primary} />
+      <Text style={[quickLinkStyles.label, destructive && { color: colors.error }]}>{label}</Text>
+      <Ionicons name="chevron-forward" size={16} color={destructive ? colors.error : colors.outline} />
     </PressableScale>
   );
 }

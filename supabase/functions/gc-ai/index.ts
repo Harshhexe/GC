@@ -161,6 +161,31 @@ Deno.serve(async (req) => {
       throw error;
     }
 
+    // Before the cache is even consulted: a window too small to be worth
+    // summarising is answered from the context itself. Cheaper than a cache
+    // hit and, unlike one, costs nothing to get wrong — there is no generated
+    // text to store or invalidate.
+    if (operation.trivialResult) {
+      const trivial = operation.trivialResult(ctx, params);
+      if (trivial) {
+        await recordUsage(clients.asService, {
+          userId: clients.userId,
+          groupId,
+          operation: operationName,
+          cacheHit: false,
+          messageCount: ctx.messages.length,
+          latencyMs: Date.now() - startedAt,
+        });
+
+        return jsonResponse({
+          ok: true,
+          cached: false,
+          operation: operationName,
+          result: trivial,
+        });
+      }
+    }
+
     const cached = await readCache(
       clients.asService,
       groupId,
@@ -292,6 +317,14 @@ Deno.serve(async (req) => {
       latencyMs: Date.now() - startedAt,
     });
 
+    // 🧬 GC DNA rides the weekly awards run rather than owning a scheduler.
+    // Strictly after the awards are persisted above, so a DNA failure can
+    // only ever cost the DNA — the awards are already committed and this is
+    // wrapped so nothing it throws reaches the caller.
+    if (operationName === 'weekly_gc_awards') {
+      await generateDNAAfterAwards(groupId, params);
+    }
+
     return jsonResponse({
       ok: true,
       cached: false,
@@ -355,4 +388,61 @@ async function upsertDailyRecap(
     .then(undefined, (e: unknown) =>
       console.error(`[gc-ai] daily recap upsert failed: ${String(e)}`)
     );
+}
+
+/**
+ * Runs 🧬 GC DNA immediately after a weekly awards generation.
+ *
+ * Chained here rather than given its own pg_cron entry: DNA is *derived from*
+ * the awards, so it has to run after they exist, and two independent weekly
+ * schedulers would race. Reusing the awards run also means one weekly cadence
+ * to reason about instead of two.
+ *
+ * Implemented as a self-request rather than by calling the runner inline so
+ * DNA gets the identical treatment every operation gets — auth, context,
+ * caching, rate limiting, usage logging — instead of a second, subtly
+ * different execution path that could skip one of them.
+ *
+ * Every failure is swallowed on purpose. The awards are already stored and
+ * are the user-visible feature; DNA missing for a week is a gap in a profile,
+ * while awards failing is a broken Sunday. Logged, never rethrown.
+ */
+async function generateDNAAfterAwards(
+  groupId: string,
+  params: Record<string, unknown>
+): Promise<void> {
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const cronSecret = Deno.env.get('GC_AI_CRON_SECRET');
+    if (!url || !cronSecret) {
+      console.error('[gc-ai] DNA skipped: missing SUPABASE_URL or GC_AI_CRON_SECRET');
+      return;
+    }
+
+    // The snapshot is keyed by the awards week, so a rerun of the same week
+    // lands on the same row instead of minting a second personality.
+    const { weekStartDate, weekEndDate } = params;
+    if (typeof weekStartDate !== 'string' || typeof weekEndDate !== 'string') {
+      console.error('[gc-ai] DNA skipped: awards run had no week dates to key on');
+      return;
+    }
+
+    const response = await fetch(`${url}/functions/v1/gc-ai`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-cron-secret': cronSecret },
+      body: JSON.stringify({
+        groupId,
+        operation: 'gc_dna',
+        params: { weekStartDate, weekEndDate },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[gc-ai] DNA generation returned ${response.status} for group ${groupId}`);
+      return;
+    }
+    console.log(`[gc-ai] DNA updated for group ${groupId} (week of ${weekStartDate})`);
+  } catch (error) {
+    console.error(`[gc-ai] DNA generation failed (awards unaffected): ${String(error)}`);
+  }
 }
