@@ -49,12 +49,6 @@
       "expo-splash-screen",
       "expo-video",
       [
-        "expo-blur",
-        {
-          "experimentalBlurMethod": "dimezisBlurView"
-        }
-      ],
-      [
         "expo-audio",
         {
           "microphonePermission": "Let GC use your mic so you can send voice notes to the group."
