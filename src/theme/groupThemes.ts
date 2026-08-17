@@ -51,3 +51,72 @@ export const TEA_THEME: GroupTheme = {
   colors: ['#F59E0B', '#EF4444'],
   accent: '#FBBF24',
 };
+
+// ── Personal View Theme Storage ─────────────────────────────────────────
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState, useEffect, useCallback } from 'react';
+
+const themeListeners = new Map<string, Set<(key: GroupThemeKey) => void>>();
+
+export async function getPersonalGroupTheme(groupId: string): Promise<GroupThemeKey | null> {
+  try {
+    const val = await AsyncStorage.getItem(`@gc_personal_theme_${groupId}`);
+    if (val && byKey.has(val as GroupThemeKey)) {
+      return val as GroupThemeKey;
+    }
+  } catch {}
+  return null;
+}
+
+export async function setPersonalGroupTheme(groupId: string, key: GroupThemeKey): Promise<void> {
+  try {
+    await AsyncStorage.setItem(`@gc_personal_theme_${groupId}`, key);
+    // Notify any active listeners (e.g. ChatScreen, GroupInfoScreen)
+    const listeners = themeListeners.get(groupId);
+    if (listeners) {
+      listeners.forEach((fn) => fn(key));
+    }
+  } catch {}
+}
+
+export function usePersonalGroupTheme(groupId: string, fallbackThemeKey?: string | null) {
+  const [personalKey, setPersonalKey] = useState<GroupThemeKey | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getPersonalGroupTheme(groupId).then((key) => {
+      if (mounted && key) setPersonalKey(key);
+    });
+
+    const listener = (newKey: GroupThemeKey) => {
+      if (mounted) setPersonalKey(newKey);
+    };
+
+    if (!themeListeners.has(groupId)) {
+      themeListeners.set(groupId, new Set());
+    }
+    themeListeners.get(groupId)!.add(listener);
+
+    return () => {
+      mounted = false;
+      const set = themeListeners.get(groupId);
+      if (set) {
+        set.delete(listener);
+        if (set.size === 0) themeListeners.delete(groupId);
+      }
+    };
+  }, [groupId]);
+
+  const activeKey = personalKey || ((fallbackThemeKey as GroupThemeKey) ?? 'violet');
+  const theme = groupTheme(activeKey);
+
+  const updateTheme = useCallback(
+    async (newKey: GroupThemeKey) => {
+      setPersonalKey(newKey);
+      await setPersonalGroupTheme(groupId, newKey);
+    },
+    [groupId]
+  );
+
+  return { theme, themeKey: activeKey, updateTheme };
+}

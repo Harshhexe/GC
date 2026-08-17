@@ -40,74 +40,54 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-/** Deep moody atmospheric glow background with high blur intensity */
+/** Dark moody ambient glow background for Profile Screen (zero blob artifacts) */
 function DarkAtmosphericBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Obsidian Dark Base */}
+      {/* Base Solid Deep Dark */}
       <LinearGradient
-        colors={['#050409', '#020204', '#000000']}
+        colors={['#0E0C16', '#08070D', '#040306']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Top Subtle Violet Spotlight */}
+      {/* Top Atmosphere Spotlight */}
       <LinearGradient
-        colors={['rgba(99, 102, 241, 0.12)', 'rgba(236, 72, 153, 0.05)', 'transparent']}
+        colors={['rgba(99, 102, 241, 0.16)', 'rgba(236, 72, 153, 0.08)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.60 }}
+        end={{ x: 0.5, y: 0.65 }}
         style={styles.topSpotlight}
       />
 
-      {/* Corner Glowing Mesh Blobs (Soft & Dark) */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={['#6366F1', '#8B5CF6', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
+      {/* Top-Left Indigo Wash */}
+      <LinearGradient
+        colors={['rgba(99, 102, 241, 0.10)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.7, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={['#EC4899', '#F43F5E', 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
+      {/* Top-Right Pink Accent Wash */}
+      <LinearGradient
+        colors={['rgba(236, 72, 153, 0.08)', 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.3, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={['#8B5CF6', '#3B82F6', 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={['#F59E0B', '#EC4899', 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 85 : 95}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
+      {/* Center Subtle Violet Glow */}
+      <LinearGradient
+        colors={['transparent', 'rgba(139, 92, 246, 0.05)', 'transparent']}
+        start={{ x: 0.5, y: 0.25 }}
+        end={{ x: 0.5, y: 0.75 }}
         style={StyleSheet.absoluteFill}
       />
 
       {/* Dark Vignette Overlay */}
       <LinearGradient
-        colors={['rgba(99, 102, 241, 0.05)', 'transparent', 'rgba(0, 0, 0, 0.70)']}
-        start={{ x: 0.5, y: 0 }}
+        colors={['transparent', 'rgba(0, 0, 0, 0.70)']}
+        start={{ x: 0.5, y: 0.6 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
@@ -560,6 +540,43 @@ export default function ProfileScreen({ navigation }: Props) {
               .reduceMotion(reduceMotion)}
             style={styles.actionsSection}
           >
+            {/* Check for Updates Button */}
+            <PressableScale
+              style={styles.updateCheckBtn}
+              scaleTo={0.96}
+              haptic="light"
+              onPress={async () => {
+                try {
+                  const Updates = await import('expo-updates');
+                  if (!Updates.isEnabled || __DEV__) {
+                    Alert.alert('GC Updates', 'Running in local development mode. OTA updates are active on release builds.');
+                    return;
+                  }
+                  const check = await Updates.checkForUpdateAsync();
+                  if (check.isAvailable) {
+                    Alert.alert('Update Found! 🚀', 'Downloading the latest version of GC and restarting...', [
+                      {
+                        text: 'Update Now',
+                        onPress: async () => {
+                          await Updates.fetchUpdateAsync();
+                          await Updates.reloadAsync();
+                        },
+                      },
+                    ]);
+                  } else {
+                    Alert.alert('Up to Date ✨', 'You are on the latest version of GC.');
+                  }
+                } catch (e: any) {
+                  Alert.alert('Update Check', e?.message || 'Could not check for updates right now.');
+                }
+              }}
+            >
+              <View style={styles.updateCheckInner}>
+                <Ionicons name="sparkles-outline" size={18} color="#818CF8" />
+                <Text style={styles.updateCheckText}>Check for Updates</Text>
+              </View>
+            </PressableScale>
+
             {/* Sign Out Button */}
             <PressableScale
               style={styles.signOutBtnWrap}
@@ -893,6 +910,27 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     alignItems: 'center',
     paddingTop: spacing.xs,
+  },
+  updateCheckBtn: {
+    width: '100%',
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.3)',
+    backgroundColor: 'rgba(129, 140, 248, 0.08)',
+  },
+  updateCheckInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: spacing.md,
+  },
+  updateCheckText: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#818CF8',
   },
   signOutBtnWrap: {
     width: '100%',

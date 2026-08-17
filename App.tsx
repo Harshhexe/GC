@@ -1,7 +1,7 @@
 import { Component, ReactNode, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import * as NavigationBar from 'expo-navigation-bar';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -20,8 +20,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { colors } from './src/theme/theme';
-
-SplashScreen.preventAutoHideAsync().catch(() => {});
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -73,40 +71,27 @@ export default function App() {
     Inter_600SemiBold,
     Inter_700Bold,
     ...Ionicons.font,
-    // Sticker text overlay — same family the render-sticker edge function
-    // bakes into the final PNG, so the on-device editor previews match.
     StickerFont: require('./src/assets/fonts/Anton-Regular.ttf'),
   });
 
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync('#07060B').catch(() => {});
-      NavigationBar.setButtonStyleAsync('light').catch(() => {});
-    }
-  }, []);
-
-  useEffect(() => {
-    if (fontError) {
-      console.warn('Font loading error:', fontError);
-    }
-
-    // Safety timeout: ALWAYS dismiss splash screen within 1.2s even if font loading stalls
-    const timeout = setTimeout(() => {
+    try {
       SplashScreen.hideAsync().catch(() => {});
-    }, 1200);
-
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync().catch(() => {});
-      clearTimeout(timeout);
-    }
-
-    return () => clearTimeout(timeout);
+    } catch {}
   }, [fontsLoaded, fontError]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#07060B' }}>
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: '#07060B' }}>
+        <StatusBar style="light" backgroundColor="#07060B" />
+        {/* SDK 54 forces edge-to-edge on Android — the status/nav bars are
+            always transparent and `androidNavigationBar` in app.json is
+            dead config (no plugin reads it). This is the actual control
+            surface: it only sets icon contrast, since the bars themselves
+            are transparent and the app's own dark background (set via
+            expo-system-ui's activityBackground) shows straight through
+            instead of the OS default white. */}
+        <SystemBars style="light" />
         <ErrorBoundary>
           <AuthProvider>
             <RootNavigator />

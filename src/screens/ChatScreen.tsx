@@ -73,7 +73,7 @@ import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
-import { TEA_THEME, groupTheme } from '../theme/groupThemes';
+import { TEA_THEME, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
@@ -182,10 +182,15 @@ export default function ChatScreen({ route, navigation }: Props) {
   const gcCommands = useGCCommands(groupId);
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    const onShow = () => {
+    const onShow = (e: any) => {
       setIsKeyboardOpen(true);
+      if (Platform.OS === 'android') {
+        const height = e?.endCoordinates?.height ?? 0;
+        setAndroidKeyboardHeight(height);
+      }
       if (!showScrollDownRef.current) {
         flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }
@@ -201,6 +206,9 @@ export default function ChatScreen({ route, navigation }: Props) {
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setIsKeyboardOpen(false);
+        if (Platform.OS === 'android') {
+          setAndroidKeyboardHeight(0);
+        }
       }
     );
 
@@ -371,13 +379,14 @@ export default function ChatScreen({ route, navigation }: Props) {
   const weeklyAwards = useWeeklyAwards(groupId);
   const [awardsOpen, setAwardsOpen] = useState(false);
 
+  const { theme: personalTheme } = usePersonalGroupTheme(groupId, groupInfo?.theme);
+
   // Tea swaps the whole chat's accent by swapping this one object — every
   // themed component downstream already reads from it, so nothing else has to
-  // know Tea Mode exists. Never persisted: the group's own theme is untouched
-  // and comes straight back the moment Tea ends.
+  // know Tea Mode exists. When not in Tea, each member views their personal chat theme.
   const theme = useMemo(
-    () => (tea.isActive ? TEA_THEME : groupTheme(groupInfo?.theme)),
-    [tea.isActive, groupInfo?.theme]
+    () => (tea.isActive ? TEA_THEME : personalTheme),
+    [tea.isActive, personalTheme]
   );
   const [draft, setDraft] = useState('');
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
@@ -1662,8 +1671,8 @@ export default function ChatScreen({ route, navigation }: Props) {
 
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
         >
           {loading ? (
             <EmptyState emoji="⏳" text={loadingText} />
@@ -1752,7 +1761,16 @@ export default function ChatScreen({ route, navigation }: Props) {
             entering={FadeIn.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
             style={[
               styles.composerWrap,
-              { paddingBottom: isKeyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs) },
+              {
+                paddingBottom:
+                  Platform.OS === 'android'
+                    ? androidKeyboardHeight > 0
+                      ? androidKeyboardHeight + Math.max(insets.bottom, 48) + spacing.xs
+                      : Math.max(insets.bottom, spacing.xs)
+                    : isKeyboardOpen
+                      ? spacing.xs
+                      : Math.max(insets.bottom, spacing.xs),
+              },
             ]}
           >
             {(replyTo || editingMessage) && (

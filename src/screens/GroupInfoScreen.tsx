@@ -14,7 +14,7 @@ import {
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { GROUP_THEMES, GroupThemeKey, groupTheme } from '../theme/groupThemes';
+import { GROUP_THEMES, GroupThemeKey, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
@@ -198,14 +198,15 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     ]);
   }
 
+  const { themeKey: personalThemeKey, updateTheme: updatePersonalTheme } = usePersonalGroupTheme(
+    groupId,
+    group?.theme
+  );
+
   async function handleThemeChange(key: GroupThemeKey) {
-    if (!canManage || changingTheme || group?.theme === key) return;
-    setChangingTheme(true);
-    setGroup((g) => (g ? { ...g, theme: key } : g)); // optimistic — it's just a colour
-    const { error } = await supabase.from('groups').update({ theme: key }).eq('id', groupId);
-    setChangingTheme(false);
-    if (error) load(); // roll back to the real value on failure
-    else successFeedback();
+    if (personalThemeKey === key) return;
+    successFeedback();
+    await updatePersonalTheme(key);
   }
 
   async function handleMakeAdmin(memberId: string) {
@@ -352,41 +353,44 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
             </GlassPanel>
           </Animated.View>
 
-          {canManage && (
-            <Animated.View
-              entering={FadeInDown.delay(STAGGER_MS * 2)
-                .duration(duration.slow)
-                .easing(easing.out)
-                .reduceMotion(reduceMotion)}
-              style={styles.themeBlock}
-            >
-              <Text style={styles.themeTitle}>Vibe</Text>
-              <View style={styles.themeGrid}>
-                {GROUP_THEMES.map((t) => {
-                  const active = (group?.theme ?? 'violet') === t.key;
-                  return (
-                    <PressableScale
-                      key={t.key}
-                      scaleTo={0.9}
-                      haptic="medium"
-                      disabled={changingTheme}
-                      onPress={() => handleThemeChange(t.key)}
-                      style={[styles.themeChip, active && { borderColor: t.accent }]}
-                    >
-                      <LinearGradient
-                        colors={t.colors}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.themeSwatch}
-                      >
-                        {active && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-                      </LinearGradient>
-                    </PressableScale>
-                  );
-                })}
+          <Animated.View
+            entering={FadeInDown.delay(STAGGER_MS * 2)
+              .duration(duration.slow)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
+            style={styles.themeBlock}
+          >
+            <View style={styles.themeHeaderRow}>
+              <Text style={styles.themeTitle}>Chat Theme</Text>
+              <View style={styles.personalBadge}>
+                <Text style={styles.personalBadgeText}>Personal View</Text>
               </View>
-            </Animated.View>
-          )}
+            </View>
+            <Text style={styles.themeSub}>Only changes how this chat looks for you.</Text>
+            <View style={styles.themeGrid}>
+              {GROUP_THEMES.map((t) => {
+                const active = personalThemeKey === t.key;
+                return (
+                  <PressableScale
+                    key={t.key}
+                    scaleTo={0.9}
+                    haptic="medium"
+                    onPress={() => handleThemeChange(t.key)}
+                    style={[styles.themeChip, active && { borderColor: t.accent }]}
+                  >
+                    <LinearGradient
+                      colors={t.colors}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.themeSwatch}
+                    >
+                      {active && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                    </LinearGradient>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </Animated.View>
 
           <Animated.View
             entering={FadeInDown.delay(STAGGER_MS * 3)
@@ -559,8 +563,33 @@ const styles = StyleSheet.create({
   copyButton: { marginTop: spacing.md },
   quickLinks: { overflow: 'hidden' },
   quickLinkDivider: { height: StyleSheet.hairlineWidth, backgroundColor: glass.stroke, marginLeft: spacing.lg + 18 + spacing.md },
-  themeBlock: { gap: spacing.md },
+  themeBlock: { gap: spacing.sm },
+  themeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   themeTitle: { ...typography.headline, fontSize: 20, color: colors.onSurface },
+  personalBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(129, 140, 248, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.35)',
+  },
+  personalBadgeText: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#818CF8',
+  },
+  themeSub: {
+    ...typography.caption,
+    fontSize: 12.5,
+    color: colors.onSurfaceVariant,
+    marginBottom: spacing.xs,
+  },
   themeGrid: { flexDirection: 'row', gap: spacing.sm },
   themeChip: {
     width: 44,

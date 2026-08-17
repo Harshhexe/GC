@@ -14,6 +14,7 @@ export type NotificationItem = {
   actorName: string;
   actorEmoji: string;
   actorColor: string;
+  actorAvatarUrl: string | null;
   readAt: string | null;
   createdAt: string;
 };
@@ -62,8 +63,8 @@ export function useNotifications(userId: string | undefined) {
         ? supabase.from('messages').select('id, text, is_deleted').in('id', messageIds)
         : Promise.resolve({ data: [] as { id: string; text: string; is_deleted: boolean }[] }),
       actorIds.length
-        ? supabase.from('profiles').select('id, display_name, avatar_emoji, avatar_color').in('id', actorIds)
-        : Promise.resolve({ data: [] as { id: string; display_name: string; avatar_emoji: string; avatar_color: string }[] }),
+        ? supabase.from('profiles').select('id, display_name, avatar_emoji, avatar_color, avatar_url').in('id', actorIds)
+        : Promise.resolve({ data: [] as { id: string; display_name: string; avatar_emoji: string; avatar_color: string; avatar_url: string | null }[] }),
     ]);
 
     const groupById = new Map((groups ?? []).map((g) => [g.id, g.name]));
@@ -86,6 +87,7 @@ export function useNotifications(userId: string | undefined) {
           actorName: actor?.display_name ?? 'someone',
           actorEmoji: actor?.avatar_emoji ?? '👤',
           actorColor: actor?.avatar_color ?? '#B98CFF',
+          actorAvatarUrl: actor?.avatar_url ?? null,
           readAt: r.read_at,
           createdAt: r.created_at,
         };

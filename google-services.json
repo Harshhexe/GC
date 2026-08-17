@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "108581321420",
+    "project_id": "thegc-f50d0",
+    "storage_bucket": "thegc-f50d0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108581321420:android:824f10d6ee15cda83c6069",
+        "android_client_info": {
+          "package_name": "com.harsh.GC"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0jX9FS0m7b1ieMisheNPuDuXKFCLaEJQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -53,7 +53,7 @@ function normaliseCode(raw: string) {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH);
 }
 
-/** Dynamic multi-layered ambient glow background tied to selected theme */
+/** Dynamic multi-layered ambient glow background tied to selected theme (zero blob artifacts) */
 function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
   const [c1, c2] = theme.colors;
 
@@ -61,7 +61,7 @@ function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
       {/* Deep Dark Base */}
       <LinearGradient
-        colors={['#100E17', '#08070C', '#050508']}
+        colors={['#0F0D15', '#08070C', '#050508']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -69,40 +69,40 @@ function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
 
       {/* Top Atmosphere Spotlight */}
       <LinearGradient
-        colors={[`${c1}30`, `${c2}15`, 'transparent']}
+        colors={[`${c1}24`, `${c2}10`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0.65 }}
         style={styles.topSpotlight}
       />
 
-      {/* 4-Corner Glowing Blobs */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient colors={[c1, c2, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.blobFill} />
-      </View>
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient colors={[c2, c1, 'transparent']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={styles.blobFill} />
-      </View>
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient colors={[c1, c2, 'transparent']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.blobFill} />
-      </View>
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient colors={[c2, c1, 'transparent']} start={{ x: 1, y: 1 }} end={{ x: 0, y: 0 }} style={styles.blobFill} />
-      </View>
-      <View style={[styles.cornerBlob, styles.blobCenter]}>
-        <LinearGradient colors={[`${c1}26`, `${c2}14`, 'transparent']} start={{ x: 0.5, y: 0.5 }} end={{ x: 1, y: 1 }} style={styles.blobFill} />
-      </View>
-
-      {/* Diffuse Blur Layer */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 75 : 90}
-        tint="dark"
+      {/* Top-Left Ambient Wash */}
+      <LinearGradient
+        colors={[`${c1}14`, 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.7, y: 0.5 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Top Ambient Sheen */}
+      {/* Top-Right Secondary Accent Wash */}
       <LinearGradient
-        colors={[`${c1}18`, 'transparent', 'rgba(5, 5, 8, 0.45)']}
-        start={{ x: 0.5, y: 0 }}
+        colors={[`${c2}10`, 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.3, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Center Subtle Tint */}
+      <LinearGradient
+        colors={['transparent', `${c1}08`, 'transparent']}
+        start={{ x: 0.5, y: 0.25 }}
+        end={{ x: 0.5, y: 0.75 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Bottom Grounding Vignette */}
+      <LinearGradient
+        colors={['transparent', 'rgba(5, 5, 8, 0.65)']}
+        start={{ x: 0.5, y: 0.6 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />

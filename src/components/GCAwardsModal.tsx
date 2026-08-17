@@ -134,89 +134,55 @@ function dateLabel(iso: string): string {
 }
 
 /**
- * Atmospheric golden background with ultra-soft blurred glowing mesh blobs at the corners.
+ * Atmospheric golden background with silky smooth diffused ambient glows (zero blob artifacts).
  */
 function GoldenAwardsBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.goldenBgRoot]} pointerEvents="none">
       {/* Deep Obsidian-Gold Base Gradient */}
       <LinearGradient
-        colors={['#161208', '#0F0C05', '#080602']}
+        colors={['#141006', '#0C0A04', '#050402']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Top Grand Golden Spotlight */}
+      {/* Top Grand Golden Atmospheric Glow */}
       <LinearGradient
-        colors={['rgba(253, 224, 71, 0.28)', 'rgba(245, 158, 11, 0.12)', 'rgba(8, 6, 2, 0)']}
+        colors={['rgba(253, 224, 71, 0.18)', 'rgba(245, 158, 11, 0.08)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.7 }}
+        end={{ x: 0.5, y: 0.65 }}
         style={styles.topSpotlight}
       />
 
-      {/* Corner Glowing Mesh Blobs */}
-      {/* Top-Left Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={['#FDE047', '#F59E0B', 'rgba(217, 119, 6, 0)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Top-Right Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={['#FBBF24', '#D97706', 'rgba(180, 83, 9, 0)']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Bottom-Left Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={['#EAB308', '#B45309', 'rgba(146, 64, 14, 0)']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Bottom-Right Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={['#F59E0B', '#D97706', 'rgba(180, 83, 9, 0)']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Center Mid-Atmosphere Warm Blob */}
-      <View style={[styles.cornerBlob, styles.blobCenter]}>
-        <LinearGradient
-          colors={['rgba(251, 191, 36, 0.16)', 'rgba(217, 119, 6, 0.04)', 'transparent']}
-          start={{ x: 0.5, y: 0.5 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Deep Blur View diffusing all corner blobs into dreamy golden glows */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 80 : 95}
-        tint="dark"
+      {/* Top-Left Ambient Gold Wash */}
+      <LinearGradient
+        colors={['rgba(251, 191, 36, 0.10)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.7, y: 0.5 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Top Sheen & Subtle Dark Vignette */}
+      {/* Top-Right Amber Accent Wash */}
       <LinearGradient
-        colors={['rgba(253, 224, 71, 0.08)', 'transparent', 'rgba(5, 4, 1, 0.55)']}
-        start={{ x: 0.5, y: 0 }}
+        colors={['rgba(245, 158, 11, 0.08)', 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.3, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Center Warm Ambient Bloom */}
+      <LinearGradient
+        colors={['transparent', 'rgba(251, 191, 36, 0.05)', 'transparent']}
+        start={{ x: 0.5, y: 0.25 }}
+        end={{ x: 0.5, y: 0.75 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Bottom Grounding Vignette */}
+      <LinearGradient
+        colors={['transparent', 'rgba(5, 4, 2, 0.65)']}
+        start={{ x: 0.5, y: 0.6 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />

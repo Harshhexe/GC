@@ -28,7 +28,7 @@ import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
-/** Deep moody atmospheric glow background for Welcome Screen */
+/** Deep moody atmospheric glow background for Welcome Screen (zero blob artifacts) */
 function WelcomeAtmosphericBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
@@ -40,57 +40,36 @@ function WelcomeAtmosphericBackground() {
       />
 
       <LinearGradient
-        colors={['rgba(139, 92, 246, 0.22)', 'rgba(236, 72, 153, 0.10)', 'transparent']}
+        colors={['rgba(139, 92, 246, 0.18)', 'rgba(236, 72, 153, 0.08)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0.65 }}
         style={styles.topSpotlight}
       />
 
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={['rgba(139, 92, 246, 0.35)', 'rgba(236, 72, 153, 0.16)', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={['rgba(76, 215, 246, 0.22)', 'rgba(99, 102, 241, 0.15)', 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={['rgba(251, 113, 133, 0.18)', 'rgba(139, 92, 246, 0.14)', 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={['rgba(99, 102, 241, 0.24)', 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 85 : 95}
-        tint="dark"
+      <LinearGradient
+        colors={['rgba(139, 92, 246, 0.12)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.7, y: 0.5 }}
         style={StyleSheet.absoluteFill}
       />
 
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.02)', 'transparent', 'rgba(3, 2, 6, 0.65)']}
-        start={{ x: 0.5, y: 0 }}
+        colors={['rgba(76, 215, 246, 0.08)', 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.3, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <LinearGradient
+        colors={['transparent', 'rgba(139, 92, 246, 0.05)', 'transparent']}
+        start={{ x: 0.5, y: 0.25 }}
+        end={{ x: 0.5, y: 0.75 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <LinearGradient
+        colors={['transparent', 'rgba(3, 2, 6, 0.65)']}
+        start={{ x: 0.5, y: 0.6 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />

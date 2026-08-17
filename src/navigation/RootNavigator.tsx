@@ -21,6 +21,9 @@ import WhatDidIMissScreen from '../screens/WhatDidIMissScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import GCDNAScreen from '../screens/GCDNAScreen';
 import WordyScreen from '../screens/WordyScreen';
+import { InAppNotificationBanner } from '../components/InAppNotificationBanner';
+import { AppUpdateModal } from '../components/AppUpdateModal';
+import { useAppUpdates } from '../hooks/useAppUpdates';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -69,6 +72,14 @@ export default function RootNavigator() {
     goToChat(target);
   }, [goToChat]);
 
+  const {
+    isAvailable: isUpdateAvailable,
+    isDownloading: isUpdateDownloading,
+    error: updateError,
+    applyUpdate,
+    dismissUpdate,
+  } = useAppUpdates();
+
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
@@ -79,66 +90,76 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef} theme={navTheme} onReady={flushPendingTap}>
-      <Stack.Navigator
-        initialRouteName={session ? (justSignedUp ? 'Welcome' : 'MainTabs') : 'Auth'}
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-          animationDuration: 220,
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      >
-        {session ? (
-          <>
-            {justSignedUp ? (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <Stack.Navigator
+          initialRouteName={session ? (justSignedUp ? 'Welcome' : 'MainTabs') : 'Auth'}
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 220,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        >
+          {session ? (
+            <>
+              {justSignedUp ? (
+                <Stack.Screen
+                  name="Welcome"
+                  component={WelcomeScreen}
+                  options={{ animation: 'fade', animationDuration: 500 }}
+                />
+              ) : null}
+              <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
+              {!justSignedUp ? (
+                <Stack.Screen
+                  name="Welcome"
+                  component={WelcomeScreen}
+                  options={{ animation: 'fade', animationDuration: 500 }}
+                />
+              ) : null}
+              <Stack.Screen name="Chat" component={ChatScreen} />
+              <Stack.Screen name="GroupInfo" component={GroupInfoScreen} />
+              <Stack.Screen name="PinnedMessages" component={PinnedMessagesScreen} />
               <Stack.Screen
-                name="Welcome"
-                component={WelcomeScreen}
-                options={{ animation: 'fade', animationDuration: 500 }}
+                name="GroupSearch"
+                component={GroupSearchScreen}
+                options={{ animation: 'slide_from_bottom' }}
               />
-            ) : null}
-            <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
-            {!justSignedUp ? (
+              <Stack.Screen name="MediaLinksFiles" component={MediaLinksFilesScreen} />
               <Stack.Screen
-                name="Welcome"
-                component={WelcomeScreen}
-                options={{ animation: 'fade', animationDuration: 500 }}
+                name="Wordy"
+                component={WordyScreen}
+                options={{ animation: 'slide_from_bottom' }}
               />
-            ) : null}
-            <Stack.Screen name="Chat" component={ChatScreen} />
-            <Stack.Screen name="GroupInfo" component={GroupInfoScreen} />
-            <Stack.Screen name="PinnedMessages" component={PinnedMessagesScreen} />
-            <Stack.Screen
-              name="GroupSearch"
-              component={GroupSearchScreen}
-              options={{ animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen name="MediaLinksFiles" component={MediaLinksFilesScreen} />
-            <Stack.Screen
-              name="Wordy"
-              component={WordyScreen}
-              options={{ animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
-              name="GCDNA"
-              component={GCDNAScreen}
-              options={{ animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
-              name="WhatDidIMiss"
-              component={WhatDidIMissScreen}
-              options={{ animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
-              name="Notifications"
-              component={NotificationsScreen}
-              options={{ animation: 'slide_from_bottom' }}
-            />
-          </>
-        ) : (
-          <Stack.Screen name="Auth" component={AuthScreen} options={{ animation: 'fade' }} />
-        )}
-      </Stack.Navigator>
+              <Stack.Screen
+                name="GCDNA"
+                component={GCDNAScreen}
+                options={{ animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen
+                name="WhatDidIMiss"
+                component={WhatDidIMissScreen}
+                options={{ animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen
+                name="Notifications"
+                component={NotificationsScreen}
+                options={{ animation: 'slide_from_bottom' }}
+              />
+            </>
+          ) : (
+            <Stack.Screen name="Auth" component={AuthScreen} options={{ animation: 'fade' }} />
+          )}
+        </Stack.Navigator>
+        {session && <InAppNotificationBanner onTap={goToChat} />}
+        <AppUpdateModal
+          visible={isUpdateAvailable}
+          isDownloading={isUpdateDownloading}
+          error={updateError}
+          onUpdate={applyUpdate}
+          onDismiss={dismissUpdate}
+        />
+      </View>
     </NavigationContainer>
   );
 }

@@ -27,12 +27,9 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "pan",
-      "androidNavigationBar": {
-        "backgroundColor": "#07060B",
-        "barStyle": "light-content"
-      },
+      "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.POST_NOTIFICATIONS"
@@ -77,7 +74,8 @@
           "savePhotosPermission": "Let GC save photos and videos from the chat to your device.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "react-native-edge-to-edge"
     ],
     "extra": {
       "eas": {

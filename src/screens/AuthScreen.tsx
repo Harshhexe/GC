@@ -350,14 +350,15 @@ export default function AuthScreen() {
                     >
                       {/* Username Field */}
                       <AuthField
+                        label="USERNAME"
                         icon="at-outline"
-                        placeholder="Choose username"
+                        placeholder="Choose unique username"
                         value={username}
                         onChangeText={setUsername}
                         autoCapitalize="none"
                         trailing={
                           usernameStatus === 'checking' ? (
-                            <ActivityIndicator size="small" color="#94A3B8" />
+                            <ActivityIndicator size="small" color="#818CF8" />
                           ) : usernameStatus === 'free' ? (
                             <Ionicons name="checkmark-circle" size={18} color="#10B981" />
                           ) : usernameStatus === 'taken' ? (
@@ -373,8 +374,9 @@ export default function AuthScreen() {
 
                       {/* Email Field */}
                       <AuthField
+                        label="EMAIL ADDRESS"
                         icon="mail-outline"
-                        placeholder="Email Address"
+                        placeholder="yourname@example.com"
                         value={email}
                         onChangeText={setEmail}
                         autoCapitalize="none"
@@ -383,6 +385,7 @@ export default function AuthScreen() {
 
                       {/* Password Field */}
                       <PasswordField
+                        label="PASSWORD"
                         value={password}
                         onChangeText={setPassword}
                         visible={showPassword}
@@ -469,8 +472,9 @@ export default function AuthScreen() {
 
                       {/* Display Name Input */}
                       <AuthField
+                        label="YOUR NAME"
                         icon="person-outline"
-                        placeholder="Type your display name..."
+                        placeholder="How should friends see you?"
                         value={displayName}
                         onChangeText={setDisplayName}
                         autoFocus
@@ -527,8 +531,9 @@ export default function AuthScreen() {
                     style={styles.form}
                   >
                     <AuthField
+                      label="EMAIL ADDRESS"
                       icon="mail-outline"
-                      placeholder="Email Address"
+                      placeholder="yourname@example.com"
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -536,6 +541,7 @@ export default function AuthScreen() {
                     />
 
                     <PasswordField
+                      label="PASSWORD"
                       value={password}
                       onChangeText={setPassword}
                       visible={showPassword}
@@ -618,6 +624,7 @@ function ErrorBanner({ message }: { message: string }) {
 }
 
 function AuthField({
+  label,
   icon,
   placeholder,
   value,
@@ -627,6 +634,7 @@ function AuthField({
   trailing,
   autoFocus,
 }: {
+  label?: string;
   icon: keyof typeof Ionicons.glyphMap;
   placeholder: string;
   value: string;
@@ -637,55 +645,63 @@ function AuthField({
   autoFocus?: boolean;
 }) {
   return (
-    <View style={styles.inputContainer}>
-      <Ionicons name={icon} size={18} color="#94A3B8" style={styles.inputIcon} />
-      <TextInput
-        style={styles.textInput}
-        placeholder={placeholder}
-        placeholderTextColor={colors.outline}
-        value={value}
-        onChangeText={onChangeText}
-        autoCapitalize={autoCapitalize}
-        autoCorrect={false}
-        keyboardType={keyboardType}
-        autoFocus={autoFocus}
-      />
-      {trailing}
+    <View style={styles.fieldGroup}>
+      {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
+      <View style={styles.inputContainer}>
+        <Ionicons name={icon} size={18} color="#A5B4FC" style={styles.inputIcon} />
+        <TextInput
+          style={styles.textInput}
+          placeholder={placeholder}
+          placeholderTextColor="#71717A"
+          value={value}
+          onChangeText={onChangeText}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
+          keyboardType={keyboardType}
+          autoFocus={autoFocus}
+        />
+        {trailing}
+      </View>
     </View>
   );
 }
 
 function PasswordField({
+  label = 'PASSWORD',
   value,
   onChangeText,
   visible,
   onToggle,
 }: {
+  label?: string;
   value: string;
   onChangeText: (v: string) => void;
   visible: boolean;
   onToggle: () => void;
 }) {
   return (
-    <View style={styles.inputContainer}>
-      <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-      <TextInput
-        style={styles.textInput}
-        placeholder="Password (min 6 chars)"
-        placeholderTextColor={colors.outline}
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={!visible}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      <PressableScale onPress={onToggle} style={styles.passwordToggle} hitSlop={8}>
-        <Ionicons
-          name={visible ? 'eye-off-outline' : 'eye-outline'}
-          size={18}
-          color="#94A3B8"
+    <View style={styles.fieldGroup}>
+      {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
+      <View style={styles.inputContainer}>
+        <Ionicons name="lock-closed-outline" size={18} color="#A5B4FC" style={styles.inputIcon} />
+        <TextInput
+          style={styles.textInput}
+          placeholder="At least 6 characters"
+          placeholderTextColor="#71717A"
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={!visible}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
-      </PressableScale>
+        <PressableScale onPress={onToggle} style={styles.passwordToggle} hitSlop={8}>
+          <Ionicons
+            name={visible ? 'eye-off-outline' : 'eye-outline'}
+            size={18}
+            color="#A5B4FC"
+          />
+        </PressableScale>
+      </View>
     </View>
   );
 }
@@ -720,17 +736,17 @@ const styles = StyleSheet.create({
   // Brand Header
   brandHeader: {
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     paddingTop: spacing.xs,
   },
   brandLogo: {
-    width: 140,
-    height: 56,
-    marginBottom: 4,
+    width: 110,
+    height: 44,
+    marginBottom: 2,
   },
   brandWelcomeTitle: {
     ...typography.headline,
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.5,
@@ -738,30 +754,30 @@ const styles = StyleSheet.create({
   },
   brandWelcomeSubtitle: {
     ...typography.body,
-    fontSize: 13.5,
-    color: colors.onSurfaceVariant,
+    fontSize: 13,
+    color: '#94A3B8',
     textAlign: 'center',
-    lineHeight: 19,
-    paddingHorizontal: spacing.md,
+    lineHeight: 18,
+    paddingHorizontal: spacing.sm,
   },
 
   // Card
   card: {
-    padding: spacing.xl,
-    gap: spacing.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: spacing.lg + 2,
+    gap: spacing.md + 2,
+    backgroundColor: '#12111A',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
   },
 
   // Segment Track
   segmentTrack: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: radius.pill,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   segmentBtn: {
     flex: 1,
@@ -773,9 +789,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   segmentBtnActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#6366F1',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: '#818CF8',
   },
   segmentText: {
     ...typography.label,
@@ -785,7 +801,7 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
   // Step Bar
@@ -812,15 +828,26 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
   },
+  fieldGroup: {
+    gap: 5,
+  },
+  fieldLabel: {
+    ...typography.label,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#C7D2FE',
+    letterSpacing: 0.8,
+    marginLeft: 2,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     paddingHorizontal: spacing.md,
-    height: 52,
+    height: 50,
     gap: spacing.sm,
   },
   inputIcon: {

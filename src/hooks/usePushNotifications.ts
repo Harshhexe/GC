@@ -35,22 +35,32 @@ export function usePushNotifications(
     let cancelled = false;
 
     function handle(response: Notifications.NotificationResponse | null) {
-      const data = response?.notification.request.content.data as
-        | { groupId?: string; messageId?: string }
-        | undefined;
-      if (!data?.groupId) return;
-      onTapRef.current({ groupId: data.groupId, messageId: data.messageId });
+      try {
+        const data = response?.notification.request.content.data as
+          | { groupId?: string; messageId?: string }
+          | undefined;
+        if (!data?.groupId) return;
+        onTapRef.current({ groupId: data.groupId, messageId: data.messageId });
+      } catch (e) {
+        console.warn('[push] error handling notification tap:', e);
+      }
     }
 
-    // Cold start: the tap that opened the app already happened.
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (!cancelled) handle(response);
-    });
+    try {
+      // Cold start: the tap that opened the app already happened.
+      Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (!cancelled) handle(response);
+        })
+        .catch((e) => console.warn('[push] getLastNotificationResponseAsync error:', e));
 
-    const sub = Notifications.addNotificationResponseReceivedListener(handle);
-    return () => {
-      cancelled = true;
-      sub.remove();
-    };
+      const sub = Notifications.addNotificationResponseReceivedListener(handle);
+      return () => {
+        cancelled = true;
+        sub.remove();
+      };
+    } catch (e) {
+      console.warn('[push] failed to attach notification listeners:', e);
+    }
   }, [userId]);
 }

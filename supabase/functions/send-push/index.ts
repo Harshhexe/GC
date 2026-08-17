@@ -1,25 +1,16 @@
 import { createClient } from 'npm:@supabase/supabase-js@^2.58.0';
 
 /**
- * Fans one new message out to every group member's devices as a push
+ * Fans one new message or special event out to group members' devices as a push
  * notification.
  *
- * Called only by the `messages` insert trigger (see supabase/push.sql), never
- * by the app — the trigger proves who it is with the same `x-cron-secret`
- * vault secret the weekly-awards job uses. Everything here runs with the
- * service role, because deciding who to notify means reading other people's
- * memberships and device tokens, which no member is allowed to do.
- *
- * Delivery goes through Expo's push service rather than APNs/FCM directly:
- * one endpoint covers both platforms, it needs no signing key held here, and
- * it's free. The tradeoff is that Expo has to hold the APNs key for iOS —
- * see the note in src/lib/push.ts about the Apple Developer account.
+ * Called by:
+ * 1. The `messages` insert trigger (supabase/push.sql) with { messageId }
+ * 2. Event triggers (tea started, weekly awards, 11:11) with { eventType, groupId, ... }
  */
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-/** Expo rejects batches larger than this. */
 const CHUNK_SIZE = 100;
-/** Notification body is a preview, not the message — keep it short. */
 const MAX_BODY_CHARS = 140;
 
 type TokenRow = { token: string; user_id: string };
@@ -34,26 +25,203 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const cronSecret = Deno.env.get('GC_AI_CRON_SECRET');
     if (!url || !serviceKey) {
+      console.error('[send-push] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing');
       return json({ ok: false, error: 'Server is not configured' }, 500);
     }
 
-    // Constant-time compare — a secret-equality check with a timing side
-    // channel is not a secret-equality check.
     const provided = req.headers.get('x-cron-secret');
     if (!cronSecret || !provided || !timingSafeEqual(cronSecret, provided)) {
+      console.error('[send-push] Auth failed');
       return json({ ok: false, error: 'Unauthorized' }, 401);
     }
 
-    let body: { messageId?: unknown };
+    let body: {
+      messageId?: string;
+      eventType?: 'message' | '11_11' | 'tea_started' | 'awards';
+      groupId?: string;
+      userId?: string;
+      customTitle?: string;
+      customBody?: string;
+    };
     try {
       body = await req.json();
     } catch {
       return json({ ok: false, error: 'Invalid request body' }, 400);
     }
-    const messageId = typeof body.messageId === 'string' ? body.messageId : null;
-    if (!messageId) return json({ ok: false, error: 'Missing messageId' }, 400);
 
-    const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const db = createClient(url, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const eventType = body.eventType || (body.messageId ? 'message' : null);
+
+    // ==========================================
+    // CASE 1: 11:11 Make a Wish Alert
+    // ==========================================
+    if (eventType === '11_11') {
+      const { data: tokens } = await db.from('device_push_tokens').select('token, user_id');
+      const tokenRows = (tokens ?? []) as TokenRow[];
+      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+
+      const messages = tokenRows.map((row) => ({
+        to: row.token,
+        title: '✨ 11:11 Make a Wish! 🕯️',
+        body: 'The 60-second wish window is open right now.',
+        sound: 'default',
+        categoryId: 'gc_event',
+        data: { type: '11_11' },
+        priority: 'high',
+      }));
+
+      const sent = await sendToExpo(messages, db);
+      return json({ ok: true, sent });
+    }
+
+    // ==========================================
+    // CASE 2: Tea Started in a Group
+    // ==========================================
+    if (eventType === 'tea_started' && body.groupId) {
+      const [{ data: group }, { data: starter }, { data: members }] = await Promise.all([
+        db.from('groups').select('name, emoji, avatar_url').eq('id', body.groupId).maybeSingle(),
+        body.userId
+          ? db.from('profiles').select('display_name, avatar_emoji').eq('id', body.userId).maybeSingle()
+          : Promise.resolve({ data: null }),
+        db.from('group_members').select('user_id').eq('group_id', body.groupId).eq('muted', false),
+      ]);
+
+      const groupName = group?.name ?? 'your GC';
+      const groupEmoji = group?.emoji ? `${group.emoji} ` : '';
+      const starterName = starter?.display_name ?? 'Someone';
+
+      const recipientIds = (members ?? [])
+        .map((m) => m.user_id as string)
+        .filter((id) => id !== body.userId);
+      if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
+
+      const { data: tokens } = await db
+        .from('device_push_tokens')
+        .select('token, user_id')
+        .in('user_id', recipientIds);
+
+      const tokenRows = (tokens ?? []) as TokenRow[];
+      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+
+      const messages = tokenRows.map((row) => ({
+        to: row.token,
+        title: `☕ Tea Started in ${groupEmoji}${groupName}`,
+        body: `${starterName} just started Tea — join the spill!`,
+        sound: 'default',
+        categoryId: 'gc_event',
+        threadId: body.groupId,
+        data: {
+          type: 'tea_started',
+          groupId: body.groupId,
+          groupName,
+          groupEmoji: group?.emoji ?? '🍵',
+          groupAvatarUrl: group?.avatar_url ?? null,
+        },
+        priority: 'high',
+      }));
+
+      const sent = await sendToExpo(messages, db);
+      return json({ ok: true, sent });
+    }
+
+    // ==========================================
+    // CASE 3: Weekly Awards Ready
+    // ==========================================
+    if (eventType === 'awards' && body.groupId) {
+      const [{ data: group }, { data: members }] = await Promise.all([
+        db.from('groups').select('name, emoji, avatar_url').eq('id', body.groupId).maybeSingle(),
+        db.from('group_members').select('user_id').eq('group_id', body.groupId).eq('muted', false),
+      ]);
+
+      const groupName = group?.name ?? 'your GC';
+      const groupEmoji = group?.emoji ? `${group.emoji} ` : '';
+      const recipientIds = (members ?? []).map((m) => m.user_id as string);
+      if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
+
+      const { data: tokens } = await db
+        .from('device_push_tokens')
+        .select('token, user_id')
+        .in('user_id', recipientIds);
+
+      const tokenRows = (tokens ?? []) as TokenRow[];
+      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+
+      const messages = tokenRows.map((row) => ({
+        to: row.token,
+        title: `🏆 Weekly Awards are here!`,
+        body: `See who won this week in ${groupEmoji}${groupName}`,
+        sound: 'default',
+        categoryId: 'gc_event',
+        threadId: body.groupId,
+        data: {
+          type: 'awards',
+          groupId: body.groupId,
+          groupName,
+          groupEmoji: group?.emoji ?? '🏆',
+          groupAvatarUrl: group?.avatar_url ?? null,
+        },
+        priority: 'default',
+      }));
+
+      const sent = await sendToExpo(messages, db);
+      return json({ ok: true, sent });
+    }
+
+    // ==========================================
+    // CASE 3.5: Group Stats (Today's One Word)
+    // ==========================================
+    if ((eventType === 'group_stats' || eventType === 'daily_stats') && body.groupId) {
+      const [{ data: group }, { data: members }] = await Promise.all([
+        db.from('groups').select('name, emoji, avatar_url').eq('id', body.groupId).maybeSingle(),
+        db.from('group_members').select('user_id').eq('group_id', body.groupId).eq('muted', false),
+      ]);
+
+      const groupName = group?.name ?? 'your GC';
+      const groupEmoji = group?.emoji ? `${group.emoji} ` : '';
+      const oneWord = (body as any).oneWord || 'chaotic';
+      const recipientIds = (members ?? []).map((m) => m.user_id as string);
+      if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
+
+      const { data: tokens } = await db
+        .from('device_push_tokens')
+        .select('token, user_id')
+        .in('user_id', recipientIds);
+
+      const tokenRows = (tokens ?? []) as TokenRow[];
+      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+
+      const messages = tokenRows.map((row) => ({
+        to: row.token,
+        title: `📊 Group stats are here!`,
+        body: `Today's one word: "${oneWord}" — see who ruled ${groupEmoji}${groupName}`,
+        sound: 'default',
+        categoryId: 'gc_event',
+        threadId: body.groupId,
+        data: {
+          type: 'group_stats',
+          groupId: body.groupId,
+          groupName,
+          groupEmoji: group?.emoji ?? '📊',
+          groupAvatarUrl: group?.avatar_url ?? null,
+          oneWord,
+        },
+        priority: 'default',
+      }));
+
+      const sent = await sendToExpo(messages, db);
+      return json({ ok: true, sent });
+    }
+
+    // ==========================================
+    // CASE 4: Standard Chat Message
+    // ==========================================
+    const messageId = typeof body.messageId === 'string' ? body.messageId : null;
+    if (!messageId) {
+      return json({ ok: false, error: 'Missing messageId' }, 400);
+    }
 
     const { data: message, error: messageError } = await db
       .from('messages')
@@ -65,14 +233,18 @@ Deno.serve(async (req) => {
       console.error(`[send-push] message lookup failed: ${messageError.message}`);
       return json({ ok: false, error: 'Lookup failed' }, 500);
     }
-    // Deleted between the trigger firing and this running: the push would
-    // deliver a preview of a message that no longer exists.
-    if (!message || message.is_deleted) return json({ ok: true, sent: 0, skipped: 'gone' });
+    if (!message || message.is_deleted) {
+      return json({ ok: true, sent: 0, skipped: 'gone' });
+    }
 
     const [{ data: group }, { data: author }, { data: members }] = await Promise.all([
-      db.from('groups').select('name, emoji').eq('id', message.group_id).maybeSingle(),
+      db.from('groups').select('name, emoji, avatar_url').eq('id', message.group_id).maybeSingle(),
       message.author_id
-        ? db.from('profiles').select('display_name').eq('id', message.author_id).maybeSingle()
+        ? db
+            .from('profiles')
+            .select('display_name, avatar_emoji, avatar_color, avatar_url')
+            .eq('id', message.author_id)
+            .maybeSingle()
         : Promise.resolve({ data: null }),
       db
         .from('group_members')
@@ -81,10 +253,10 @@ Deno.serve(async (req) => {
         .eq('muted', false),
     ]);
 
-    // Never notify yourself about your own message.
     const recipientIds = (members ?? [])
       .map((m) => m.user_id as string)
       .filter((id) => id !== message.author_id);
+
     if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
 
     const { data: tokens } = await db
@@ -95,9 +267,6 @@ Deno.serve(async (req) => {
     const tokenRows = (tokens ?? []) as TokenRow[];
     if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
 
-    // Who was actually @mentioned, so their push can say so — mention rows are
-    // already written by the mentions trigger, so this reuses that work
-    // instead of re-parsing the message text here.
     const { data: mentionRows } = await db
       .from('notifications')
       .select('user_id')
@@ -106,36 +275,54 @@ Deno.serve(async (req) => {
     const mentionedIds = new Set((mentionRows ?? []).map((r) => r.user_id as string));
 
     const groupName = group?.name ?? 'your GC';
+    const groupEmojiPrefix = group?.emoji ? `${group.emoji} ` : '';
     const authorName = author?.display_name ?? 'Someone';
+    const authorEmojiPrefix = author?.avatar_emoji ? `${author.avatar_emoji} ` : '';
     const preview = previewFor(message.text, message.media_type);
 
     const messages = tokenRows.map((row) => {
       const mentioned = mentionedIds.has(row.user_id);
       return {
         to: row.token,
-        title: mentioned ? `${authorName} mentioned you in ${groupName}` : groupName,
-        body: mentioned ? preview : `${authorName}: ${preview}`,
+        title: mentioned
+          ? `${authorName} mentioned you in ${groupEmojiPrefix}${groupName}`
+          : `${groupEmojiPrefix}${groupName}`,
+        body: mentioned ? preview : `${authorEmojiPrefix}${authorName}: ${preview}`,
         sound: 'default',
-        // Collapses to one notification per group rather than stacking a
-        // separate row for every message in a busy chat.
         categoryId: 'gc_message',
         threadId: message.group_id,
-        // Read by the tap handler in src/lib/push.ts to open the right chat
-        // at the right message.
         data: {
           type: 'message',
           groupId: message.group_id,
           messageId: message.id,
+          groupName,
+          groupEmoji: group?.emoji ?? '💬',
+          groupAvatarUrl: group?.avatar_url ?? null,
+          authorName,
+          authorEmoji: author?.avatar_emoji ?? null,
+          authorColor: author?.avatar_color ?? '#818CF8',
+          authorAvatarUrl: author?.avatar_url ?? null,
+          text: preview,
         },
         priority: mentioned ? 'high' : 'default',
       };
     });
 
-    let sent = 0;
-    const invalidTokens: string[] = [];
+    const sent = await sendToExpo(messages, db);
+    return json({ ok: true, sent });
+  } catch (error) {
+    console.error(`[send-push] ${String(error)}`);
+    return json({ ok: false, error: 'Something went wrong' }, 500);
+  }
+});
 
-    for (let i = 0; i < messages.length; i += CHUNK_SIZE) {
-      const chunk = messages.slice(i, i + CHUNK_SIZE);
+async function sendToExpo(messages: any[], db: any): Promise<number> {
+  let sent = 0;
+  const invalidTokens: string[] = [];
+
+  for (let i = 0; i < messages.length; i += CHUNK_SIZE) {
+    const chunk = messages.slice(i, i + CHUNK_SIZE);
+    try {
       const res = await fetch(EXPO_PUSH_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -152,26 +339,21 @@ Deno.serve(async (req) => {
         if (ticket.status === 'ok') {
           sent++;
         } else if (ticket.details?.error === 'DeviceNotRegistered') {
-          // The app was uninstalled or the token rotated. Expo will keep
-          // rejecting it forever, so drop it rather than retrying every send.
           invalidTokens.push(chunk[idx].to);
         }
       });
+    } catch (e) {
+      console.error('[send-push] fetch error:', e);
     }
-
-    if (invalidTokens.length > 0) {
-      await db.from('device_push_tokens').delete().in('token', invalidTokens);
-    }
-
-    return json({ ok: true, sent, pruned: invalidTokens.length });
-  } catch (error) {
-    console.error(`[send-push] ${String(error)}`);
-    return json({ ok: false, error: 'Something went wrong' }, 500);
   }
-});
 
-/** Media messages have no text — say what arrived rather than showing a
- *  blank body. Mirrors describeMedia() on the client. */
+  if (invalidTokens.length > 0) {
+    await db.from('device_push_tokens').delete().in('token', invalidTokens);
+  }
+
+  return sent;
+}
+
 function previewFor(text: string | null, mediaType: string | null): string {
   const trimmed = (text ?? '').trim();
   if (trimmed) {

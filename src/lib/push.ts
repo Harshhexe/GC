@@ -29,25 +29,17 @@ export function setActiveGroup(groupId: string | null) {
 }
 
 /**
- * Decides what a notification does when it lands while the app is open.
- * Registered once at module scope, before any listener, because a
- * notification can arrive before React has mounted anything.
+ * Decides what a notification does when it lands while the app is open (foreground).
+ * We suppress the phone's native OS banner because our custom InAppNotificationBanner
+ * component already handles displaying a sleek in-app toast without duplicate banners.
  */
 Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const data = notification.request.content.data as { groupId?: string } | undefined;
-    const isOpenChat = !!data?.groupId && data.groupId === activeGroupId;
-
-    return {
-      // You are already looking at these messages arriving live.
-      shouldShowBanner: !isOpenChat,
-      shouldShowList: !isOpenChat,
-      shouldPlaySound: !isOpenChat,
-      // The badge is a whole-app unread count, so it stays accurate even for
-      // the chat that is currently open.
-      shouldSetBadge: true,
-    };
-  },
+  handleNotification: async () => ({
+    shouldShowBanner: false,
+    shouldShowList: false,
+    shouldPlaySound: false,
+    shouldSetBadge: true,
+  }),
 });
 
 /**
@@ -58,50 +50,41 @@ Notifications.setNotificationHandler({
  * Returns the token, or null when push is unavailable (simulator, permission
  * denied, or an iOS build without the push entitlement).
  */
-export async function registerForPush(userId: string): Promise<string | null> {
-  // Web is a dead end for this pipeline, so don't even prompt. expo-notifications
-  // ships no web implementation for handling or receiving: on web it resolves
-  // the non-`.native` NotificationsHandlerModule/NotificationsEmitterModule,
-  // which are no-op stubs that warn "…will have no effect". Registration could
-  // technically still mint a browser push subscription (VAPID + service
-  // worker), but nothing would ever be delivered to it, and Expo's push
-  // service — which is what send-push talks to — deals in ExpoPushTokens.
-  // Real web push would be a separate sender speaking the web-push protocol.
+export async function registerForPush(
+  userId: string
+): Promise<{ token: string | null; error: string | null }> {
   if (Platform.OS === 'web') {
     console.warn('[push] web push is not supported by expo-notifications — skipping');
-    return null;
+    return { token: null, error: 'Web platform does not support Expo push' };
   }
 
-  // Simulators and emulators have no push transport at all.
   if (!Device.isDevice) {
     console.warn('[push] skipping registration — not a physical device');
-    return null;
+    return { token: null, error: 'Not a physical device (simulator/emulator)' };
   }
 
   try {
     if (Platform.OS === 'android') {
-      // Android needs a channel before anything can be delivered, and the
-      // channel — not the payload — is what decides importance and whether a
-      // heads-up banner appears.
       await Notifications.setNotificationChannelAsync('messages', {
         name: 'Messages',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#818CF8',
+        enableLights: true,
+        enableVibrate: true,
+        showBadge: true,
       });
     }
 
     const existing = await Notifications.getPermissionsAsync();
     let status = existing.status;
     if (status !== 'granted') {
-      // Only ever prompt when we don't already have an answer — asking again
-      // after a denial does nothing on iOS but does reset nothing either.
       const requested = await Notifications.requestPermissionsAsync();
       status = requested.status;
     }
     if (status !== 'granted') {
-      console.warn('[push] permission not granted');
-      return null;
+      console.warn('[push] permission not granted:', status);
+      return { token: null, error: `Permission not granted (${status})` };
     }
 
     const projectId =
@@ -109,13 +92,21 @@ export async function registerForPush(userId: string): Promise<string | null> {
       Constants.easConfig?.projectId ??
       'eda4be96-0e54-4b02-88a8-d7a456652f83';
 
-    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    if (!token) {
-      console.warn('[push] getExpoPushTokenAsync returned empty token');
-      return null;
+    let token: string | null = null;
+    try {
+      const resp = await Notifications.getExpoPushTokenAsync({ projectId });
+      token = resp?.data ?? null;
+    } catch (tokErr: any) {
+      const msg = tokErr?.message || String(tokErr);
+      console.warn('[push] getExpoPushTokenAsync error:', msg);
+      return { token: null, error: `Expo Push Token error: ${msg}` };
     }
 
-    const { error } = await supabase.from('device_push_tokens').upsert(
+    if (!token) {
+      return { token: null, error: 'Empty token returned by Expo' };
+    }
+
+    const { error: dbError } = await supabase.from('device_push_tokens').upsert(
       {
         token,
         user_id: userId,
@@ -124,40 +115,97 @@ export async function registerForPush(userId: string): Promise<string | null> {
       },
       { onConflict: 'token' }
     );
-    if (error) {
-      console.warn(`[push] could not store token in db: ${error.message}`);
-      return null;
+
+    if (dbError) {
+      console.warn(`[push] could not store token in db: ${dbError.message}`);
+      return { token: null, error: `Database error: ${dbError.message}` };
     }
 
-    console.log('[push] successfully registered device push token');
-    return token;
-  } catch (e) {
-    // The expected failure on an iOS build without the push entitlement.
-    // Notifications simply don't work there; nothing else should break.
-    console.warn(`[push] registration failed: ${e instanceof Error ? e.message : String(e)}`);
-    return null;
+    console.log('[push] successfully registered device push token:', token);
+    scheduleElevenElevenReminder().catch(() => {});
+    return { token, error: null };
+  } catch (e: any) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[push] registration failed: ${msg}`);
+    return { token: null, error: msg };
   }
 }
 
-/** Drops this device's token on sign-out, so the next person to sign in on
- *  this phone doesn't receive the previous account's messages. */
+/** Drops this device's token on sign-out */
 export async function unregisterPush(): Promise<void> {
   try {
     const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-    if (!projectId) return;
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId ??
+      'eda4be96-0e54-4b02-88a8-d7a456652f83';
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     if (token) await supabase.from('device_push_tokens').delete().eq('token', token);
-  } catch {
-    // Nothing recoverable here — a stale token is pruned server-side the
-    // first time Expo reports DeviceNotRegistered for it anyway.
+  } catch {}
+}
+
+export async function sendTestNotification(): Promise<void> {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🔥 GC Push Test',
+        body: 'Notifications are working perfectly on this device!',
+        data: { test: true },
+        sound: true,
+      },
+      trigger: null, // deliver immediately
+    });
+  } catch (e) {
+    console.warn('[push] sendTestNotification failed:', e);
+  }
+}
+
+export async function scheduleElevenElevenReminder(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    // Cancel existing 11:11 triggers to avoid duplication
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notif of scheduled) {
+      if (notif.content.data?.type === '11_11_reminder') {
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+      }
+    }
+
+    // Schedule 11:11 AM
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '✨ 11:11 Make a Wish! 🕯️',
+        body: 'The 60-second wish window is open right now.',
+        sound: 'default',
+        data: { type: '11_11_reminder' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: 11,
+        minute: 11,
+      },
+    });
+
+    // Schedule 11:11 PM (23:11)
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '✨ 11:11 Make a Wish! 🕯️',
+        body: 'The 60-second wish window is open right now.',
+        sound: 'default',
+        data: { type: '11_11_reminder' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: 23,
+        minute: 11,
+      },
+    });
+  } catch (e) {
+    console.warn('[push] scheduleElevenElevenReminder failed:', e);
   }
 }
 
 export async function setBadgeCount(count: number): Promise<void> {
   try {
     await Notifications.setBadgeCountAsync(Math.max(0, count));
-  } catch {
-    // Badges are unsupported on some Android launchers — not worth surfacing.
-  }
+  } catch {}
 }
