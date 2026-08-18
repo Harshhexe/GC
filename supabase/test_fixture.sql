@@ -1,0 +1,31 @@
+-- 🧪 Permanent test fixture.
+--
+-- Two real accounts and one seeded group, so verifying UI work (especially
+-- the web shell) doesn't mean creating and tearing down throwaway users every
+-- time. These are ordinary accounts — no special privileges, no RLS
+-- exceptions — they just exist.
+--
+--   gctest@gctest.local  / gctest1234   "GC Tester"  (owner)
+--   gcbuddy@gctest.local / gctest1234   "Buddy"      (member, the other voice)
+--
+--   Group: "Test Lab 🧪"   invite code GCTEST
+--
+-- Seeded deliberately so the interesting states are always reachable:
+--   · 8 messages, 4 of them from Buddy AFTER Tester's read mark
+--   · so Tester always sees the "4 unread messages" divider on first open
+--   · and Catch Up always has real unread content to work with
+--
+-- Re-arming after you've read them (the divider disappears once you open the
+-- chat, which is correct behaviour):
+--
+--   update public.group_members
+--   set last_read_at = now() - interval '15 minutes',
+--       prev_read_at = now() - interval '3 hours'
+--   where user_id = (select id from auth.users where email = 'gctest@gctest.local')
+--     and group_id = (select id from public.groups where invite_code = 'GCTEST');
+--
+-- To add more unread messages, insert as Buddy with created_at = now().
+--
+-- Tear down completely:
+--   delete from public.groups where invite_code = 'GCTEST';
+--   delete from auth.users where email in ('gctest@gctest.local','gcbuddy@gctest.local');

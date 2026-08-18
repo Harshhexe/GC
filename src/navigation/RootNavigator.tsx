@@ -11,6 +11,8 @@ import { colors } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import AuthScreen from '../screens/AuthScreen';
 import MainTabs from './MainTabs';
+import WebShell from '../screens/web/WebShell';
+import { useIsDesktopWeb } from '../hooks/useResponsiveLayout';
 import ChatScreen from '../screens/ChatScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import GroupInfoScreen from '../screens/GroupInfoScreen';
@@ -46,6 +48,10 @@ const navTheme = {
 
 export default function RootNavigator() {
   const { session, loading, justSignedUp } = useAuth();
+  // Desktop browser gets the two-pane shell; a phone browser is still a
+  // phone and keeps the identical mobile UI. Live-reactive, so resizing the
+  // window switches layouts rather than stranding you in one.
+  const isDesktopWeb = useIsDesktopWeb();
 
   // A cold-start tap resolves before the container mounts, so the target is
   // parked here and replayed from onReady — navigating before that is a
@@ -116,11 +122,19 @@ export default function RootNavigator() {
                     component={WelcomeScreen}
                     options={{ animation: 'fade', animationDuration: 500 }}
                   />
-                  <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
+                  <Stack.Screen
+                    name="MainTabs"
+                    component={isDesktopWeb ? WebShell : MainTabs}
+                    options={{ animation: 'fade' }}
+                  />
                 </>
               ) : (
                 <>
-                  <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
+                  <Stack.Screen
+                    name="MainTabs"
+                    component={isDesktopWeb ? WebShell : MainTabs}
+                    options={{ animation: 'fade' }}
+                  />
                   <Stack.Screen
                     name="Welcome"
                     component={WelcomeScreen}

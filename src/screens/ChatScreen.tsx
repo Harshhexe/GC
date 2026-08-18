@@ -5,6 +5,7 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  type LayoutChangeEvent,
   Linking,
   Platform,
   Share,
@@ -22,6 +23,7 @@ import Animated, {
   FadeIn,
   FadeOut,
   SlideInDown,
+  useAnimatedKeyboard,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -104,6 +106,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { markGroupRead } from '../lib/readState';
 import { setActiveGroup } from '../lib/push';
+import { useIsDesktopWeb } from '../hooks/useResponsiveLayout';
 import { PollComposer } from '../components/PollComposer';
 import { usePolls } from '../hooks/usePolls';
 import { createPoll, type PollDraft } from '../lib/polls';
@@ -148,6 +151,7 @@ const CHAT_BG = require('../../assets/ChatBG.png');
 
 export default function ChatScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const isDesktopWeb = useIsDesktopWeb();
   const { groupId } = route.params;
   const { profile, session } = useAuth();
   const {
@@ -165,7 +169,9 @@ export default function ChatScreen({ route, navigation }: Props) {
     reloadMessages,
     markMediaViewed,
     toggleReaction,
-  } = useMessages(groupId);
+  } = useMessages(groupId, {
+    initialLimit: (route.params.unreadCount ?? 0) > 0 ? (route.params.unreadCount ?? 0) + 15 : undefined,
+  });
   const { members: groupMembers } = useGroupMembers(groupId);
   const { typingNames, notifyTyping } = useTyping(
     groupId,
@@ -181,16 +187,12 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [dailyRecapOpen, setDailyRecapOpen] = useState(false);
   const gcCommands = useGCCommands(groupId);
 
+  const keyboard = useAnimatedKeyboard();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-  const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    const onShow = (e: any) => {
+    const onShow = () => {
       setIsKeyboardOpen(true);
-      if (Platform.OS === 'android') {
-        const height = e?.endCoordinates?.height ?? 0;
-        setAndroidKeyboardHeight(height);
-      }
       if (!showScrollDownRef.current) {
         flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }
@@ -206,9 +208,6 @@ export default function ChatScreen({ route, navigation }: Props) {
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setIsKeyboardOpen(false);
-        if (Platform.OS === 'android') {
-          setAndroidKeyboardHeight(0);
-        }
       }
     );
 
@@ -218,6 +217,18 @@ export default function ChatScreen({ route, navigation }: Props) {
       hideSub.remove();
     };
   }, [messages.length]);
+
+  const animatedComposerStyle = useAnimatedStyle(() => {
+    if (Platform.OS === 'android') {
+      const kbHeight = keyboard.height.value;
+      return {
+        paddingBottom: kbHeight > 0 ? kbHeight : Math.max(insets.bottom, spacing.xs),
+      };
+    }
+    return {
+      paddingBottom: isKeyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
+    };
+  }, [isKeyboardOpen, insets.bottom]);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);
@@ -246,7 +257,9 @@ export default function ChatScreen({ route, navigation }: Props) {
       seen += 1;
       if (seen === openedWithUnread) return i;
     }
-    return -1;
+    // If openedWithUnread exceeded the count of loaded messages from others,
+    // point to the oldest loaded message so the divider still renders and positions.
+    return seen > 0 ? 0 : -1;
   }, [messages, openedWithUnread]);
 
   const unreadCount = firstUnreadIndex >= 0 ? openedWithUnread : 0;
@@ -325,18 +338,37 @@ export default function ChatScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (loading || messages.length === 0) return;
     if (initialScrollDone.current) return;
-    initialScrollDone.current = true;
 
     if (firstUnreadId) {
       const invIndex = invertedMessages.findIndex((m) => m.id === firstUnreadId);
       if (invIndex > 0) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({
-            index: invIndex,
-            viewPosition: 0.3,
-            animated: false,
-          });
-        }, 60);
+        initialScrollDone.current = true;
+
+        const performScroll = () => {
+          if (Platform.OS === 'web' && typeof document !== 'undefined') {
+            const el =
+              document.getElementById(UNREAD_DIVIDER_ID) ||
+              document.getElementById(`msg-${firstUnreadId}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'auto', block: 'center' });
+              return;
+            }
+          }
+
+          try {
+            flatListRef.current?.scrollToIndex({
+              index: invIndex,
+              viewPosition: 0.3,
+              animated: false,
+            });
+          } catch {
+            // onScrollToIndexFailed handles measuring fallback
+          }
+        };
+
+        requestAnimationFrame(performScroll);
+        setTimeout(performScroll, 50);
+        setTimeout(performScroll, 200);
       }
     }
   }, [loading, messages.length, firstUnreadId, invertedMessages]);
@@ -391,6 +423,45 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [draft, setDraft] = useState('');
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+
+  // Enter-to-send on desktop web.
+  //
+  // A document-level keydown listener that identifies the composer by its
+  // placeholder, rather than TextInput's onKeyPress or a ref-attached
+  // listener. Both were tried and neither fired: react-native-web's synthetic
+  // onKeyPress doesn't emit for Enter on a multiline input, and the TextInput
+  // ref is RNW's hybrid handle (focus/blur/measure), not reliably the
+  // underlying <textarea>, so addEventListener on it silently no-ops.
+  //
+  // Gated on isDesktopWeb, not Platform.OS === 'web': a phone browser has an
+  // on-screen keyboard whose return key should still insert a line break,
+  // exactly like the native app.
+  //
+  // handleSend is reached through a ref so this binds once rather than
+  // re-attaching on every keystroke (handleSend closes over `draft`).
+  const handleSendRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (!isDesktopWeb || typeof document === 'undefined') return;
+
+    const COMPOSER_PLACEHOLDERS = ['Cook Something...', 'Edit your message...'];
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      // IME composition: Enter is committing a candidate, not sending.
+      if (e.isComposing) return;
+
+      const target = e.target as HTMLElement | null;
+      if (!target || target.tagName !== 'TEXTAREA') return;
+      const placeholder = target.getAttribute('placeholder') ?? '';
+      if (!COMPOSER_PLACEHOLDERS.includes(placeholder)) return;
+
+      e.preventDefault();
+      handleSendRef.current();
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [isDesktopWeb]);
 
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -561,6 +632,10 @@ export default function ChatScreen({ route, navigation }: Props) {
       { text: 'Clear for Me', style: 'destructive', onPress: go },
     ]);
   }, [clearChatForMe]);
+
+  // Refreshed every render so the keydown listener above always calls the
+  // current closure (handleSend captures `draft`).
+  handleSendRef.current = () => { void handleSend(); };
 
   async function handleSend() {
     if (uploading) return;
@@ -995,6 +1070,13 @@ export default function ChatScreen({ route, navigation }: Props) {
       Linking.openURL(message.media.url).catch(() => { });
       return;
     }
+    if (Platform.OS === 'web' && message.media.viewOnce) {
+      Alert.alert(
+        'Open in Mobile App 🔒',
+        'View-once photos and videos can only be opened on the GC mobile app to protect privacy and prevent screenshots.'
+      );
+      return;
+    }
     setViewingMessage(message);
   }, []);
 
@@ -1341,7 +1423,17 @@ export default function ChatScreen({ route, navigation }: Props) {
       }
 
       if (index >= 0) {
-        flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          const el = document.getElementById(`msg-${id}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+        try {
+          flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
+        } catch {
+          // handled by onScrollToIndexFailed
+        }
         if (highlightTimer.current) clearTimeout(highlightTimer.current);
         setHighlightedId(id);
         highlightTimer.current = setTimeout(() => setHighlightedId(null), 1200);
@@ -1689,8 +1781,8 @@ export default function ChatScreen({ route, navigation }: Props) {
                 showsVerticalScrollIndicator={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 keyboardShouldPersistTaps="handled"
-                initialNumToRender={14}
-                maxToRenderPerBatch={8}
+                initialNumToRender={Math.max(20, Math.min(100, (openedWithUnread ?? 0) + 10))}
+                maxToRenderPerBatch={10}
                 windowSize={7}
                 updateCellsBatchingPeriod={40}
                 removeClippedSubviews={Platform.OS === 'android'}
@@ -1761,16 +1853,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             entering={FadeIn.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
             style={[
               styles.composerWrap,
-              {
-                paddingBottom:
-                  Platform.OS === 'android'
-                    ? androidKeyboardHeight > 0
-                      ? androidKeyboardHeight + Math.max(insets.bottom, 48) + spacing.xs
-                      : Math.max(insets.bottom, spacing.xs)
-                    : isKeyboardOpen
-                      ? spacing.xs
-                      : Math.max(insets.bottom, spacing.xs),
-              },
+              animatedComposerStyle,
             ]}
           >
             {(replyTo || editingMessage) && (

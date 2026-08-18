@@ -691,14 +691,17 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                   </Animated.View>
                 )}
 
-                {/* 2. The current answer, above the stack and outside the
-                    branch chain below — with unexpired recaps on screen the
-                    chain would otherwise pick the stack and never show it. */}
+                {/* 2. The current answer (Roast for 1–9 messages) */}
                 {serverNote && (
                   <Animated.View
                     entering={FadeInDown.duration(300).reduceMotion(reduceMotion)}
                     style={styles.serverNote}
                   >
+                    <View style={styles.roastBox}>
+                      <Text style={styles.roastText}>
+                        💀 {ai.result?.messageCount ?? 1} Unread Message{(ai.result?.messageCount ?? 1) === 1 ? '' : 's'}
+                      </Text>
+                    </View>
                     <Text style={styles.emptyRecapHeadline}>{serverNote.headline}</Text>
                     {!!serverNote.summary && (
                       <Text style={styles.emptyMentions}>{serverNote.summary}</Text>
@@ -724,16 +727,18 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                   </View>
                 ) : !ai.loading && ai.error ? (
                   <AIErrorState error={ai.error} onRetry={handleCatchUp} />
-                ) : !ai.loading ? (
-                  !serverNote ? (
-                    <View style={styles.emptyRecapWrap}>
-                      <Text style={styles.emptyMentions}>
-                        {history.entries.length > 0
-                          ? 'Previous recap expired (10m limit). Tap Catch Up above to generate a fresh one! ✨'
-                          : "Nothing missed yet. Tap Catch Up above to see what's new! ✨"}
-                      </Text>
-                    </View>
-                  ) : null
+                ) : !ai.loading && !serverNote ? (
+                  <View style={styles.emptyRecapWrap}>
+                    <Text style={styles.emptyRecapHeadline}>
+                      {ai.result?.headline || "You're caught up, chill 👀"}
+                    </Text>
+                    <Text style={styles.emptyMentions}>
+                      {ai.result?.summary ||
+                        (history.entries.length > 0
+                          ? 'Previous recap expired (10m limit). Tap Catch Up above if new messages arrive! ✨'
+                          : 'Literally nothing happened, bhai. Go outside or something.')}
+                    </Text>
+                  </View>
                 ) : null}
               </Section>
 

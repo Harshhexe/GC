@@ -1,0 +1,86 @@
+import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
+import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
+import { showWebNotification } from '../lib/webNotifications';
+
+/**
+ * Turns incoming messages into browser notifications on the web build.
+ *
+ * A separate realtime subscription rather than reusing the native path,
+ * because there isn't one to reuse: the native banner listens to
+ * expo-notifications foreground events, and expo-notifications does nothing
+ * at all on web. This is that missing half.
+ *
+ * No-ops entirely off web, so it's safe to mount unconditionally.
+ */
+export function useWebNotifications(
+  userId: string | undefined,
+  groupIds: string[],
+  activeGroupId: string | null,
+  onOpenGroup: (groupId: string) => void
+) {
+  // Held in refs so the handler always reads current values without the
+  // subscription tearing down and re-establishing every time you open a
+  // different chat — a resubscribe drops messages in the gap.
+  const activeRef = useRef(activeGroupId);
+  activeRef.current = activeGroupId;
+  const groupsRef = useRef(groupIds);
+  groupsRef.current = groupIds;
+  const openRef = useRef(onOpenGroup);
+  openRef.current = onOpenGroup;
+
+  const channelId = useRef(Math.random().toString(36).slice(2, 10));
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !userId) return;
+
+    const channel = supabase
+      .channel(`web-notify-${channelId.current}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        async (payload) => {
+          const row = payload.new as {
+            id: string;
+            group_id: string;
+            author_id: string | null;
+            text: string | null;
+            media_type: string | null;
+          };
+
+          if (!row?.group_id) return;
+          if (row.author_id === userId) return;
+          // Realtime delivers inserts for rows RLS lets us read, but a
+          // membership check here keeps it honest if that ever loosens.
+          if (!groupsRef.current.includes(row.group_id)) return;
+          // Already looking at this conversation.
+          if (activeRef.current === row.group_id) return;
+
+          const [{ data: group }, { data: author }] = await Promise.all([
+            supabase.from('groups').select('name').eq('id', row.group_id).maybeSingle(),
+            row.author_id
+              ? supabase.from('profiles').select('display_name').eq('id', row.author_id).maybeSingle()
+              : Promise.resolve({ data: null }),
+          ]);
+
+          const preview =
+            row.text?.trim() ||
+            (row.media_type ? `sent ${row.media_type === 'image' ? 'a photo' : `a ${row.media_type}`}` : 'sent a message');
+
+          showWebNotification({
+            title: group?.name ?? 'GC',
+            body: `${author?.display_name ?? 'Someone'}: ${preview}`,
+            // One live notification per group, replaced rather than stacked.
+            tag: row.group_id,
+            onClick: () => openRef.current(row.group_id),
+          });
+        }
+      )
+      .subscribe(onChannelStatus('web-notify'));
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+}

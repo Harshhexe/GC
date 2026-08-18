@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { consumeMissedBoundary } from '../lib/readState';
@@ -114,7 +115,7 @@ function aggregateReactions(rows: ReactionRow[], messageId: string, myUserId: st
   return Array.from(byEmoji.values());
 }
 
-export function useMessages(groupId: string) {
+export function useMessages(groupId: string, options?: { initialLimit?: number }) {
   const { session } = useAuth();
   const myId = session?.user.id ?? '';
   const myIdRef = useRef(myId);
@@ -146,6 +147,10 @@ export function useMessages(groupId: string) {
   // Ids already looked up once, successful or not — a target that's truly
   // gone would otherwise get re-queried on every subsequent message arrival.
   const triedReplyFetchRef = useRef<Set<string>>(new Set());
+  // Last seen AppState, so the resume listener can tell a real
+  // background → active transition from the transient 'inactive' events that
+  // fire without the app ever actually leaving.
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   // The realtime subscription is set up once per group, so any `messages` it
   // closed over would be frozen at []. Keep a ref the handlers can read live.
   const messagesRef = useRef<Message[]>([]);
@@ -344,6 +349,11 @@ export function useMessages(groupId: string) {
   );
 
   const PAGE_SIZE = 35;
+  const initialFetchLimit = useMemo(() => {
+    const minNeeded = options?.initialLimit ?? PAGE_SIZE;
+    return Math.max(PAGE_SIZE, minNeeded);
+  }, [options?.initialLimit]);
+
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const oldestCreatedAtRef = useRef<string | null>(null);
@@ -355,10 +365,10 @@ export function useMessages(groupId: string) {
       .select(MESSAGE_COLUMNS)
       .eq('group_id', groupId)
       .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE);
+      .limit(initialFetchLimit);
 
     const rawRows = (messageRows ?? []) as MessageRow[];
-    setHasMore(rawRows.length === PAGE_SIZE);
+    setHasMore(rawRows.length === initialFetchLimit);
 
     const rows = [...rawRows].reverse();
     if (rows.length > 0) {
@@ -420,7 +430,7 @@ export function useMessages(groupId: string) {
 
     setMessages(buildMessages(rows));
     setLoading(false);
-  }, [groupId, buildMessages]);
+  }, [groupId, initialFetchLimit, buildMessages]);
 
   const fetchOlderMessages = useCallback(async () => {
     if (loadingMore || !hasMore || !oldestCreatedAtRef.current) return;
@@ -594,6 +604,36 @@ export function useMessages(groupId: string) {
     load();
   }, [groupId]);
 
+  /**
+   * Re-fetch when the app comes back to the foreground.
+   *
+   * The realtime socket is torn down while backgrounded, so anything sent in
+   * the meantime arrives at nobody — and `load()` above only re-runs when
+   * groupId changes. React Navigation's focus hooks don't help either: the
+   * screen never lost *navigation* focus, the whole app lost OS focus, which
+   * is a different thing entirely.
+   *
+   * The symptom was that reopening the app on an open chat showed a stale
+   * transcript until you went back to the list and re-entered — that
+   * round trip remounts the screen, which is what was really doing the
+   * refetch. This closes the gap without the detour.
+   */
+  useEffect(() => {
+    if (!groupId) return;
+
+    const sub = AppState.addEventListener('change', (next) => {
+      // Only the background → active edge. AppState also fires 'inactive'
+      // for transient things (notification shade, app switcher preview), and
+      // refetching on those would hammer the API for no reason.
+      if (next === 'active' && appStateRef.current !== 'active') {
+        load();
+      }
+      appStateRef.current = next;
+    });
+
+    return () => sub.remove();
+  }, [groupId, load]);
+
   const refreshReactions = useCallback(async () => {
     const currentIds = messagesRef.current.map((m) => m.id);
     if (currentIds.length === 0) return;
@@ -603,9 +643,9 @@ export function useMessages(groupId: string) {
       .in('message_id', currentIds);
     reactionRowsRef.current = reactionRows ?? [];
     setMessages((prev) =>
-      prev.map((m) => ({ ...m, reactions: aggregateReactions(reactionRowsRef.current, m.id, myId) }))
+      prev.map((m) => ({ ...m, reactions: aggregateReactions(reactionRowsRef.current, m.id, myIdRef.current) }))
     );
-  }, [myId]);
+  }, []);
 
   useEffect(() => {
     if (!groupId || !myId) return;
@@ -754,76 +794,83 @@ export function useMessages(groupId: string) {
     }
   }, [messages, resolveReplyPreview]);
 
-  async function sendMessage(
-    text: string,
-    replyToMessageId?: string | null,
-    mentions: Mention[] = [],
-    mentionEveryone = false,
-    media?: MessageMedia | null,
-    aiShare?: AIShare | null,
-    stickerId?: string | null,
-    pollId?: string | null
-  ) {
-    // A media-only message needs no caption; a plain-text one still needs
-    // real content — no sending an empty bubble.
-    //
-    // A poll counts as content too. It carries no text and no media (it isn't
-    // a media_type — see supabase/polls.sql), so without `pollId` here the
-    // guard silently swallowed every poll: the row was never inserted, and
-    // the composer looked like it had sent something.
-    if (!myId || (!text.trim() && !media && !pollId)) return;
-    await supabase.from('messages').insert({
-      ai_share: aiShare ?? null,
-      group_id: groupId,
-      author_id: myId,
-      text: text.trim(),
-      reply_to_message_id: replyToMessageId ?? null,
-      mentions,
-      mention_everyone: mentionEveryone,
-      media_url: media?.url ?? null,
-      media_thumb_url: media?.thumbUrl ?? null,
-      media_type: media?.type ?? null,
-      media_mime: media?.mime ?? null,
-      media_name: media?.name ?? null,
-      media_size: media?.size ?? null,
-      media_width: media?.width ?? null,
-      media_height: media?.height ?? null,
-      media_duration_ms: media?.durationMs ?? null,
-      media_view_once: media?.viewOnce ?? false,
-      sticker_id: stickerId ?? null,
-      poll_id: pollId ?? null,
-    });
+  const sendMessage = useCallback(
+    async (
+      text: string,
+      replyToMessageId?: string | null,
+      mentions: Mention[] = [],
+      mentionEveryone = false,
+      media?: MessageMedia | null,
+      aiShare?: AIShare | null,
+      stickerId?: string | null,
+      pollId?: string | null
+    ) => {
+      const uid = myIdRef.current;
+      // A media-only message needs no caption; a plain-text one still needs
+      // real content — no sending an empty bubble.
+      //
+      // A poll counts as content too. It carries no text and no media (it isn't
+      // a media_type — see supabase/polls.sql), so without `pollId` here the
+      // guard silently swallowed every poll: the row was never inserted, and
+      // the composer looked like it had sent something.
+      if (!uid || (!text.trim() && !media && !pollId)) return;
+      await supabase.from('messages').insert({
+        ai_share: aiShare ?? null,
+        group_id: groupId,
+        author_id: uid,
+        text: text.trim(),
+        reply_to_message_id: replyToMessageId ?? null,
+        mentions,
+        mention_everyone: mentionEveryone,
+        media_url: media?.url ?? null,
+        media_thumb_url: media?.thumbUrl ?? null,
+        media_type: media?.type ?? null,
+        media_mime: media?.mime ?? null,
+        media_name: media?.name ?? null,
+        media_size: media?.size ?? null,
+        media_width: media?.width ?? null,
+        media_height: media?.height ?? null,
+        media_duration_ms: media?.durationMs ?? null,
+        media_view_once: media?.viewOnce ?? false,
+        sticker_id: stickerId ?? null,
+        poll_id: pollId ?? null,
+      });
 
-    // Replying is proof of having caught up, so the preserved "what did I
-    // miss" boundary is spent here rather than left pinned for the rest of
-    // the sitting — otherwise the recap keeps re-reporting the very messages
-    // you just answered. Done inside sendMessage so every path (text, media,
-    // gif, sticker, voice, AI share) is covered by one call instead of six.
-    consumeMissedBoundary(groupId, myId);
-  }
+      // Replying is proof of having caught up, so the preserved "what did I
+      // miss" boundary is spent here rather than left pinned for the rest of
+      // the sitting — otherwise the recap keeps re-reporting the very messages
+      // you just answered. Done inside sendMessage so every path (text, media,
+      // gif, sticker, voice, AI share) is covered by one call instead of six.
+      consumeMissedBoundary(groupId, uid);
+    },
+    [groupId]
+  );
 
-  async function editMessage(
-    messageId: string,
-    text: string,
-    mentions: Mention[] = [],
-    mentionEveryone = false
-  ) {
-    const trimmed = text.trim();
-    if (!myId || !trimmed) return;
-    // Optimistic — the realtime UPDATE will confirm (and the server may
-    // still strip mentionEveryone if the cooldown/permission check fails).
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId
-          ? { ...m, text: trimmed, editedAt: new Date().toISOString(), mentions, mentionEveryone }
-          : m
-      )
-    );
-    await supabase
-      .from('messages')
-      .update({ text: trimmed, edited_at: new Date().toISOString(), mentions, mention_everyone: mentionEveryone })
-      .eq('id', messageId);
-  }
+  const editMessage = useCallback(
+    async (
+      messageId: string,
+      text: string,
+      mentions: Mention[] = [],
+      mentionEveryone = false
+    ) => {
+      const trimmed = text.trim();
+      if (!myIdRef.current || !trimmed) return;
+      // Optimistic — the realtime UPDATE will confirm (and the server may
+      // still strip mentionEveryone if the cooldown/permission check fails).
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, text: trimmed, editedAt: new Date().toISOString(), mentions, mentionEveryone }
+            : m
+        )
+      );
+      await supabase
+        .from('messages')
+        .update({ text: trimmed, edited_at: new Date().toISOString(), mentions, mention_everyone: mentionEveryone })
+        .eq('id', messageId);
+    },
+    []
+  );
 
   /**
    * Burns this viewer's single look at a view-once attachment. Called when
@@ -834,36 +881,40 @@ export function useMessages(groupId: string) {
    * Recorded locally first so the bubble flips instantly; the insert ignores
    * a duplicate-key conflict because a second view is a no-op by definition.
    */
-  async function markMediaViewed(messageId: string) {
-    if (!myId) return;
-    const viewers = viewsRef.current.get(messageId) ?? new Set<string>();
-    if (!viewers.has(myId)) {
-      viewers.add(myId);
-      viewsRef.current.set(messageId, viewers);
-    }
+  const markMediaViewed = useCallback(
+    async (messageId: string) => {
+      const uid = myIdRef.current;
+      if (!uid) return;
+      const viewers = viewsRef.current.get(messageId) ?? new Set<string>();
+      if (!viewers.has(uid)) {
+        viewers.add(uid);
+        viewsRef.current.set(messageId, viewers);
+      }
 
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId && m.media
-          ? {
-              ...m,
-              media: {
-                ...m.media,
-                viewed: true,
-                viewedByAnyone: true,
-                viewers: getViewerProfiles(messageId),
-              },
-            }
-          : m
-      )
-    );
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId && m.media
+            ? {
+                ...m,
+                media: {
+                  ...m.media,
+                  viewed: true,
+                  viewedByAnyone: true,
+                  viewers: getViewerProfiles(messageId),
+                },
+              }
+            : m
+        )
+      );
 
-    await supabase.from('media_views').insert({ message_id: messageId, user_id: myId });
-  }
+      await supabase.from('media_views').insert({ message_id: messageId, user_id: uid });
+    },
+    [getViewerProfiles]
+  );
 
   /** Delete for everyone: the message becomes a tombstone for every member.
    *  Who may do this is enforced by RLS (author, or the group's owner/admin). */
-  async function deleteMessage(messageId: string) {
+  const deleteMessage = useCallback(async (messageId: string) => {
     const target = messagesRef.current.find((m) => m.id === messageId);
     setMessages((prev) =>
       prev.map((m) =>
@@ -875,22 +926,23 @@ export function useMessages(groupId: string) {
               isDeleted: true,
               // Mirrors what the trigger will stamp, so the label doesn't
               // flicker in after the realtime UPDATE lands.
-              deletedByAdmin: !!target && target.authorId !== myId,
+              deletedByAdmin: !!target && target.authorId !== myIdRef.current,
             }
           : m
       )
     );
     await supabase.from('messages').update({ is_deleted: true }).eq('id', messageId);
-  }
+  }, []);
 
   /** Delete for me: hides the message for this viewer only. The message
    *  itself is untouched, so everyone else still sees it. */
-  async function hideMessage(messageId: string): Promise<{ error: string | null }> {
-    if (!myId) return { error: 'Not signed in.' };
+  const hideMessage = useCallback(async (messageId: string): Promise<{ error: string | null }> => {
+    const uid = myIdRef.current;
+    if (!uid) return { error: 'Not signed in.' };
     setHiddenIds((prev) => new Set(prev).add(messageId));
     const { error } = await supabase
       .from('hidden_messages')
-      .insert({ message_id: messageId, user_id: myId });
+      .insert({ message_id: messageId, user_id: uid });
     if (error) {
       // Put it back rather than leaving it hidden on this device only — a
       // hide that didn't persist would reappear on the next load anyway, and
@@ -903,67 +955,72 @@ export function useMessages(groupId: string) {
       return { error: error.message };
     }
     return { error: null };
-  }
+  }, []);
 
-  async function toggleReaction(messageId: string, emoji: string, label?: string) {
-    if (!myId) return;
-    const message = messagesRef.current.find((m) => m.id === messageId);
-    const existing = message?.reactions.find((r) => r.emoji === emoji);
+  const toggleReaction = useCallback(
+    async (messageId: string, emoji: string, label?: string) => {
+      const uid = myIdRef.current;
+      if (!uid) return;
+      const message = messagesRef.current.find((m) => m.id === messageId);
+      const existing = message?.reactions.find((r) => r.emoji === emoji);
 
-    if (existing?.reactedByMe) {
-      // Optimistic: realtime will confirm, but the tap should feel instant.
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id !== messageId
-            ? m
-            : {
+      if (existing?.reactedByMe) {
+        // Optimistic: realtime will confirm, but the tap should feel instant.
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id !== messageId
+              ? m
+              : {
+                ...m,
+                reactions: m.reactions
+                  .map((r) =>
+                    r.emoji === emoji ? { ...r, count: r.count - 1, reactedByMe: false } : r
+                  )
+                  .filter((r) => r.count > 0),
+              }
+          )
+        );
+        await supabase
+          .from('message_reactions')
+          .delete()
+          .match({ message_id: messageId, user_id: uid, emoji });
+      } else {
+        const resolved = label || labelFor(emoji);
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== messageId) return m;
+            const has = m.reactions.some((r) => r.emoji === emoji);
+            return {
               ...m,
-              reactions: m.reactions
-                .map((r) =>
-                  r.emoji === emoji ? { ...r, count: r.count - 1, reactedByMe: false } : r
+              reactions: has
+                ? m.reactions.map((r) =>
+                  r.emoji === emoji ? { ...r, count: r.count + 1, reactedByMe: true } : r
                 )
-                .filter((r) => r.count > 0),
-            }
-        )
-      );
-      await supabase
-        .from('message_reactions')
-        .delete()
-        .match({ message_id: messageId, user_id: myId, emoji });
-    } else {
-      const resolved = label || labelFor(emoji);
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== messageId) return m;
-          const has = m.reactions.some((r) => r.emoji === emoji);
-          return {
-            ...m,
-            reactions: has
-              ? m.reactions.map((r) =>
-                r.emoji === emoji ? { ...r, count: r.count + 1, reactedByMe: true } : r
-              )
-              : [...m.reactions, { emoji, label: resolved, count: 1, reactedByMe: true }],
-          };
-        })
-      );
-      await supabase
-        .from('message_reactions')
-        .insert({ message_id: messageId, user_id: myId, emoji, label: resolved });
-    }
-    refreshReactions();
-  }
+                : [...m.reactions, { emoji, label: resolved, count: 1, reactedByMe: true }],
+            };
+          })
+        );
+        await supabase
+          .from('message_reactions')
+          .insert({ message_id: messageId, user_id: uid, emoji, label: resolved });
+      }
+      refreshReactions();
+    },
+    [refreshReactions]
+  );
+
   /** Clear chat for me: hides all messages currently in this group for this viewer only. */
-  async function clearChatForMe(): Promise<{ error: string | null }> {
-    if (!myId) return { error: 'Not signed in.' };
+  const clearChatForMe = useCallback(async (): Promise<{ error: string | null }> => {
+    if (!myIdRef.current) return { error: 'Not signed in.' };
     // Optimistically hide all current messages locally
-    setHiddenIds(new Set(allMessages.map((m) => m.id)));
+    setHiddenIds(new Set(messagesRef.current.map((m) => m.id)));
     const { error } = await supabase.rpc('clear_chat_for_me', { p_group_id: groupId });
     if (error) {
       load();
       return { error: error.message };
     }
     return { error: null };
-  }
+  }, [groupId, load]);
 
   return {
     messages,

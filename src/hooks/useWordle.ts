@@ -78,6 +78,25 @@ export function useWordle(groupId?: string) {
     refresh();
   }, [refresh]);
 
+  // Realtime updates: when another group member plays or guesses, update leaderboard live
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`wordle_live_${groupId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wordle_attempts' },
+        () => {
+          refresh();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [groupId, refresh]);
+
   /**
    * Submits a guess. Resolves to null on success, or why it was refused.
    *

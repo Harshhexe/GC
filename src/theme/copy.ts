@@ -22,11 +22,13 @@ export const copy = {
   caughtUp: [
     'You’re caught up. Go touch grass. 🌱',
     'Nothing new. Shocking, honestly.',
+    'Itna vella hai ki you are caught up.'
   ],
   loading: [
     'Gathering the lore…',
     'Retrieving the receipts…',
     'Loading the drama…',
+    'Ruko jara sabar karo.'
   ],
   loadingGroups: [
     'Rounding up your GCs…',

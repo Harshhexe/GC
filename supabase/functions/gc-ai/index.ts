@@ -168,6 +168,12 @@ Deno.serve(async (req) => {
     if (operation.trivialResult) {
       const trivial = operation.trivialResult(ctx, params);
       if (trivial) {
+        if (operationName === 'what_did_i_miss' && clients.userId) {
+          await clients.asUser
+            .rpc('gc_consume_missed_boundary', { p_group_id: groupId })
+            .then(undefined, () => {});
+        }
+
         await recordUsage(clients.asService, {
           userId: clients.userId,
           groupId,
@@ -264,12 +270,13 @@ Deno.serve(async (req) => {
     if (operation.toHistoryRow) {
       const row = operation.toHistoryRow(result);
       if (row) {
-        await clients.asService
-          .from('ai_recap_history')
-          .insert({ user_id: clients.userId, group_id: groupId, operation: operationName, ...row })
-          .then(undefined, (e: unknown) =>
-            console.error(`[gc-ai] history insert failed: ${String(e)}`)
-          );
+        try {
+          await clients.asService
+            .from('ai_recap_history')
+            .insert({ user_id: clients.userId, group_id: groupId, operation: operationName, ...row });
+        } catch (e: unknown) {
+          console.error(`[gc-ai] history insert failed: ${String(e)}`);
+        }
 
         // Best-effort prune, scoped to this user+group so it stays cheap.
         // Failure here just means one group's history table grows a bit —

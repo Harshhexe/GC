@@ -429,4 +429,11 @@ export const whatDidIMissOperation: AIOperation<WhatDidIMissResult> = {
       message_count: result.messageCount,
     };
   },
+
+  async persistResult({ db, groupId, userId }) {
+    if (userId) {
+      await db.rpc('gc_consume_missed_boundary', { p_group_id: groupId });
+    }
+  },
 };
+

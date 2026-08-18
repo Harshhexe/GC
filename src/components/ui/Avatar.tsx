@@ -1,4 +1,5 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, radius, typography } from '../../theme/theme';
 
@@ -59,9 +60,11 @@ export function Avatar({
         >
           {imageUrl ? (
             <Image
-              source={{ uri: imageUrl }}
+              source={imageUrl}
               style={{ width: inner, height: inner, borderRadius: inner / 2 }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={120}
             />
           ) : emoji ? (
             <Text style={{ fontSize: inner * 0.5 }}>{emoji}</Text>

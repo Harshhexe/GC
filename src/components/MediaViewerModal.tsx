@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as ScreenCapture from 'expo-screen-capture';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -44,67 +45,150 @@ export function MediaViewerModal({
   /** Reply to the message this attachment belongs to. */
   onReply?: () => void;
 }) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
   const insets = useSafeAreaInsets();
 
-  // Read on the JS thread and captured by value. `Dimensions.get()` is a
-  // JS-thread-only API, and a gesture callback is a worklet running on the UI
-  // thread — calling it from in there takes the whole app down with it.
   const screenHeight = Dimensions.get('window').height;
 
-  // Each open starts from centre — otherwise the next photo would appear
-  // already shoved down by however far the last one was dragged.
+  // Screenshot & Screen recording protection for View Once media
   useEffect(() => {
-    if (media) translateY.value = 0;
-  }, [media, translateY]);
+    if (Platform.OS === 'web' || !media) return;
+    if (media.viewOnce) {
+      ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+    } else {
+      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    }
+    return () => {
+      if (Platform.OS !== 'web') {
+        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+      }
+    };
+  }, [media]);
 
-  // Drag the whole surface down (or up) to dismiss, the way every photo
-  // viewer behaves. `activeOffsetY` keeps a vertical drag from stealing
-  // horizontal gestures or taps on the video's own transport controls.
-  const panGesture = Gesture.Pan()
-    .activeOffsetY([-18, 18])
-    .failOffsetX([-24, 24])
+  // Reset transforms whenever a new image or media opens
+  useEffect(() => {
+    if (media) {
+      scale.value = 1;
+      savedScale.value = 1;
+      translateX.value = 0;
+      savedTranslateX.value = 0;
+      translateY.value = 0;
+      savedTranslateY.value = 0;
+    }
+  }, [media, scale, savedScale, translateX, savedTranslateX, translateY, savedTranslateY]);
+
+  // Pinch-to-zoom gesture (2 fingers)
+  const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
-      translateY.value = e.translationY;
+      const nextScale = savedScale.value * e.scale;
+      scale.value = Math.max(1, Math.min(nextScale, 5));
     })
-    .onEnd((e) => {
-      const flung = Math.abs(e.velocityY) > 900;
-      if (Math.abs(translateY.value) > DISMISS_DISTANCE || flung) {
-        // Close immediately and let the surface keep travelling underneath the
-        // Modal's own fade-out. Deferring the close into withTiming's
-        // completion callback instead would mean running it on the UI thread
-        // after the view may already be gone.
-        runOnJS(onClose)();
-        translateY.value = withTiming(Math.sign(translateY.value || e.velocityY) * screenHeight, {
-          duration: duration.fast,
-          easing: easing.out,
-          reduceMotion,
-        });
+    .onEnd(() => {
+      if (scale.value <= 1.05) {
+        scale.value = withTiming(1, { duration: 180, easing: easing.out, reduceMotion });
+        savedScale.value = 1;
+        translateX.value = withTiming(0, { duration: 180, easing: easing.out, reduceMotion });
+        savedTranslateX.value = 0;
+        translateY.value = withTiming(0, { duration: 180, easing: easing.out, reduceMotion });
+        savedTranslateY.value = 0;
       } else {
-        translateY.value = withTiming(0, { duration: duration.base, easing: easing.out, reduceMotion });
+        savedScale.value = scale.value;
       }
     });
 
-  const surfaceStyle = useAnimatedStyle(() => ({
+  // Double-tap to quickly zoom in (2.5x) or zoom back out (1x)
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDelay(250)
+    .onEnd(() => {
+      if (scale.value > 1.2) {
+        scale.value = withTiming(1, { duration: 200, easing: easing.out, reduceMotion });
+        savedScale.value = 1;
+        translateX.value = withTiming(0, { duration: 200, easing: easing.out, reduceMotion });
+        savedTranslateX.value = 0;
+        translateY.value = withTiming(0, { duration: 200, easing: easing.out, reduceMotion });
+        savedTranslateY.value = 0;
+      } else {
+        scale.value = withTiming(2.5, { duration: 200, easing: easing.out, reduceMotion });
+        savedScale.value = 2.5;
+      }
+    });
+
+  // Pan gesture: moves zoomed image around when zoomed in, or pulls down to dismiss when at 1x
+  const panGesture = Gesture.Pan()
+    .averageTouches(true)
+    .onUpdate((e) => {
+      if (scale.value > 1.05) {
+        translateX.value = savedTranslateX.value + e.translationX;
+        translateY.value = savedTranslateY.value + e.translationY;
+      } else {
+        translateY.value = e.translationY;
+      }
+    })
+    .onEnd((e) => {
+      if (scale.value > 1.05) {
+        savedTranslateX.value = translateX.value;
+        savedTranslateY.value = translateY.value;
+      } else {
+        const flung = Math.abs(e.velocityY) > 900;
+        if (Math.abs(translateY.value) > DISMISS_DISTANCE || flung) {
+          runOnJS(onClose)();
+          translateY.value = withTiming(Math.sign(translateY.value || e.velocityY) * screenHeight, {
+            duration: duration.fast,
+            easing: easing.out,
+            reduceMotion,
+          });
+        } else {
+          translateY.value = withTiming(0, { duration: duration.base, easing: easing.out, reduceMotion });
+        }
+      }
+    });
+
+  // Combine gestures: double-tap races with simultaneous pinch + pan
+  const imageGestures = Gesture.Race(
+    doubleTapGesture,
+    Gesture.Simultaneous(pinchGesture, panGesture)
+  );
+
+  const videoSurfaceStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
 
-  // The backdrop thins out as you drag, so the chat shows through and the
-  // gesture feels like it's actually peeling the viewer away.
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      Math.abs(translateY.value),
-      [0, DISMISS_DISTANCE * 2],
-      [1, 0.25],
-      Extrapolation.CLAMP
-    ),
+  const animatedImageStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
-  // Chrome fades out during the drag — it would otherwise ride along and
-  // fight the sense that the whole thing is being dismissed.
-  const chromeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(Math.abs(translateY.value), [0, 80], [1, 0], Extrapolation.CLAMP),
-  }));
+  const backdropStyle = useAnimatedStyle(() => {
+    if (scale.value > 1.05) {
+      return { opacity: 1 };
+    }
+    return {
+      opacity: interpolate(
+        Math.abs(translateY.value),
+        [0, DISMISS_DISTANCE * 2],
+        [1, 0.25],
+        Extrapolation.CLAMP
+      ),
+    };
+  });
+
+  const chromeStyle = useAnimatedStyle(() => {
+    if (scale.value > 1.05) {
+      return { opacity: withTiming(0, { duration: 150 }) };
+    }
+    return {
+      opacity: interpolate(Math.abs(translateY.value), [0, 80], [1, 0], Extrapolation.CLAMP),
+    };
+  });
 
   return (
     <Modal visible={!!media} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
@@ -112,29 +196,27 @@ export function MediaViewerModal({
         <View style={styles.flex}>
           <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]} />
 
-          <GestureDetector gesture={panGesture}>
-            <Animated.View style={[styles.flex, surfaceStyle]}>
+          <GestureDetector gesture={media?.type === 'video' ? panGesture : imageGestures}>
+            <Animated.View style={styles.flex}>
               {media?.type === 'video' ? (
-                <VideoPlayerView url={media.url} />
+                <Animated.View style={[styles.flex, videoSurfaceStyle]}>
+                  <VideoPlayerView url={media.url} />
+                </Animated.View>
               ) : media ? (
-                <Image
-                  source={media.url}
-                  style={styles.media}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                  transition={140}
-                />
+                <Animated.View style={[styles.flex, animatedImageStyle]}>
+                  <Image
+                    source={media.url}
+                    style={styles.media}
+                    contentFit="contain"
+                    cachePolicy="memory-disk"
+                    transition={140}
+                  />
+                </Animated.View>
               ) : null}
             </Animated.View>
           </GestureDetector>
 
-          {/* Chrome sits outside the dragged surface so it can fade
-              independently, and above it so the buttons stay tappable. */}
-          {/* Insets are applied by hand rather than with SafeAreaView: a
-              Modal renders in its own hierarchy, outside the provider that
-              SafeAreaView reads from, so it measures nothing there and the
-              buttons ride up under the status bar. The hook still works —
-              it's called from this component, which does sit in the tree. */}
+          {/* Chrome Top Bar */}
           <Animated.View
             style={[styles.topBarWrap, { paddingTop: insets.top || spacing.xl }, chromeStyle]}
             pointerEvents="box-none"
@@ -144,8 +226,15 @@ export function MediaViewerModal({
                 <Ionicons name="close" size={22} color="#FFFFFF" />
               </Pressable>
 
+              {media?.viewOnce && (
+                <View style={styles.viewOnceBadge}>
+                  <Ionicons name="flame" size={13} color="#FFA450" />
+                  <Text style={styles.viewOnceBadgeText}>View Once · Protected</Text>
+                </View>
+              )}
+
               <View style={styles.topBarActions}>
-                {onReply && (
+                {onReply && !media?.viewOnce && (
                   <Pressable style={styles.iconButton} onPress={onReply} hitSlop={8}>
                     <Ionicons name="arrow-undo" size={20} color="#FFFFFF" />
                   </Pressable>
@@ -196,4 +285,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   pillText: { ...typography.label, fontSize: 12.5, color: '#FFFFFF' },
+  viewOnceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 164, 80, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 164, 80, 0.35)',
+  },
+  viewOnceBadgeText: {
+    ...typography.micro,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFA450',
+  },
 });

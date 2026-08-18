@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +37,7 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
   const [loading, setLoading] = useState(true);
   // Unique per hook instance so two subscribers never collide on one channel.
   const channelId = useRef(Math.random().toString(36).slice(2, 10));
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   const fetchGroups = useCallback(async () => {
     if (!session?.user?.id) {
@@ -142,6 +144,22 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
 
   useEffect(() => {
     fetchGroups();
+  }, [fetchGroups]);
+
+  /**
+   * Re-fetch on resume, for the same reason useMessages does: the realtime
+   * socket dies while backgrounded, and GroupListScreen's useFocusEffect only
+   * covers *navigation* focus — it never fires if the app was backgrounded
+   * while already sitting on the list.
+   */
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && appStateRef.current !== 'active') {
+        fetchGroups();
+      }
+      appStateRef.current = next;
+    });
+    return () => sub.remove();
   }, [fetchGroups]);
 
   useEffect(() => {

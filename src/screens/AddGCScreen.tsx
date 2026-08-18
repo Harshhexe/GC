@@ -30,6 +30,7 @@ import { duration, easing, reduceMotion } from '../theme/motion';
 import { GROUP_THEMES, GroupThemeKey, groupTheme, GroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
+import { useIsDesktopWeb } from '../hooks/useResponsiveLayout';
 import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { InviteCodeCard } from '../components/InviteCodeCard';
@@ -112,6 +113,7 @@ function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
 
 export default function AddGCScreen({ navigation, route }: Props) {
   const { session, profile } = useAuth();
+  const isDesktopWeb = useIsDesktopWeb();
   const [mode, setMode] = useState<'create' | 'join'>(route.params?.mode ?? 'create');
 
   const requestedMode = route.params?.mode;
@@ -233,7 +235,13 @@ export default function AddGCScreen({ navigation, route }: Props) {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
           wordmark
-          left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
+          // No back arrow on the desktop shell: Create is a rail tab, not a
+          // pushed route, so there is nowhere for "back" to go.
+          left={
+            isDesktopWeb ? undefined : (
+              <HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />
+            )
+          }
           right={
             <Avatar
               imageUrl={profile?.avatar_url}

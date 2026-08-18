@@ -137,6 +137,50 @@ export function AttachmentSheet({
     },
   ];
 
+  const content = (
+    <View style={styles.sheetAnchor}>
+      <Animated.View
+        entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
+        exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
+        style={StyleSheet.absoluteFill}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          {Platform.OS !== 'web' && (
+            <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
+          )}
+        </Pressable>
+      </Animated.View>
+
+      <Animated.View
+        entering={SlideInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
+        exiting={SlideOutDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
+        style={styles.sheet}
+      >
+        {/* Top grabber */}
+        <View style={styles.grabber} />
+
+        {/* 8 Action Boxes Grid (2 rows x 4 columns) */}
+        <View style={styles.grid}>
+          {actions.map((item) => (
+            <ActionBox key={item.id} action={item} />
+          ))}
+        </View>
+      </Animated.View>
+    </View>
+  );
+
+  // RN's Modal portals to document.body on web, escaping the desktop shell's
+  // rail/sidebar/pane layout and covering the whole browser window instead of
+  // just the chat pane. Render as a plain overlay confined to this screen instead.
+  if (Platform.OS === 'web') {
+    if (!visible) return null;
+    return (
+      <View style={styles.webOverlay} pointerEvents="box-none">
+        {content}
+      </View>
+    );
+  }
+
   return (
     <Modal
       visible={visible}
@@ -145,35 +189,7 @@ export function AttachmentSheet({
       onRequestClose={onClose}
       onDismiss={onClosed}
     >
-      <View style={styles.sheetAnchor}>
-        <Animated.View
-          entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
-          exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
-          style={StyleSheet.absoluteFill}
-        >
-          <Pressable style={styles.backdrop} onPress={onClose}>
-            {Platform.OS !== 'web' && (
-              <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
-            )}
-          </Pressable>
-        </Animated.View>
-
-        <Animated.View
-          entering={SlideInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-          exiting={SlideOutDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-          style={styles.sheet}
-        >
-          {/* Top grabber */}
-          <View style={styles.grabber} />
-
-          {/* 8 Action Boxes Grid (2 rows x 4 columns) */}
-          <View style={styles.grid}>
-            {actions.map((item) => (
-              <ActionBox key={item.id} action={item} />
-            ))}
-          </View>
-        </Animated.View>
-      </View>
+      {content}
     </Modal>
   );
 }
@@ -222,6 +238,7 @@ function ActionBox({ action }: { action: AttachmentAction }) {
 }
 
 const styles = StyleSheet.create({
+  webOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
   backdrop: { flex: 1, backgroundColor: 'rgba(5, 5, 10, 0.75)' },
   sheetAnchor: { flex: 1, justifyContent: 'flex-end' },
   sheet: {

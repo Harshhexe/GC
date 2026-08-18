@@ -215,13 +215,20 @@ const GroupCard = memo(function GroupCardImpl({
 }: {
   group: Group;
   index: number;
-  onOpen: () => void;
-  onCatchUp: () => void;
-  onCrew: () => void;
+  onOpen: (group: Group) => void;
+  onCatchUp: (group: Group) => void;
+  onCrew: (group: Group) => void;
 }) {
   const dead = isDeadChat(group);
   const theme = groupTheme(group.theme);
-  const badge = getLiveBadgeConfig(group, theme, onOpen, onCatchUp);
+  // These three handlers are passed the same stable reference for every row
+  // (bound in the parent with useCallback), so this memo() actually holds —
+  // wrapping them here per-group keeps getLiveBadgeConfig's zero-arg contract
+  // without breaking that stability up the tree.
+  const handleOpen = useCallback(() => onOpen(group), [onOpen, group]);
+  const handleCatchUp = useCallback(() => onCatchUp(group), [onCatchUp, group]);
+  const handleCrew = useCallback(() => onCrew(group), [onCrew, group]);
+  const badge = getLiveBadgeConfig(group, theme, handleOpen, handleCatchUp);
 
   return (
     <Animated.View
@@ -232,7 +239,7 @@ const GroupCard = memo(function GroupCardImpl({
       style={styles.cardWrap}
     >
       <GlassPanel borderRadius={radius.lg}>
-        <PressableScale style={styles.cardTop} scaleTo={0.985} onPress={onOpen}>
+        <PressableScale style={styles.cardTop} scaleTo={0.985} onPress={handleOpen}>
           <Avatar
             imageUrl={dead ? undefined : group.avatarUrl}
             label={group.name}
@@ -299,7 +306,7 @@ const GroupCard = memo(function GroupCardImpl({
               { backgroundColor: `${theme.accent}14`, borderColor: `${theme.accent}33` },
             ]}
             scaleTo={0.94}
-            onPress={onCrew}
+            onPress={handleCrew}
           >
             <Ionicons name="people-outline" size={14} color={theme.accent} />
             <Text style={[styles.crewText, { color: theme.accent }]}>{group.memberCount}</Text>
@@ -327,24 +334,33 @@ export default function GroupListScreen({ navigation }: Props) {
     setBadgeCount(totalUnread);
   }, [totalUnread]);
 
+  // Bound once per navigation identity (essentially forever) rather than
+  // fresh per row per render — GroupCard's memo() only holds if the handlers
+  // it receives are referentially stable across re-renders.
+  const handleOpenGroup = useCallback(
+    (group: Group) => navigation.navigate('Chat', { groupId: group.id, unreadCount: group.unreadCount }),
+    [navigation]
+  );
+  const handleCatchUpGroup = useCallback(
+    (group: Group) => navigation.navigate('WhatDidIMiss', { groupId: group.id, groupName: group.name }),
+    [navigation]
+  );
+  const handleCrewGroup = useCallback(
+    (group: Group) => navigation.navigate('GroupInfo', { groupId: group.id }),
+    [navigation]
+  );
+
   const renderGroupItem = useCallback(
     ({ item, index }: { item: Group; index: number }) => (
       <GroupCard
         group={item}
         index={index}
-        onOpen={() =>
-          navigation.navigate('Chat', {
-            groupId: item.id,
-            unreadCount: item.unreadCount,
-          })
-        }
-        onCatchUp={() =>
-          navigation.navigate('WhatDidIMiss', { groupId: item.id, groupName: item.name })
-        }
-        onCrew={() => navigation.navigate('GroupInfo', { groupId: item.id })}
+        onOpen={handleOpenGroup}
+        onCatchUp={handleCatchUpGroup}
+        onCrew={handleCrewGroup}
       />
     ),
-    [navigation]
+    [handleOpenGroup, handleCatchUpGroup, handleCrewGroup]
   );
 
   return (

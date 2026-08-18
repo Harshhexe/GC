@@ -1,4 +1,4 @@
-import { GestureResponderEvent, StyleSheet, Text, View } from 'react-native';
+import { Alert, GestureResponderEvent, Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { colors, radius, spacing, typography } from '../theme/theme';
@@ -26,6 +26,7 @@ export function ViewOnceCard({
   onPress: () => void;
   onLongPress?: (e: GestureResponderEvent) => void;
 }) {
+  const isWeb = Platform.OS === 'web';
   const noun = media.type === 'video' ? 'Video' : 'Photo';
 
   const consumed = isMine ? !!media.viewedByAnyone : !!media.viewed;
@@ -38,7 +39,9 @@ export function ViewOnceCard({
       : `${noun} · View once`
     : media.viewed
       ? 'Opened'
-      : `View once ${noun.toLowerCase()}`;
+      : isWeb
+        ? `View once ${noun.toLowerCase()} · Mobile only`
+        : `View once ${noun.toLowerCase()}`;
 
   const hint = isMine
     ? viewers.length > 0
@@ -46,7 +49,22 @@ export function ViewOnceCard({
       : 'They get one look.'
     : media.viewed
       ? 'That was your one look.'
-      : 'Tap to open — once.';
+      : isWeb
+        ? 'Open in mobile to view in once view'
+        : 'Tap to open — once.';
+
+  const handlePress = () => {
+    if (isWeb && canOpen) {
+      Alert.alert(
+        'Open in Mobile App 🔒',
+        'View-once photos and videos can only be opened on the GC mobile app to protect privacy and prevent screenshots.'
+      );
+      return;
+    }
+    if (canOpen) {
+      onPress();
+    }
+  };
 
   return (
     <PressableScale
@@ -57,14 +75,12 @@ export function ViewOnceCard({
       ]}
       scaleTo={canOpen ? 0.98 : 1}
       haptic={canOpen ? 'medium' : undefined}
-      // Anything not openable is inert: no press target at all, rather than a
-      // tap that silently does nothing.
-      onPress={canOpen ? onPress : undefined}
+      onPress={canOpen ? handlePress : undefined}
       onLongPress={onLongPress}
     >
       <View style={[styles.icon, { backgroundColor: consumed ? 'rgba(255, 255, 255, 0.06)' : `${tint}26` }]}>
         <Ionicons
-          name={consumed ? 'eye-off-outline' : media.type === 'video' ? 'videocam' : 'flame'}
+          name={consumed ? 'eye-off-outline' : media.type === 'video' ? 'videocam' : isWeb ? 'phone-portrait-outline' : 'flame'}
           size={20}
           color={consumed ? colors.outline : tint}
         />

@@ -280,14 +280,49 @@ Deno.serve(async (req) => {
     const authorEmojiPrefix = author?.avatar_emoji ? `${author.avatar_emoji} ` : '';
     const preview = previewFor(message.text, message.media_type);
 
-    const messages = tokenRows.map((row) => {
+    // Coalesce per recipient. Expo's push API has no Android grouping flag
+    // (threadId below is iOS-only), so every push becomes its own card in the
+    // shade — which is why a burst of eight messages produced eight
+    // notifications. Sending one per conversation per window is the part of
+    // WhatsApp's behaviour reachable without native MessagingStyle code.
+    //
+    // Decided per recipient, not per message: each member has their own
+    // window, and someone who just read the chat should be notified
+    // immediately while someone who hasn't stays coalesced.
+    const coalesceByUser = new Map<string, number>();
+    for (const userId of new Set(tokenRows.map((r) => r.user_id))) {
+      // A mention always breaks through — being tagged is the case where a
+      // delayed or suppressed notification is genuinely costly.
+      if (mentionedIds.has(userId)) {
+        coalesceByUser.set(userId, 1);
+        continue;
+      }
+      const { data: count } = await db.rpc('push_should_notify', {
+        p_user_id: userId,
+        p_group_id: message.group_id,
+      });
+      coalesceByUser.set(userId, typeof count === 'number' ? count : 1);
+    }
+
+    const messages = tokenRows
+      .filter((row) => (coalesceByUser.get(row.user_id) ?? 1) > 0)
+      .map((row) => {
       const mentioned = mentionedIds.has(row.user_id);
+      const pending = coalesceByUser.get(row.user_id) ?? 1;
+      // More than one banked: report the count rather than only the newest
+      // line, so a single card still tells you how much is waiting.
+      const bodyText =
+        pending > 1
+          ? `${pending} new messages`
+          : mentioned
+            ? preview
+            : `${authorEmojiPrefix}${authorName}: ${preview}`;
       return {
         to: row.token,
         title: mentioned
           ? `${authorName} mentioned you in ${groupEmojiPrefix}${groupName}`
           : `${groupEmojiPrefix}${groupName}`,
-        body: mentioned ? preview : `${authorEmojiPrefix}${authorName}: ${preview}`,
+        body: bodyText,
         sound: 'default',
         categoryId: 'gc_message',
         threadId: message.group_id,

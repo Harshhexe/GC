@@ -75,8 +75,8 @@ async function readAsBase64(uri: string) {
 // every time they reopen the chat. Capping the long edge and re-encoding at
 // a modest JPEG quality routinely lands well under 1MB with no visible loss
 // at chat-bubble size.
-const MAX_IMAGE_DIMENSION = 1600;
-const IMAGE_COMPRESS_QUALITY = 0.6;
+const MAX_IMAGE_DIMENSION = 1280;
+const IMAGE_COMPRESS_QUALITY = 0.55;
 
 
 async function compressImage(uri: string, width: number, height: number) {
