@@ -21,6 +21,7 @@ import { groupTheme, GroupTheme } from '../theme/groupThemes';
 import { PressableScale } from './ui/PressableScale';
 import { GCButton } from './ui/Buttons';
 import { GlassPanel } from './ui/Glass';
+import { WebModalCard } from './ui/WebModalCard';
 import { MAX_OPTIONS, MIN_OPTIONS, normalizeDraft, type PollDraft } from '../lib/polls';
 
 /**
@@ -178,16 +179,9 @@ export function PollComposer({
     onSubmit(result.draft);
   }
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <View style={styles.root}>
-        <ThemedGlowBackground theme={activeTheme} />
+  const content = (
+    <View style={styles.root}>
+      <ThemedGlowBackground theme={activeTheme} />
 
         {/* Frosted Top Bar */}
         <View style={[styles.topBar, { paddingTop: Math.max(insets.top + 6, 18) }]}>
@@ -433,6 +427,25 @@ export function PollComposer({
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <WebModalCard visible={visible} onClose={onClose}>
+        {content}
+      </WebModalCard>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      {content}
     </Modal>
   );
 }

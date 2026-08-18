@@ -19,6 +19,7 @@ import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { AmbientBackground } from './ui/AmbientBackground';
+import { WebModalCard } from './ui/WebModalCard';
 import { searchGifs, type GifResult } from '../lib/giphy';
 
 const COLUMNS = 3;
@@ -101,16 +102,9 @@ export function GifPicker({
     setSearchedOnce(false);
   }, [visible]);
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      statusBarTranslucent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.root}>
-        <AmbientBackground variant="default" />
+  const content = (
+    <View style={styles.root}>
+      <AmbientBackground variant="default" />
 
         {/* Safe Top Header with Search Bar and Cancel Button */}
         <View
@@ -215,6 +209,25 @@ export function GifPicker({
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <WebModalCard visible={visible} onClose={onClose}>
+        {content}
+      </WebModalCard>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      statusBarTranslucent={true}
+      onRequestClose={onClose}
+    >
+      {content}
     </Modal>
   );
 }

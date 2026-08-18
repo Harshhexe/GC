@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
 import { AmbientBackground } from './ui/AmbientBackground';
+import { WebModalCard } from './ui/WebModalCard';
 import { useStickers } from '../hooks/useStickers';
 import type { Sticker } from '../types';
 
@@ -47,10 +48,9 @@ export function StickerPicker({
     onClose();
   }
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.root}>
-        <AmbientBackground variant="default" />
+  const content = (
+    <View style={styles.root}>
+      <AmbientBackground variant="default" />
 
         <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <Text style={styles.headerTitle}>Stickers</Text>
@@ -99,6 +99,19 @@ export function StickerPicker({
           <Ionicons name="add" size={26} color="#FFFFFF" />
         </PressableScale>
       </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <WebModalCard visible={visible} onClose={onClose}>
+        {content}
+      </WebModalCard>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
+      {content}
     </Modal>
   );
 }
