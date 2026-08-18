@@ -89,6 +89,7 @@ export default function RootNavigator() {
     isAvailable: isUpdateAvailable,
     isDownloading: isUpdateDownloading,
     error: updateError,
+    updateMessage,
     applyUpdate,
     dismissUpdate,
   } = useAppUpdates();
@@ -181,6 +182,7 @@ export default function RootNavigator() {
           visible={isUpdateAvailable}
           isDownloading={isUpdateDownloading}
           error={updateError}
+          updateMessage={updateMessage}
           onUpdate={applyUpdate}
           onDismiss={dismissUpdate}
         />

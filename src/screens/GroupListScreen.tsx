@@ -238,7 +238,34 @@ const GroupCard = memo(function GroupCardImpl({
         .reduceMotion(reduceMotion)}
       style={styles.cardWrap}
     >
-      <GlassPanel borderRadius={radius.lg}>
+      <GlassPanel
+        borderRadius={radius.xl}
+        style={[
+          styles.themedCard,
+          {
+            borderColor: `${theme.accent}3D`,
+            backgroundColor: 'rgba(18, 15, 28, 0.72)',
+          },
+        ]}
+      >
+        {/* Themed Ambient Diffused Gradient inside Card */}
+        <LinearGradient
+          colors={[`${theme.colors[0]}22`, `${theme.colors[1]}08`, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
+          pointerEvents="none"
+        />
+
+        {/* Top-Right Ambient Accent Glow */}
+        <LinearGradient
+          colors={[`${theme.accent}14`, 'transparent']}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0.2, y: 0.8 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
+          pointerEvents="none"
+        />
+
         <PressableScale style={styles.cardTop} scaleTo={0.985} onPress={handleOpen}>
           <Avatar
             imageUrl={dead ? undefined : group.avatarUrl}
@@ -293,7 +320,11 @@ const GroupCard = memo(function GroupCardImpl({
               colors={badge.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.dynamicBadgeButton, badge.glowStyle]}
+              style={[
+                styles.dynamicBadgeButton,
+                badge.glowStyle,
+                { borderColor: `${theme.accent}55` },
+              ]}
             >
               <Ionicons name={badge.icon} size={14} color="#FFFFFF" />
               <Text style={styles.dynamicBadgeText}>{badge.label}</Text>
@@ -593,6 +624,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   cardWrap: { width: '100%' },
+  themedCard: {
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',

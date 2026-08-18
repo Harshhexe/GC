@@ -54,8 +54,17 @@ export function useWebNotifications(
           // Realtime delivers inserts for rows RLS lets us read, but a
           // membership check here keeps it honest if that ever loosens.
           if (!groupsRef.current.includes(row.group_id)) return;
-          // Already looking at this conversation.
-          if (activeRef.current === row.group_id) return;
+          // Already looking at this conversation — but only while the tab is
+          // actually visible. `activeGroupId` is app state, not focus: it
+          // stays pointed at the last-open chat while the tab is backgrounded,
+          // so without the visibility check a message arriving in that same
+          // chat got silently swallowed right when a notification mattered most.
+          if (
+            activeRef.current === row.group_id &&
+            typeof document !== 'undefined' &&
+            document.visibilityState === 'visible'
+          )
+            return;
 
           const [{ data: group }, { data: author }] = await Promise.all([
             supabase.from('groups').select('name').eq('id', row.group_id).maybeSingle(),

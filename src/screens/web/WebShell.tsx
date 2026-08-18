@@ -11,6 +11,7 @@ import {
   webNotificationPermission,
   type WebNotificationPermission,
 } from '../../lib/webNotifications';
+import { subscribeWebPush } from '../../lib/webPush';
 import { PressableScale } from '../../components/ui/PressableScale';
 import GroupListScreen from '../GroupListScreen';
 import ChatScreen from '../ChatScreen';
@@ -134,6 +135,49 @@ export default function WebShell({ navigation, route }: Props) {
 
   useWebNotifications(session?.user.id, groupIds, selectedGroupId, openGroup);
 
+  // Permission was already granted in an earlier visit, but this specific
+  // browser/profile might not have an active push subscription yet (first
+  // load since this feature shipped, cleared storage, a different browser
+  // profile). subscribeWebPush() is idempotent, so it's safe to just try
+  // again on every mount rather than track whether it "should" be needed.
+  useEffect(() => {
+    if (permission === 'granted' && session?.user.id) {
+      subscribeWebPush(session.user.id).catch(() => {});
+    }
+  }, [permission, session?.user.id]);
+
+  // A Web Push notification clicked while the app was already open focuses
+  // this tab and the service worker hands the target group over via
+  // postMessage — focus() alone can't carry a navigation.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'gc-open-group' && event.data.groupId) {
+        openGroup(event.data.groupId);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [openGroup]);
+
+  // Clicked from a closed tab: the service worker opened a fresh window at
+  // `/?openGroup=<id>` instead (no existing tab to postMessage into). Read it
+  // once on load, then strip it so a later refresh doesn't reopen the group.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const groupId = params.get('openGroup');
+    if (groupId) {
+      openGroup(groupId);
+      params.delete('openGroup');
+      const next = params.toString();
+      window.history.replaceState(null, '', next ? `?${next}` : window.location.pathname);
+    }
+    // Once, on mount — not keyed on openGroup identity, which is itself
+    // stable anyway (useCallback with no deps).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /**
    * Navigation shim for the panes.
    *
@@ -201,7 +245,15 @@ export default function WebShell({ navigation, route }: Props) {
   const isModalScreen = !!paneScreen && MODAL_SCREENS.includes(paneScreen.name);
 
   async function enableNotifications() {
-    setPermission(await requestWebNotificationPermission());
+    const result = await requestWebNotificationPermission();
+    setPermission(result);
+    // Same user action covers both: the in-tab Notification API (immediate,
+    // tab must be open) and the Web Push subscription (reaches a closed tab
+    // or an installed iOS PWA). No separate toggle for the second one.
+    if (result === 'granted' && session?.user.id) {
+      const { error } = await subscribeWebPush(session.user.id);
+      if (error) console.warn('[webPush] subscribe failed:', error);
+    }
   }
 
   /** Renders whichever detail screen is open in the pane. */

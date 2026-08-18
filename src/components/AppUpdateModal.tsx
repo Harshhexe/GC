@@ -6,25 +6,61 @@ import {
   View,
   ActivityIndicator,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
-import { colors, radius, spacing, typography, gradients } from '../theme/theme';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
 
 type Props = {
   visible: boolean;
   isDownloading: boolean;
   error: string | null;
+  updateMessage?: string | null;
   onUpdate: () => void;
   onDismiss: () => void;
 };
+
+const CHANGELOG_ITEMS = [
+  {
+    icon: 'search-outline' as const,
+    color: '#818CF8',
+    title: 'Image Pinch-to-Zoom & Pan',
+    desc: 'Zoom in up to 5x with smooth 2-finger pinch gestures or double-tap any photo in chat.',
+  },
+  {
+    icon: 'shield-checkmark-outline' as const,
+    color: '#F472B6',
+    title: 'View Once Privacy & Screenshot Guard',
+    desc: 'Hardware screen capture protection on mobile and desktop view-once privacy guards.',
+  },
+  {
+    icon: 'grid-outline' as const,
+    color: '#10B981',
+    title: 'Wordy 17,200+ Words & Full Leaderboard',
+    desc: 'Expanded dictionary with common words (bikes, vibes) and complete attempt rows.',
+  },
+  {
+    icon: 'desktop-outline' as const,
+    color: '#38BDF8',
+    title: 'Web Desktop Modal Experience',
+    desc: 'Centered modal cards for Daily Stats & What I Missed with group theme glows.',
+  },
+  {
+    icon: 'hardware-chip-outline' as const,
+    color: '#FFD166',
+    title: 'Performance & Keyboard Optimizations',
+    desc: 'Fast disk caching, compressed avatars, and 120fps hardware-accelerated keyboard insets.',
+  },
+];
 
 export function AppUpdateModal({
   visible,
   isDownloading,
   error,
+  updateMessage,
   onUpdate,
   onDismiss,
 }: Props) {
@@ -63,32 +99,39 @@ export function AppUpdateModal({
           {/* Title & Subtitle */}
           <Text style={styles.title}>Update Available!</Text>
           <Text style={styles.subtitle}>
-            A fresh version of GC is ready with the newest features, UI polish, and performance upgrades.
+            A new version of GC is ready to install with fresh features and improvements.
           </Text>
 
-          {/* Feature Highlights */}
-          <View style={styles.featuresBox}>
-            <View style={styles.featureRow}>
-              <View style={[styles.featureBullet, { backgroundColor: 'rgba(129, 140, 248, 0.2)' }]}>
-                <Ionicons name="flash" size={14} color="#818CF8" />
-              </View>
-              <Text style={styles.featureText}>Instant Over-The-Air Installation</Text>
+          {/* Dynamic Release Note if provided via OTA */}
+          {updateMessage && (
+            <View style={styles.buildNoteBox}>
+              <Ionicons name="sparkles" size={13} color="#818CF8" />
+              <Text style={styles.buildNoteText} numberOfLines={2}>
+                {updateMessage}
+              </Text>
             </View>
+          )}
 
-            <View style={styles.featureRow}>
-              <View style={[styles.featureBullet, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                <Ionicons name="sparkles" size={14} color="#10B981" />
-              </View>
-              <Text style={styles.featureText}>Latest UI & Animation Polishes</Text>
-            </View>
-
-            <View style={styles.featureRow}>
-              <View style={[styles.featureBullet, { backgroundColor: 'rgba(244, 114, 182, 0.2)' }]}>
-                <Ionicons name="shield-checkmark" size={14} color="#F472B6" />
-              </View>
-              <Text style={styles.featureText}>Performance & Stability Improvements</Text>
-            </View>
+          {/* Actual Changelog Section */}
+          <View style={styles.changelogHeader}>
+            <Text style={styles.changelogHeaderText}>WHAT'S NEW IN THIS UPDATE</Text>
           </View>
+
+          <ScrollView style={styles.changelogScroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.featuresBox}>
+              {CHANGELOG_ITEMS.map((item, idx) => (
+                <View key={idx} style={styles.featureRow}>
+                  <View style={[styles.featureBullet, { backgroundColor: `${item.color}22` }]}>
+                    <Ionicons name={item.icon} size={15} color={item.color} />
+                  </View>
+                  <View style={styles.featureCopy}>
+                    <Text style={styles.featureTitle}>{item.title}</Text>
+                    <Text style={styles.featureDesc}>{item.desc}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
 
           {/* Error notice if any */}
           {error && (
@@ -147,13 +190,14 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#12111D', // Solid dark card (NO glassmorphic blur)
-    borderRadius: radius.xl,
+    maxWidth: 400,
+    maxHeight: '85%',
+    backgroundColor: '#12111D',
+    borderRadius: radius.xxl,
     borderWidth: 1.5,
     borderColor: '#2B2844',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
     alignItems: 'center',
     overflow: 'hidden',
@@ -177,22 +221,22 @@ const styles = StyleSheet.create({
     height: 4,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 1.5,
     borderColor: '#3D385E',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
     overflow: 'hidden',
   },
   iconEmoji: {
-    fontSize: 30,
+    fontSize: 26,
   },
   title: {
     ...typography.headline,
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -200,12 +244,47 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.caption,
-    fontSize: 13.5,
+    fontSize: 13,
     color: '#94A3B8',
     textAlign: 'center',
-    marginTop: spacing.xs,
-    lineHeight: 19,
+    marginTop: 2,
+    lineHeight: 18,
     paddingHorizontal: spacing.xs,
+  },
+  buildNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.3)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: spacing.sm,
+  },
+  buildNoteText: {
+    ...typography.micro,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#C7D2FE',
+  },
+  changelogHeader: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  changelogHeaderText: {
+    ...typography.micro,
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+  },
+  changelogScroll: {
+    width: '100%',
+    maxHeight: 250,
+    marginVertical: spacing.xs,
   },
   featuresBox: {
     width: '100%',
@@ -214,27 +293,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#26233B',
     padding: spacing.md,
-    marginTop: spacing.md + 4,
-    gap: spacing.sm + 2,
+    gap: spacing.md,
   },
   featureRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm + 2,
   },
   featureBullet: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 1,
   },
-  featureText: {
-    ...typography.caption,
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#E2E8F0',
+  featureCopy: {
     flex: 1,
+    gap: 2,
+  },
+  featureTitle: {
+    ...typography.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F1F5F9',
+  },
+  featureDesc: {
+    ...typography.caption,
+    fontSize: 11.5,
+    color: '#94A3B8',
+    lineHeight: 16,
   },
   errorBox: {
     flexDirection: 'row',
@@ -244,49 +332,48 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: 'rgba(248, 113, 113, 0.3)',
   },
   errorText: {
     ...typography.caption,
     fontSize: 12,
-    color: '#FCA5A5',
+    color: '#F87171',
     flex: 1,
   },
   actionColumn: {
     width: '100%',
-    marginTop: spacing.lg,
     gap: spacing.sm,
+    marginTop: spacing.md,
   },
   updateBtn: {
     width: '100%',
-    height: 50,
-    borderRadius: radius.md,
+    height: 48,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   updateBtnDisabled: {
-    opacity: 0.7,
+    opacity: 0.75,
   },
   btnContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
   btnText: {
     ...typography.label,
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14.5,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.2,
   },
   laterBtn: {
-    width: '100%',
-    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 6,
   },
   laterText: {
     ...typography.caption,

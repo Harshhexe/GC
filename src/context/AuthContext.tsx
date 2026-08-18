@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { uploadUserAvatar } from '../lib/uploadAvatar';
 import { friendlySignUpError } from '../lib/username';
 import { unregisterPush } from '../lib/push';
+import { unsubscribeWebPush } from '../lib/webPush';
 
 export type Profile = {
   id: string;
@@ -146,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // user, so doing it after signOut() would silently no-op and leave this
     // device receiving the previous account's messages.
     await unregisterPush();
+    await unsubscribeWebPush();
     await supabase.auth.signOut();
   }
 

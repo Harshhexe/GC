@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@^2.58.0';
+import webpush from 'npm:web-push@^3.6.7';
 
 /**
  * Fans one new message or special event out to group members' devices as a push
@@ -7,6 +8,11 @@ import { createClient } from 'npm:@supabase/supabase-js@^2.58.0';
  * Called by:
  * 1. The `messages` insert trigger (supabase/push.sql) with { messageId }
  * 2. Event triggers (tea started, weekly awards, 11:11) with { eventType, groupId, ... }
+ *
+ * Two independent delivery mechanisms, run side by side: Expo's push service
+ * for native devices (device_push_tokens), and VAPID-signed Web Push for
+ * browsers (web_push_subscriptions) — the latter is what reaches a closed
+ * tab or an iOS PWA that isn't running, which Expo's web stub can't do at all.
  */
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -14,6 +20,13 @@ const CHUNK_SIZE = 100;
 const MAX_BODY_CHARS = 140;
 
 type TokenRow = { token: string; user_id: string };
+type WebPushItem = {
+  userId: string;
+  title: string;
+  body: string;
+  tag?: string;
+  data?: Record<string, unknown>;
+};
 
 Deno.serve(async (req) => {
   try {
@@ -59,22 +72,36 @@ Deno.serve(async (req) => {
     // CASE 1: 11:11 Make a Wish Alert
     // ==========================================
     if (eventType === '11_11') {
-      const { data: tokens } = await db.from('device_push_tokens').select('token, user_id');
+      const [{ data: tokens }, { data: webSubs }] = await Promise.all([
+        db.from('device_push_tokens').select('token, user_id'),
+        db.from('web_push_subscriptions').select('user_id'),
+      ]);
       const tokenRows = (tokens ?? []) as TokenRow[];
-      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+      const webUserIds = Array.from(new Set((webSubs ?? []).map((r: { user_id: string }) => r.user_id)));
+      if (tokenRows.length === 0 && webUserIds.length === 0) return json({ ok: true, sent: 0 });
+
+      const title = '✨ 11:11 Make a Wish! 🕯️';
+      const body = 'The 60-second wish window is open right now.';
 
       const messages = tokenRows.map((row) => ({
         to: row.token,
-        title: '✨ 11:11 Make a Wish! 🕯️',
-        body: 'The 60-second wish window is open right now.',
+        title,
+        body,
         sound: 'default',
         categoryId: 'gc_event',
         data: { type: '11_11' },
         priority: 'high',
       }));
 
-      const sent = await sendToExpo(messages, db);
-      return json({ ok: true, sent });
+      const webItems: WebPushItem[] = webUserIds.map((userId) => ({
+        userId,
+        title,
+        body,
+        data: { type: '11_11' },
+      }));
+
+      const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
+      return json({ ok: true, sent: sent + webSent });
     }
 
     // ==========================================
@@ -104,27 +131,37 @@ Deno.serve(async (req) => {
         .in('user_id', recipientIds);
 
       const tokenRows = (tokens ?? []) as TokenRow[];
-      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+      const title = `☕ Tea Started in ${groupEmoji}${groupName}`;
+      const previewBody = `${starterName} just started Tea — join the spill!`;
+      const eventData = {
+        type: 'tea_started',
+        groupId: body.groupId,
+        groupName,
+        groupEmoji: group?.emoji ?? '🍵',
+        groupAvatarUrl: group?.avatar_url ?? null,
+      };
 
       const messages = tokenRows.map((row) => ({
         to: row.token,
-        title: `☕ Tea Started in ${groupEmoji}${groupName}`,
-        body: `${starterName} just started Tea — join the spill!`,
+        title,
+        body: previewBody,
         sound: 'default',
         categoryId: 'gc_event',
         threadId: body.groupId,
-        data: {
-          type: 'tea_started',
-          groupId: body.groupId,
-          groupName,
-          groupEmoji: group?.emoji ?? '🍵',
-          groupAvatarUrl: group?.avatar_url ?? null,
-        },
+        data: eventData,
         priority: 'high',
       }));
 
-      const sent = await sendToExpo(messages, db);
-      return json({ ok: true, sent });
+      const webItems: WebPushItem[] = recipientIds.map((userId) => ({
+        userId,
+        title,
+        body: previewBody,
+        tag: body.groupId,
+        data: eventData,
+      }));
+
+      const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
+      return json({ ok: true, sent: sent + webSent });
     }
 
     // ==========================================
@@ -147,27 +184,37 @@ Deno.serve(async (req) => {
         .in('user_id', recipientIds);
 
       const tokenRows = (tokens ?? []) as TokenRow[];
-      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+      const title = `🏆 Weekly Awards are here!`;
+      const previewBody = `See who won this week in ${groupEmoji}${groupName}`;
+      const eventData = {
+        type: 'awards',
+        groupId: body.groupId,
+        groupName,
+        groupEmoji: group?.emoji ?? '🏆',
+        groupAvatarUrl: group?.avatar_url ?? null,
+      };
 
       const messages = tokenRows.map((row) => ({
         to: row.token,
-        title: `🏆 Weekly Awards are here!`,
-        body: `See who won this week in ${groupEmoji}${groupName}`,
+        title,
+        body: previewBody,
         sound: 'default',
         categoryId: 'gc_event',
         threadId: body.groupId,
-        data: {
-          type: 'awards',
-          groupId: body.groupId,
-          groupName,
-          groupEmoji: group?.emoji ?? '🏆',
-          groupAvatarUrl: group?.avatar_url ?? null,
-        },
+        data: eventData,
         priority: 'default',
       }));
 
-      const sent = await sendToExpo(messages, db);
-      return json({ ok: true, sent });
+      const webItems: WebPushItem[] = recipientIds.map((userId) => ({
+        userId,
+        title,
+        body: previewBody,
+        tag: body.groupId,
+        data: eventData,
+      }));
+
+      const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
+      return json({ ok: true, sent: sent + webSent });
     }
 
     // ==========================================
@@ -191,28 +238,38 @@ Deno.serve(async (req) => {
         .in('user_id', recipientIds);
 
       const tokenRows = (tokens ?? []) as TokenRow[];
-      if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
+      const title = `📊 Group stats are here!`;
+      const previewBody = `Today's one word: "${oneWord}" — see who ruled ${groupEmoji}${groupName}`;
+      const eventData = {
+        type: 'group_stats',
+        groupId: body.groupId,
+        groupName,
+        groupEmoji: group?.emoji ?? '📊',
+        groupAvatarUrl: group?.avatar_url ?? null,
+        oneWord,
+      };
 
       const messages = tokenRows.map((row) => ({
         to: row.token,
-        title: `📊 Group stats are here!`,
-        body: `Today's one word: "${oneWord}" — see who ruled ${groupEmoji}${groupName}`,
+        title,
+        body: previewBody,
         sound: 'default',
         categoryId: 'gc_event',
         threadId: body.groupId,
-        data: {
-          type: 'group_stats',
-          groupId: body.groupId,
-          groupName,
-          groupEmoji: group?.emoji ?? '📊',
-          groupAvatarUrl: group?.avatar_url ?? null,
-          oneWord,
-        },
+        data: eventData,
         priority: 'default',
       }));
 
-      const sent = await sendToExpo(messages, db);
-      return json({ ok: true, sent });
+      const webItems: WebPushItem[] = recipientIds.map((userId) => ({
+        userId,
+        title,
+        body: previewBody,
+        tag: body.groupId,
+        data: eventData,
+      }));
+
+      const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
+      return json({ ok: true, sent: sent + webSent });
     }
 
     // ==========================================
@@ -264,8 +321,11 @@ Deno.serve(async (req) => {
       .select('token, user_id')
       .in('user_id', recipientIds);
 
+    // No early-exit on an empty tokenRows here (unlike the other cases) — a
+    // group whose members only have web push subscriptions, no Expo tokens
+    // at all, must still fall through to the coalescing + web push logic
+    // below rather than short-circuit before it's ever reached.
     const tokenRows = (tokens ?? []) as TokenRow[];
-    if (tokenRows.length === 0) return json({ ok: true, sent: 0 });
 
     const { data: mentionRows } = await db
       .from('notifications')
@@ -289,8 +349,11 @@ Deno.serve(async (req) => {
     // Decided per recipient, not per message: each member has their own
     // window, and someone who just read the chat should be notified
     // immediately while someone who hasn't stays coalesced.
+    // Over every recipient, not just those with an Expo token — a member who
+    // only ever registered a web push subscription still needs a decision
+    // made for them, or they'd never be notified on any channel at all.
     const coalesceByUser = new Map<string, number>();
-    for (const userId of new Set(tokenRows.map((r) => r.user_id))) {
+    for (const userId of new Set(recipientIds)) {
       // A mention always breaks through — being tagged is the case where a
       // delayed or suppressed notification is genuinely costly.
       if (mentionedIds.has(userId)) {
@@ -343,8 +406,33 @@ Deno.serve(async (req) => {
       };
     });
 
-    const sent = await sendToExpo(messages, db);
-    return json({ ok: true, sent });
+    const webItems: WebPushItem[] = Array.from(coalesceByUser.entries())
+      .filter(([, pending]) => pending > 0)
+      .map(([userId, pending]) => {
+        const mentioned = mentionedIds.has(userId);
+        const bodyText =
+          pending > 1
+            ? `${pending} new messages`
+            : mentioned
+              ? preview
+              : `${authorEmojiPrefix}${authorName}: ${preview}`;
+        return {
+          userId,
+          title: mentioned
+            ? `${authorName} mentioned you in ${groupEmojiPrefix}${groupName}`
+            : `${groupEmojiPrefix}${groupName}`,
+          body: bodyText,
+          tag: message.group_id,
+          data: {
+            type: 'message',
+            groupId: message.group_id,
+            messageId: message.id,
+          },
+        };
+      });
+
+    const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
+    return json({ ok: true, sent: sent + webSent });
   } catch (error) {
     console.error(`[send-push] ${String(error)}`);
     return json({ ok: false, error: 'Something went wrong' }, 500);
@@ -384,6 +472,76 @@ async function sendToExpo(messages: any[], db: any): Promise<number> {
 
   if (invalidTokens.length > 0) {
     await db.from('device_push_tokens').delete().in('token', invalidTokens);
+  }
+
+  return sent;
+}
+
+/**
+ * Delivers to every browser subscription on file for each item's user, via
+ * VAPID-signed Web Push. Silently no-ops if the VAPID keys aren't configured
+ * yet (dev environments that haven't set them) rather than failing the whole
+ * fan-out — native delivery must not depend on web push being set up.
+ */
+async function sendToWebPush(items: WebPushItem[], db: any): Promise<number> {
+  if (items.length === 0) return 0;
+
+  const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY');
+  const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY');
+  if (!vapidPublic || !vapidPrivate) return 0;
+
+  webpush.setVapidDetails(
+    Deno.env.get('VAPID_SUBJECT') || 'mailto:support@example.com',
+    vapidPublic,
+    vapidPrivate
+  );
+
+  const userIds = Array.from(new Set(items.map((i) => i.userId)));
+  const { data: subs } = await db
+    .from('web_push_subscriptions')
+    .select('endpoint, user_id, p256dh, auth')
+    .in('user_id', userIds);
+
+  const subRows = (subs ?? []) as { endpoint: string; user_id: string; p256dh: string; auth: string }[];
+  if (subRows.length === 0) return 0;
+
+  const byUser = new Map<string, typeof subRows>();
+  for (const s of subRows) {
+    const list = byUser.get(s.user_id) ?? [];
+    list.push(s);
+    byUser.set(s.user_id, list);
+  }
+
+  let sent = 0;
+  const deadEndpoints: string[] = [];
+
+  for (const item of items) {
+    const subsForUser = byUser.get(item.userId);
+    if (!subsForUser) continue;
+
+    for (const s of subsForUser) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          JSON.stringify({ title: item.title, body: item.body, tag: item.tag, data: item.data ?? {} })
+        );
+        sent++;
+      } catch (e: any) {
+        // 404/410: the browser or OS dropped this subscription (uninstalled,
+        // permission revoked, storage cleared) — dead, so it's cleaned up
+        // rather than retried forever. Anything else is a transient/delivery
+        // error worth logging but not worth deleting a still-live sub over.
+        if (e?.statusCode === 404 || e?.statusCode === 410) {
+          deadEndpoints.push(s.endpoint);
+        } else {
+          console.error('[send-push] web push error:', e?.message || e);
+        }
+      }
+    }
+  }
+
+  if (deadEndpoints.length > 0) {
+    await db.from('web_push_subscriptions').delete().in('endpoint', deadEndpoints);
   }
 
   return sent;
