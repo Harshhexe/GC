@@ -168,10 +168,10 @@ export function DailyRecapModal({
         .rpc('wordle_group_results', { p_group_id: groupId, p_date: targetDate })
         .then(({ data }) => {
           if (data) {
-            const results = (data as WordleGroupResult[])
-              .filter((r) => r.solved)
-              .sort((a, b) => a.attempts - b.attempts)
-              .slice(0, 3);
+            const results = (data as WordleGroupResult[]).sort((a, b) => {
+              if (a.solved !== b.solved) return a.solved ? -1 : 1;
+              return a.attempts - b.attempts;
+            });
             setWordleTop3(results);
           } else {
             setWordleTop3([]);
@@ -319,19 +319,19 @@ export function DailyRecapModal({
           )}
         </View>
 
-        {/* Top 3 Guessers List */}
+        {/* Leaderboard & Guessers List */}
         <View style={styles.guessersList}>
-          <Text style={styles.guessersSectionTitle}>TOP 3 GUESSERS IN GC</Text>
+          <Text style={styles.guessersSectionTitle}>GC WORDY LEADERBOARD</Text>
           {wordleTop3.length === 0 ? (
             <View style={styles.emptyGuessers}>
               <Text style={styles.emptyGuessersEmoji}>☕</Text>
               <Text style={styles.emptyGuessersText}>
-                No one has solved today's Wordy yet. Be #1!
+                No one has played today's Wordy yet. Be #1!
               </Text>
             </View>
           ) : (
             wordleTop3.map((guesser, idx) => {
-              const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉';
+              const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
               return (
                 <View key={guesser.user_id} style={styles.guesserRow}>
                   <Text style={styles.guesserMedal}>{medal}</Text>
@@ -348,23 +348,30 @@ export function DailyRecapModal({
                       {guesser.display_name}
                     </Text>
                     <Text style={styles.guesserMeta}>
-                      Solved in{' '}
-                      <Text style={styles.guesserAttemptsHighlight}>
-                        {guesser.attempts}/6
-                      </Text>{' '}
-                      attempts
+                      {guesser.solved ? (
+                        <>
+                          Solved in{' '}
+                          <Text style={styles.guesserAttemptsHighlight}>
+                            {guesser.attempts}/6
+                          </Text>{' '}
+                          attempts
+                        </>
+                      ) : (
+                        <Text style={{ color: colors.onSurfaceVariant }}>
+                          {guesser.attempts}/6 attempts
+                        </Text>
+                      )}
                     </Text>
                   </View>
                   <View style={styles.miniPattern}>
-                    {guesser.patterns.slice(-1)[0] && (
-                      <Text style={styles.miniPatternText}>
-                        {guesser.patterns
-                          .slice(-1)[0]
+                    {guesser.patterns.map((p, pIdx) => (
+                      <Text key={pIdx} style={styles.miniPatternText}>
+                        {p
                           .split('')
                           .map((m) => (m === 'g' ? '🟩' : m === 'y' ? '🟨' : '⬛'))
                           .join('')}
                       </Text>
-                    )}
+                    ))}
                   </View>
                 </View>
               );
@@ -910,13 +917,15 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     paddingHorizontal: spacing.md,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   guesserMedal: {
-    fontSize: 18,
+    fontSize: 17,
+    width: 24,
+    textAlign: 'center',
   },
   guesserCopy: {
     flex: 1,
@@ -939,10 +948,13 @@ const styles = StyleSheet.create({
   },
   miniPattern: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 2,
   },
   miniPatternText: {
-    fontSize: 10,
-    letterSpacing: 1,
+    fontSize: 8.5,
+    lineHeight: 10.5,
+    letterSpacing: 0.5,
   },
 
   // Message of the Day Quote
