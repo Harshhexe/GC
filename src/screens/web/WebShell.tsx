@@ -5,13 +5,8 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useGroups } from '../../hooks/useGroups';
 import { useWebNotifications } from '../../hooks/useWebNotifications';
-import {
-  requestWebNotificationPermission,
-  setWebTitleBadge,
-  webNotificationPermission,
-  type WebNotificationPermission,
-} from '../../lib/webNotifications';
-import { subscribeWebPush } from '../../lib/webPush';
+import { useWebNotificationSetup } from '../../hooks/useWebNotificationSetup';
+import { setWebTitleBadge } from '../../lib/webNotifications';
 import { PressableScale } from '../../components/ui/PressableScale';
 import GroupListScreen from '../GroupListScreen';
 import ChatScreen from '../ChatScreen';
@@ -112,9 +107,7 @@ export default function WebShell({ navigation, route }: Props) {
     params: Record<string, unknown>;
   } | null>(null);
 
-  const [permission, setPermission] = useState<WebNotificationPermission>(() =>
-    webNotificationPermission()
-  );
+  const { permission } = useWebNotificationSetup(session?.user.id);
 
   const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
   const totalUnread = useMemo(
@@ -134,17 +127,6 @@ export default function WebShell({ navigation, route }: Props) {
   }, []);
 
   useWebNotifications(session?.user.id, groupIds, selectedGroupId, openGroup);
-
-  // Permission was already granted in an earlier visit, but this specific
-  // browser/profile might not have an active push subscription yet (first
-  // load since this feature shipped, cleared storage, a different browser
-  // profile). subscribeWebPush() is idempotent, so it's safe to just try
-  // again on every mount rather than track whether it "should" be needed.
-  useEffect(() => {
-    if (permission === 'granted' && session?.user.id) {
-      subscribeWebPush(session.user.id).catch(() => {});
-    }
-  }, [permission, session?.user.id]);
 
   // A Web Push notification clicked while the app was already open focuses
   // this tab and the service worker hands the target group over via
@@ -244,18 +226,6 @@ export default function WebShell({ navigation, route }: Props) {
 
   const isModalScreen = !!paneScreen && MODAL_SCREENS.includes(paneScreen.name);
 
-  async function enableNotifications() {
-    const result = await requestWebNotificationPermission();
-    setPermission(result);
-    // Same user action covers both: the in-tab Notification API (immediate,
-    // tab must be open) and the Web Push subscription (reaches a closed tab
-    // or an installed iOS PWA). No separate toggle for the second one.
-    if (result === 'granted' && session?.user.id) {
-      const { error } = await subscribeWebPush(session.user.id);
-      if (error) console.warn('[webPush] subscribe failed:', error);
-    }
-  }
-
   /** Renders whichever detail screen is open in the pane. */
   function PaneScreen() {
     if (!paneScreen) return null;
@@ -313,15 +283,12 @@ export default function WebShell({ navigation, route }: Props) {
       </View>
 
       {/* Sidebar — always the chat list, so switching tabs never loses your
-          place in the conversation list. */}
+          place in the conversation list. The notification permission banner
+          lives inside GroupListScreen itself now, not here — that's the
+          component mobile web and an installed iOS PWA actually render
+          (neither ever mounts WebShell), so putting it there instead of here
+          covers every web entry point from one place. */}
       <View style={styles.sidebar}>
-        {permission === 'default' && (
-          <PressableScale style={styles.permBanner} scaleTo={0.99} onPress={enableNotifications}>
-            <Ionicons name="notifications-outline" size={15} color={colors.primary} />
-            <Text style={styles.permText}>Turn on notifications</Text>
-            <Ionicons name="chevron-forward" size={13} color={colors.outline} />
-          </PressableScale>
-        )}
         <View style={styles.sidebarBody}>
           <GroupListScreen navigation={paneNavigation as never} route={route as never} />
         </View>
@@ -460,19 +427,6 @@ const styles = StyleSheet.create({
   sidebarBody: { flex: 1 },
   divider: { width: 1, backgroundColor: colors.outlineVariant },
   mainPane: { flex: 1, backgroundColor: colors.bg },
-
-
-  permBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: 'rgba(129,140,248,0.10)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(129,140,248,0.25)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-  },
-  permText: { ...typography.bodyMedium, fontSize: 13, color: colors.onSurface, flex: 1 },
 
   empty: {
     flex: 1,

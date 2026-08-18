@@ -28,6 +28,7 @@ import { timeAgo } from '../utils/time';
 import { Group } from '../types';
 import { useGroups } from '../hooks/useGroups';
 import { useNotifications } from '../hooks/useNotifications';
+import { useWebNotificationSetup } from '../hooks/useWebNotificationSetup';
 import { useAuth } from '../context/AuthContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -353,6 +354,11 @@ export default function GroupListScreen({ navigation }: Props) {
   const { session, profile } = useAuth();
   const { groups, loading, refetch } = useGroups();
   const { unreadCount: unreadNotifications } = useNotifications(session?.user?.id);
+  // Lives here rather than only in WebShell: this screen is what mobile web
+  // and an installed iOS PWA actually render (both are phone-width, so
+  // WebShell — gated to desktop width — never mounts for them at all). This
+  // is the one place common to every web entry point.
+  const { permission, enableNotifications } = useWebNotificationSetup(session?.user.id);
 
   useFocusEffect(
     useCallback(() => {
@@ -469,6 +475,14 @@ export default function GroupListScreen({ navigation }: Props) {
             </PressableScale>
           </View>
         </View>
+
+        {Platform.OS === 'web' && permission === 'default' && (
+          <PressableScale style={styles.permBanner} scaleTo={0.99} onPress={enableNotifications}>
+            <Ionicons name="notifications-outline" size={15} color={colors.primary} />
+            <Text style={styles.permText}>Turn on notifications</Text>
+            <Ionicons name="chevron-forward" size={13} color={colors.outline} />
+          </PressableScale>
+        )}
 
         {loading ? (
           <EmptyState icon="hourglass-outline" text="Loading your group chats..." iconColor={colors.primary} />
@@ -623,6 +637,20 @@ const styles = StyleSheet.create({
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
     gap: spacing.md,
   },
+  permBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: CONTAINER_MARGIN,
+    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(129,140,248,0.10)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.25)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  permText: { ...typography.bodyMedium, fontSize: 13, color: colors.onSurface, flex: 1 },
   cardWrap: { width: '100%' },
   themedCard: {
     borderWidth: 1,
