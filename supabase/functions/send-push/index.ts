@@ -490,11 +490,14 @@ async function sendToWebPush(items: WebPushItem[], db: any): Promise<number> {
   const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY');
   if (!vapidPublic || !vapidPrivate) return 0;
 
-  webpush.setVapidDetails(
-    Deno.env.get('VAPID_SUBJECT') || 'mailto:support@example.com',
-    vapidPublic,
-    vapidPrivate
-  );
+  // Hardcoded rather than read from an env var: Apple's push service
+  // validates the VAPID JWT `sub` claim far more strictly than Chrome/
+  // Firefox's endpoints do — an invalid or placeholder subject (an empty
+  // string, "https://localhost", etc.) gets silently accepted everywhere
+  // except web.push.apple.com, which 403s with {"reason":"BadJwtToken"}.
+  // A misconfigured secret is exactly how that happens, so this removes
+  // the misconfiguration surface instead of trying to validate it.
+  webpush.setVapidDetails('mailto:hdhiman0302@gmail.com', vapidPublic, vapidPrivate);
 
   const userIds = Array.from(new Set(items.map((i) => i.userId)));
   const { data: subs } = await db
@@ -534,7 +537,13 @@ async function sendToWebPush(items: WebPushItem[], db: any): Promise<number> {
         if (e?.statusCode === 404 || e?.statusCode === 410) {
           deadEndpoints.push(s.endpoint);
         } else {
-          console.error('[send-push] web push error:', e?.message || e);
+          console.error(
+            '[send-push] web push error:',
+            e?.statusCode,
+            e?.body || e?.message || e,
+            'endpoint:',
+            s.endpoint.slice(0, 40)
+          );
         }
       }
     }
