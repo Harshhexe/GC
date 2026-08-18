@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as ScreenCapture from 'expo-screen-capture';
+import { preventScreenCaptureAsync, allowScreenCaptureAsync } from '../lib/screenCapture';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -59,13 +59,13 @@ export function MediaViewerModal({
   useEffect(() => {
     if (Platform.OS === 'web' || !media) return;
     if (media.viewOnce) {
-      ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+      preventScreenCaptureAsync().catch(() => {});
     } else {
-      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+      allowScreenCaptureAsync().catch(() => {});
     }
     return () => {
       if (Platform.OS !== 'web') {
-        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+        allowScreenCaptureAsync().catch(() => {});
       }
     };
   }, [media]);

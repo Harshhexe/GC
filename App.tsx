@@ -75,9 +75,13 @@ export default function App() {
   });
 
   useEffect(() => {
-    try {
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync().catch(() => {});
-    } catch {}
+    }
+    const fallbackTimer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 1200);
+    return () => clearTimeout(fallbackTimer);
   }, [fontsLoaded, fontError]);
 
   return (
