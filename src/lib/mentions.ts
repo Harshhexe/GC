@@ -56,12 +56,13 @@ export function deriveMentionsFromText(
   const mentions: Mention[] = [];
   for (const c of candidates) {
     if (seen.has(c.userId)) continue;
-    if (text.includes(`@${c.username}`)) {
+    if (text.toLowerCase().includes(`@${c.username.toLowerCase()}`)) {
       seen.add(c.userId);
       mentions.push(c);
     }
   }
-  return { mentions, mentionEveryone: text.includes(`@${EVERYONE_TOKEN}`) };
+  const mentionEveryone = /@everyone\b/i.test(text);
+  return { mentions, mentionEveryone };
 }
 
 /** Members ranked for the suggestion dropdown: exact match, then
@@ -101,17 +102,16 @@ export type MentionSegment =
 
 /**
  * Splits message text into plain-text and mention runs for rendering. Uses
- * the message's *structured* mentions as the whitelist of what counts — it
- * never re-parses "does this @word look like a mention", so a message whose
- * text happens to contain a stray "@something" the sender typed by hand
- * (never selected from the picker) just renders as plain text.
+ * the message's *structured* mentions as the whitelist of what counts.
+ * Also highlights @everyone case-insensitively whenever present.
  */
 export function segmentMentionText(
   text: string,
   mentions: Mention[],
   mentionEveryone: boolean
 ): MentionSegment[] {
-  if (mentions.length === 0 && !mentionEveryone) {
+  const hasEveryone = mentionEveryone || /@everyone\b/i.test(text);
+  if (mentions.length === 0 && !hasEveryone) {
     return [{ type: 'text', key: 't0', value: text }];
   }
 
@@ -119,12 +119,12 @@ export function segmentMentionText(
     username: m.username,
     userId: m.userId,
   }));
-  if (mentionEveryone) tokens.push({ username: EVERYONE_TOKEN, userId: null });
+  if (hasEveryone) tokens.push({ username: EVERYONE_TOKEN, userId: null });
   // Longest first so e.g. "@Harsh" alongside "@HarshK" never eats into the
   // longer name's match.
   tokens.sort((a, b) => b.username.length - a.username.length);
 
-  const re = new RegExp(tokens.map((t) => `@${escapeRegExp(t.username)}`).join('|'), 'g');
+  const re = new RegExp(tokens.map((t) => `@${escapeRegExp(t.username)}`).join('|'), 'gi');
 
   const segments: MentionSegment[] = [];
   let lastIndex = 0;
@@ -134,8 +134,8 @@ export function segmentMentionText(
     if (match.index > lastIndex) {
       segments.push({ type: 'text', key: `t${i++}`, value: text.slice(lastIndex, match.index) });
     }
-    const matchedUsername = match[0].slice(1);
-    const token = tokens.find((t) => t.username === matchedUsername);
+    const matchedUsername = match[0].slice(1).toLowerCase();
+    const token = tokens.find((t) => t.username.toLowerCase() === matchedUsername);
     segments.push({ type: 'mention', key: `m${i++}`, value: match[0], userId: token?.userId ?? null });
     lastIndex = match.index + match[0].length;
   }

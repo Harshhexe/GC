@@ -64,9 +64,6 @@ set search_path = public
 as $$
 declare
   deduped jsonb;
-  cooldown interval := interval '5 minutes';
-  last_everyone timestamptz;
-  becoming_everyone boolean;
 begin
   select coalesce(jsonb_agg(m.mention order by m.ord), '[]'::jsonb)
   into deduped
@@ -78,20 +75,9 @@ begin
   ) m;
   new.mentions := deduped;
 
-  -- Only treat this as a fresh @everyone activation when it wasn't already
-  -- true — an unrelated edit to an already-broadcast message shouldn't
-  -- re-check permission, reset the cooldown, or (via the AFTER trigger)
-  -- notify the group a second time.
-  becoming_everyone := new.mention_everyone
-    and (tg_op = 'INSERT' or old.mention_everyone is distinct from true);
-
-  if becoming_everyone then
-    select last_everyone_mention_at into last_everyone from public.groups where id = new.group_id;
-    if last_everyone is not null and now() - last_everyone < cooldown then
-      new.mention_everyone := false;
-    else
-      update public.groups set last_everyone_mention_at = now() where id = new.group_id;
-    end if;
+  -- If text contains @everyone, guarantee mention_everyone is true for all members
+  if new.text is not null and new.text ~* '@everyone\b' then
+    new.mention_everyone := true;
   end if;
 
   return new;
