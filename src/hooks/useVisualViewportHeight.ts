@@ -2,48 +2,75 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 /**
- * Keeps the app exactly as tall as the *visible* area on web.
- *
- * A standalone iOS PWA does not shrink its layout viewport when the keyboard
- * opens — only the visual viewport shrinks. So the app keeps its full height,
- * the composer stays pinned to a bottom edge that is now behind the keyboard,
- * and you get the gap between the two. Sizing to `visualViewport.height` is
- * what closes it.
- *
- * Lives here rather than as an inline script in public/index.html because
- * Expo's HTML pipeline does not reliably execute scripts from that template —
- * the tag survives into the DOM but never runs. Mounted from the app root it
- * simply always runs.
- *
- * Writes a CSS variable rather than transforming the container: a transform
- * would make it a containing block for `position: fixed` descendants, which is
- * how the modals are positioned.
+ * Keeps the app exactly as tall as the *visible* area on web,
+ * and prevents iOS Safari / iOS PWA from shifting the entire page upward
+ * when the software keyboard opens.
  */
 export function useVisualViewportHeight() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const vv = window.visualViewport;
-    if (!vv) return;
 
-    // Applied straight away rather than inside requestAnimationFrame: rAF does
-    // not run while the document is hidden, so a keyboard opening on a page
-    // that was briefly backgrounded would leave the old height applied. These
-    // events are rare (keyboard, rotation), so there is nothing to throttle.
-    const sync = () => {
-      document.documentElement.style.setProperty('--gc-app-height', `${vv.height}px`);
+    const resetWindowScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+      if (document.documentElement.scrollTop !== 0) {
+        document.documentElement.scrollTop = 0;
+      }
+      if (document.body.scrollTop !== 0) {
+        document.body.scrollTop = 0;
+      }
     };
 
-    const onOrientation = () => setTimeout(sync, 300);
+    const sync = () => {
+      if (vv) {
+        document.documentElement.style.setProperty('--gc-app-height', `${vv.height}px`);
+      } else {
+        document.documentElement.style.setProperty('--gc-app-height', `${window.innerHeight}px`);
+      }
+      resetWindowScroll();
+    };
 
-    vv.addEventListener('resize', sync);
-    vv.addEventListener('scroll', sync);
+    const onFocusIn = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        // iOS WebKit triggers its native scroll-into-view after a brief microtask delay
+        requestAnimationFrame(sync);
+        setTimeout(sync, 50);
+        setTimeout(sync, 150);
+        setTimeout(sync, 350);
+      }
+    };
+
+    const onOrientation = () => {
+      setTimeout(sync, 100);
+      setTimeout(sync, 300);
+    };
+
+    if (vv) {
+      vv.addEventListener('resize', sync);
+      vv.addEventListener('scroll', sync);
+    }
+    window.addEventListener('resize', sync);
+    window.addEventListener('scroll', resetWindowScroll, { passive: true });
     window.addEventListener('orientationchange', onOrientation);
+    document.addEventListener('focusin', onFocusIn, { passive: true });
+
     sync();
 
     return () => {
-      vv.removeEventListener('resize', sync);
-      vv.removeEventListener('scroll', sync);
+      if (vv) {
+        vv.removeEventListener('resize', sync);
+        vv.removeEventListener('scroll', sync);
+      }
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('scroll', resetWindowScroll);
       window.removeEventListener('orientationchange', onOrientation);
+      document.removeEventListener('focusin', onFocusIn);
       document.documentElement.style.removeProperty('--gc-app-height');
     };
   }, []);

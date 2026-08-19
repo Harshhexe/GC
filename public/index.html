@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content" />
     <title>GC</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0B0B12" />
@@ -21,17 +21,11 @@
         background-color: #0B0B12;
         margin: 0;
         padding: 0;
-      }
-      body {
-        /* Pinned, not just `overflow: hidden`.
-           In a standalone iOS PWA `overflow: hidden` alone does NOT take the
-           document out of the scroll chain — WebKit still hands the touch to
-           the page first and rubber-bands it, which steals the gesture from
-           whatever list is underneath and is what makes scrolling feel stuck
-           or half-dead. Pinning the body is what actually removes it, so the
-           only thing left that can scroll is the list you're touching. */
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         overflow: hidden;
         overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
@@ -52,10 +46,15 @@
         /* Driven by visualViewport below so the app ends exactly where the
            keyboard begins; falls back to the full height before that runs. */
         height: var(--gc-app-height, 100%);
+        max-height: var(--gc-app-height, 100%);
         width: 100%;
         flex: 1;
         background-color: #0B0B12;
         overflow: hidden;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
       }
     </style>
   </head>
