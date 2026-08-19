@@ -223,6 +223,11 @@ export default function ChatScreen({ route, navigation }: Props) {
   }, [messages.length]);
 
   const animatedComposerStyle = useAnimatedStyle(() => {
+    if (Platform.OS === 'web') {
+      return {
+        paddingBottom: spacing.xs,
+      };
+    }
     if (Platform.OS === 'android') {
       const kbHeight = keyboard.height.value;
       return {
@@ -2301,8 +2306,8 @@ const styles = StyleSheet.create({
   unreadText: { ...typography.label, fontSize: 11 },
   composerWrap: {
     position: 'relative',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: Platform.OS === 'web' ? spacing.md : spacing.lg,
+    paddingBottom: Platform.OS === 'web' ? spacing.xs : spacing.sm,
     paddingTop: spacing.xs,
   },
   composerPreviewWrap: { marginBottom: spacing.xs },
@@ -2367,17 +2372,18 @@ const styles = StyleSheet.create({
   composer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: Platform.OS === 'web' ? 6 : spacing.sm,
     backgroundColor: 'rgba(19, 19, 29, 0.95)',
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.10)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.sm,
+    paddingVertical: Platform.OS === 'web' ? 3 : spacing.sm,
+    minHeight: Platform.OS === 'web' ? 42 : undefined,
   },
   plusButton: {
-    width: 40,
-    height: 40,
+    width: Platform.OS === 'web' ? 34 : 40,
+    height: Platform.OS === 'web' ? 34 : 40,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2387,12 +2393,16 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.onSurface,
     maxHeight: 110,
-    paddingVertical: spacing.sm,
+    paddingVertical: Platform.OS === 'web' ? 5 : spacing.sm,
+    paddingHorizontal: Platform.OS === 'web' ? 6 : 0,
+    fontSize: Platform.OS === 'web' ? 14 : 15,
+    lineHeight: Platform.OS === 'web' ? 19 : undefined,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   sendWrap: { borderRadius: radius.pill },
   sendButton: {
-    width: 44,
-    height: 44,
+    width: Platform.OS === 'web' ? 36 : 44,
+    height: Platform.OS === 'web' ? 36 : 44,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

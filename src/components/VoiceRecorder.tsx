@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, Platform } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -348,11 +348,22 @@ export function VoiceRecorder({
 
 const styles = StyleSheet.create({
   wrap: { justifyContent: 'center', position: 'relative' },
-  micSlot: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 10 },
-  halo: { position: 'absolute', width: 44, height: 44, borderRadius: radius.pill },
+  micSlot: {
+    width: Platform.OS === 'web' ? 36 : 44,
+    height: Platform.OS === 'web' ? 36 : 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  halo: {
+    position: 'absolute',
+    width: Platform.OS === 'web' ? 36 : 44,
+    height: Platform.OS === 'web' ? 36 : 44,
+    borderRadius: radius.pill,
+  },
   mic: {
-    width: 44,
-    height: 44,
+    width: Platform.OS === 'web' ? 36 : 44,
+    height: Platform.OS === 'web' ? 36 : 44,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
