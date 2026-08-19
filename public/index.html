@@ -37,6 +37,15 @@
         -webkit-font-smoothing: antialiased;
         -webkit-tap-highlight-color: transparent;
       }
+      /* Message bubbles must never swallow a vertical drag.
+         react-native-gesture-handler sets its own touch-action here for the
+         swipe-to-reply pan, which on iOS means the transcript simply does not
+         scroll while your finger is on a bubble — you could only scroll from
+         the gaps between them. touch-action is resolved at touchstart, so
+         declaring pan-y is what actually keeps the scroll available. */
+      [data-gcbubble] {
+        touch-action: pan-y !important;
+      }
       #root {
         display: flex;
         flex-direction: column;

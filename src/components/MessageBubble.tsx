@@ -241,7 +241,18 @@ function MessageBubbleImpl({
       </Animated.View>
 
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.row, mine && styles.rowMine, swipeStyle, highlightStyle]}>
+        <Animated.View
+          // Web hook for the `touch-action: pan-y` rule in public/index.html.
+          // GestureDetector sets its own touch-action on this node for the pan
+          // gesture, which is what stops the transcript from scrolling while
+          // your finger is on a bubble. Declaring pan-y hands vertical panning
+          // back to the browser, and because touch-action is resolved at
+          // touchstart the scroll can no longer be cancelled after the fact.
+          // Spread + cast because `dataSet` is a react-native-web extension
+          // that isn't in React Native's ViewProps types. No-op off web.
+          {...({ dataSet: { gcbubble: '1' } } as object)}
+          style={[styles.row, mine && styles.rowMine, swipeStyle, highlightStyle]}
+        >
           {selectMode && (
             <PressableScale
               style={styles.selectDot}
