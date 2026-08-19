@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
-/** Below this the shrink is a browser chrome change, not a keyboard. */
-const KEYBOARD_MIN_PX = 120;
+/**
+ * Below this the shrink is safe-area/browser-chrome accounting, not a keyboard.
+ * A standalone iOS PWA reports a visual viewport smaller than the screen even
+ * with nothing open, so the threshold has to clear that baseline.
+ */
+export const KEYBOARD_MIN_PX = 120;
 
 /**
  * Whether the software keyboard is open, on web.

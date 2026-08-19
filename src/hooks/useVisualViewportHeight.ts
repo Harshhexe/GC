@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import { KEYBOARD_MIN_PX } from './useWebKeyboardOpen';
 
 /**
  * Keeps the app exactly as tall as the *visible* area on web,
@@ -29,15 +30,23 @@ export function useVisualViewportHeight() {
       // is height + max-height + overflow:hidden. So when there is nothing
       // trustworthy to measure, clear the variables and let the CSS `100%`
       // fallback stand rather than committing a zero.
-      const height = vv && vv.height > 0 ? vv.height : window.innerHeight;
-      if (height > 0) {
-        document.documentElement.style.setProperty('--gc-app-height', `${height}px`);
+      // Only override the height while the keyboard is actually up.
+      //
+      // In a standalone iOS PWA visualViewport.height is *already* smaller than
+      // the screen with no keyboard open — it leaves out the safe areas. Since
+      // #root is pinned to the top, forcing that height made the app end short
+      // and collected all the difference into one dead band under the composer.
+      // With no keyboard there is nothing to avoid, so the CSS `100%` fallback
+      // (the full layout viewport) is the correct height.
+      const keyboardOpen = !!vv && window.innerHeight - vv.height > KEYBOARD_MIN_PX;
+      if (vv && vv.height > 0 && keyboardOpen) {
+        document.documentElement.style.setProperty('--gc-app-height', `${vv.height}px`);
         // How far the visible region has been pushed down inside the unchanged
         // layout viewport. Usually 0 because resetWindowScroll() below keeps it
         // there, but when iOS scrolls to reveal a focused field it is not, and
         // an app pinned to top:0 would then sit above the visible area — which
         // reads as a gap under the composer.
-        document.documentElement.style.setProperty('--gc-app-offset', `${vv ? vv.offsetTop : 0}px`);
+        document.documentElement.style.setProperty('--gc-app-offset', `${vv.offsetTop}px`);
       } else {
         document.documentElement.style.removeProperty('--gc-app-height');
         document.documentElement.style.removeProperty('--gc-app-offset');

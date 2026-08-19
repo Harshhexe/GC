@@ -1995,6 +1995,15 @@ export default function ChatScreen({ route, navigation }: Props) {
                 placeholder={editingMessage ? 'Edit your message...' : 'Cook Something...'}
                 placeholderTextColor={colors.outline}
                 multiline
+                // Without these iOS runs its own heuristics on the field and
+                // decides it is a contact form — that is the "AutoFill Contact"
+                // bar and the phone-number suggestion above the keyboard. This
+                // is a chat composer; there is nothing here to autofill.
+                autoComplete="off"
+                textContentType="none"
+                importantForAutofill="no"
+                autoCorrect
+                spellCheck
               />
               )}
               {isRecordingVoice && <View style={styles.input} />}
@@ -2378,7 +2387,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.sm,
-    paddingVertical: Platform.OS === 'web' ? 3 : spacing.sm,
+    paddingVertical: Platform.OS === 'web' ? 4 : spacing.sm,
     minHeight: Platform.OS === 'web' ? 42 : undefined,
   },
   plusButton: {
@@ -2393,11 +2402,20 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.onSurface,
     maxHeight: 110,
-    paddingVertical: Platform.OS === 'web' ? 5 : spacing.sm,
+    textAlignVertical: 'center',
+    paddingVertical: Platform.OS === 'web' ? 0 : spacing.sm,
     paddingHorizontal: Platform.OS === 'web' ? 6 : 0,
-    fontSize: Platform.OS === 'web' ? 14 : 15,
-    lineHeight: Platform.OS === 'web' ? 19 : undefined,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+    fontSize: Platform.OS === 'web' ? 14.5 : 15,
+    lineHeight: Platform.OS === 'web' ? 20 : undefined,
+    alignSelf: 'center',
+    ...(Platform.OS === 'web'
+      ? ({
+          outlineStyle: 'none',
+          resize: 'none',
+          boxSizing: 'border-box',
+          verticalAlign: 'middle',
+        } as any)
+      : {}),
   },
   sendWrap: { borderRadius: radius.pill },
   sendButton: {

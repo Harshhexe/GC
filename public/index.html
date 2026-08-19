@@ -30,6 +30,15 @@
         overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
         -webkit-tap-highlight-color: transparent;
+        /* iOS inflates text in form controls on its own unless this is pinned,
+           which is what was making the composer render several lines tall and
+           its placeholder larger than the messages around it. */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+      /* The composer is a <textarea> — no user drag-handle on it. */
+      textarea {
+        resize: none;
       }
       /* Message bubbles must never swallow a vertical drag.
          react-native-gesture-handler sets its own touch-action here for the
