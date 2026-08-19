@@ -17,37 +17,34 @@
          fall back to white — that's the gray/white bars around the app. */
       html, body {
         height: 100%;
-        height: 100dvh;
         width: 100%;
         background-color: #0B0B12;
         margin: 0;
         padding: 0;
-        overscroll-behavior-y: none;
       }
       body {
+        /* Pinned, not just `overflow: hidden`.
+           In a standalone iOS PWA `overflow: hidden` alone does NOT take the
+           document out of the scroll chain — WebKit still hands the touch to
+           the page first and rubber-bands it, which steals the gesture from
+           whatever list is underneath and is what makes scrolling feel stuck
+           or half-dead. Pinning the body is what actually removes it, so the
+           only thing left that can scroll is the list you're touching. */
+        position: fixed;
+        inset: 0;
         overflow: hidden;
+        overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
         -webkit-tap-highlight-color: transparent;
       }
       #root {
         display: flex;
+        flex-direction: column;
         height: 100%;
-        height: 100dvh;
         width: 100%;
         flex: 1;
         background-color: #0B0B12;
         overflow: hidden;
-      }
-      /* Enable smooth hardware momentum touch scrolling for all scroll containers */
-      [style*="overflow-y: scroll"],
-      [style*="overflow-y: auto"],
-      [style*="overflow: auto"],
-      [style*="overflow: scroll"],
-      .r-overflowX-lltvgl,
-      .r-overflowY-1rnoaur {
-        -webkit-overflow-scrolling: touch !important;
-        touch-action: pan-y !important;
-        overscroll-behavior-y: contain;
       }
     </style>
   </head>

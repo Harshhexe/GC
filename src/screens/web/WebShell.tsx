@@ -170,43 +170,74 @@ export default function WebShell({ navigation, route }: Props) {
    * pane behaves exactly like a pushed route. Every other destination
    * (GroupInfo, Wordy, GCDNA…) still goes to the real navigator untouched.
    */
-  const paneNavigation = useMemo(
-    () =>
-      ({
-        ...navigation,
-        navigate: (name: string, params?: Record<string, unknown>) => {
-          if (PANE_SCREENS.includes(name as PaneScreenName)) {
-            // Opens beside the chat list instead of over it.
-            setPaneScreen({ name: name as PaneScreenName, params: params ?? {} });
-            return;
-          }
-          if (name === 'Chat' && typeof params?.groupId === 'string') {
-            setTab('chats');
-            setPaneScreen(null);
-            setSelected({
-              groupId: params.groupId,
-              unreadCount:
-                typeof params.unreadCount === 'number' ? params.unreadCount : undefined,
-              jumpToMessageId:
-                typeof params.jumpToMessageId === 'string' ? params.jumpToMessageId : undefined,
-            });
-            return;
-          }
-          (navigation as unknown as { navigate: (n: string, p?: unknown) => void }).navigate(
-            name,
-            params
-          );
-        },
-        // Back inside a pane returns to the chat list rather than leaving the
-        // shell — there is nowhere "back" to go on desktop.
-        goBack: () => {
-          if (paneScreen) setPaneScreen(null);
-          else if (tab !== 'chats') setTab('chats');
-          else setSelected(null);
-        },
-      }) as unknown as Props['navigation'],
-    [navigation, tab, paneScreen]
-  );
+  const paneNavigation = useMemo(() => {
+    const handleChatNav = (params?: Record<string, unknown>) => {
+      if (typeof params?.groupId === 'string') {
+        setTab('chats');
+        setPaneScreen(null);
+        setSelected({
+          groupId: params.groupId,
+          unreadCount:
+            typeof params.unreadCount === 'number' ? params.unreadCount : undefined,
+          jumpToMessageId:
+            typeof params.jumpToMessageId === 'string' ? params.jumpToMessageId : undefined,
+        });
+        return true;
+      }
+      return false;
+    };
+
+    return ({
+      ...navigation,
+      navigate: (name: string, params?: Record<string, unknown>) => {
+        if (PANE_SCREENS.includes(name as PaneScreenName)) {
+          // Opens beside the chat list instead of over it.
+          setPaneScreen({ name: name as PaneScreenName, params: params ?? {} });
+          return;
+        }
+        if (name === 'Chat' && handleChatNav(params)) {
+          return;
+        }
+        (navigation as unknown as { navigate: (n: string, p?: unknown) => void }).navigate(
+          name,
+          params
+        );
+      },
+      replace: (name: string, params?: Record<string, unknown>) => {
+        if (PANE_SCREENS.includes(name as PaneScreenName)) {
+          setPaneScreen({ name: name as PaneScreenName, params: params ?? {} });
+          return;
+        }
+        if (name === 'Chat' && handleChatNav(params)) {
+          return;
+        }
+        (navigation as unknown as { replace: (n: string, p?: unknown) => void }).replace(
+          name,
+          params
+        );
+      },
+      push: (name: string, params?: Record<string, unknown>) => {
+        if (PANE_SCREENS.includes(name as PaneScreenName)) {
+          setPaneScreen({ name: name as PaneScreenName, params: params ?? {} });
+          return;
+        }
+        if (name === 'Chat' && handleChatNav(params)) {
+          return;
+        }
+        (navigation as unknown as { push: (n: string, p?: unknown) => void }).push(
+          name,
+          params
+        );
+      },
+      // Back inside a pane returns to the chat list rather than leaving the
+      // shell — there is nowhere "back" to go on desktop.
+      goBack: () => {
+        if (paneScreen) setPaneScreen(null);
+        else if (tab !== 'chats') setTab('chats');
+        else setSelected(null);
+      },
+    }) as unknown as Props['navigation'];
+  }, [navigation, tab, paneScreen]);
 
   // ChatScreen reads everything from route.params and never calls useRoute(),
   // so a synthetic route is all it needs.

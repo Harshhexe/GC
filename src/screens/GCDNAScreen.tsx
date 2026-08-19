@@ -208,8 +208,12 @@ export default function GCDNAScreen({ route, navigation }: Props) {
 
   const handleJumpToChat = useCallback(
     (messageId?: string) => {
+      if (Platform.OS === 'web') {
+        navigation.navigate('Chat', { groupId, jumpToMessageId: messageId });
+        return;
+      }
       const state = navigation.getState();
-      const previousRoute = state.routes[state.routes.length - 2];
+      const previousRoute = state?.routes ? state.routes[state.routes.length - 2] : null;
       if (
         previousRoute &&
         previousRoute.name === 'Chat' &&
