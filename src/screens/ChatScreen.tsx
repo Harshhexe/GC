@@ -433,6 +433,27 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
 
+  /**
+   * Force the one autocomplete value Safari actually honours.
+   *
+   * iOS ignores `autocomplete="off"` (it has since 7.1) but it does respect a
+   * token it doesn't recognise — an unknown value turns AutoFill off entirely.
+   * react-native-web won't forward a non-standard value through the
+   * `autoComplete` prop, so it goes onto the DOM node directly. Re-run when the
+   * composer remounts (voice recording swaps it out).
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const el = document.querySelector('[data-gccomposer]');
+    if (!el) return;
+    el.setAttribute('autocomplete', 'no-autofill-safari');
+    // react-native-web drops the `name` prop entirely (verified: it never
+    // reaches the textarea), and the "search" in it is the other half of the
+    // mitigation — Safari regex-matches the field name and skips AutoFill for
+    // anything that reads as a search box.
+    el.setAttribute('name', 'gc_message_search');
+  });
+
   // Enter-to-send on desktop web.
   //
   // A document-level keydown listener that identifies the composer by its
@@ -1701,7 +1722,15 @@ export default function ChatScreen({ route, navigation }: Props) {
         contentFit="cover"
         cachePolicy="memory-disk"
       />
-      <AmbientBackground tint={theme.accent} hideBaseBackground />
+      {/* Edge glows off on web: in the installed PWA they land on the status
+          bar and home-indicator strips and read as system chrome rather than
+          part of the chat. Native keeps them — safe areas are padded there, so
+          the bands sit inside the content where they were designed to. */}
+      <AmbientBackground
+        tint={theme.accent}
+        hideBaseBackground
+        hideEdgeGlows={Platform.OS === 'web'}
+      />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {selectMode ? (
           <View style={styles.header}>
@@ -2006,14 +2035,19 @@ export default function ChatScreen({ route, navigation }: Props) {
                 spellCheck
                 {...(Platform.OS === 'web'
                   ? ({
-                      name: 'chat_message_draft',
-                      id: 'chat_message_draft',
-                      autoComplete: 'off',
+                      // "search" in the name is load-bearing: Safari regex-matches
+                      // the field name and skips AutoFill for anything it reads as
+                      // a search box. `autocomplete="off"` alone does nothing —
+                      // iOS has ignored it outright since 7.1, which is why the
+                      // AutoFill Contact bar kept appearing.
+                      name: 'gc_message_search',
+                      id: 'gc_message_search',
                       inputMode: 'text',
                       enterKeyHint: 'send',
                       'data-form-type': 'other',
                       'data-lpignore': 'true',
                       'aria-autocomplete': 'none',
+                      dataSet: { gccomposer: '1' },
                     } as any)
                   : {})}
               />

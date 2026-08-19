@@ -23,11 +23,22 @@ export function AmbientBackground({
   /** A group's accent colour, so each GC tints its own screen. */
   tint,
   hideBaseBackground,
+  hideEdgeGlows,
   style,
 }: {
   variant?: 'default' | 'vivid';
   tint?: string;
   hideBaseBackground?: boolean;
+  /**
+   * Drop the top glow and bottom vignette so whatever is behind shows through
+   * edge to edge.
+   *
+   * For the installed PWA: `viewport-fit=cover` puts the page under the status
+   * bar and home indicator, so these two bands land right on the safe-area
+   * strips — the top one reads as frosted glass and the bottom one as a solid
+   * block in a different shade than the chat wallpaper.
+   */
+  hideEdgeGlows?: boolean;
   style?: any;
 }) {
   const glow = tint ?? '#6366F1';
@@ -44,6 +55,7 @@ export function AmbientBackground({
       ]}
     >
       {/* Top glow, coloured by the active theme */}
+      {!hideEdgeGlows && (
       <View style={styles.topGlow}>
         <LinearGradient
           colors={[tinted(glow, strength), tinted(glow, 0)]}
@@ -52,8 +64,10 @@ export function AmbientBackground({
           style={StyleSheet.absoluteFill}
         />
       </View>
+      )}
 
       {/* Bottom vignette to seat the dock and composer */}
+      {!hideEdgeGlows && (
       <View style={styles.bottomGlow}>
         <LinearGradient
           colors={['rgba(0, 0, 0, 0)', 'rgba(5, 5, 10, 0.6)']}
@@ -62,6 +76,7 @@ export function AmbientBackground({
           style={StyleSheet.absoluteFill}
         />
       </View>
+      )}
     </View>
   );
 }

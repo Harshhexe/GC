@@ -45,6 +45,18 @@
         box-shadow: none !important;
         -webkit-tap-highlight-color: transparent !important;
       }
+      /* The contact/credential glyph Safari injects into a field it thinks is
+         autofillable. Belt-and-braces alongside the attribute work in
+         ChatScreen — this only hides the button, it does not stop AutoFill. */
+      input::-webkit-contacts-auto-fill-button,
+      input::-webkit-credentials-auto-fill-button,
+      textarea::-webkit-contacts-auto-fill-button {
+        visibility: hidden;
+        display: none !important;
+        pointer-events: none;
+        position: absolute;
+        right: 0;
+      }
       textarea:focus, input:focus {
         outline: none !important;
         outline-color: transparent !important;
