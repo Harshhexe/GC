@@ -40,7 +40,9 @@
       #root {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        /* Driven by visualViewport below so the app ends exactly where the
+           keyboard begins; falls back to the full height before that runs. */
+        height: var(--gc-app-height, 100%);
         width: 100%;
         flex: 1;
         background-color: #0B0B12;
