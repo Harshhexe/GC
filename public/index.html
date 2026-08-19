@@ -36,9 +36,20 @@
         -webkit-text-size-adjust: 100%;
         text-size-adjust: 100%;
       }
-      /* The composer is a <textarea> — no user drag-handle on it. */
-      textarea {
+      /* Remove browser focus rings / blue rectangles from text inputs and textareas */
+      textarea, input {
         resize: none;
+        outline: none !important;
+        outline-color: transparent !important;
+        outline-width: 0 !important;
+        box-shadow: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+      }
+      textarea:focus, input:focus {
+        outline: none !important;
+        outline-color: transparent !important;
+        outline-width: 0 !important;
+        box-shadow: none !important;
       }
       /* Message bubbles must never swallow a vertical drag.
          react-native-gesture-handler sets its own touch-action here for the
@@ -52,7 +63,7 @@
       #root {
         display: flex;
         flex-direction: column;
-        /* Driven by visualViewport below so the app ends exactly where the
+        /* Driven by visualViewport so the app ends exactly where the
            keyboard begins; falls back to the full height before that runs. */
         height: var(--gc-app-height, 100%);
         max-height: var(--gc-app-height, 100%);
@@ -61,9 +72,7 @@
         background-color: #0B0B12;
         overflow: hidden;
         position: fixed;
-        /* Follows the visible region rather than the layout viewport — see the
-           --gc-app-offset note in useVisualViewportHeight. */
-        top: var(--gc-app-offset, 0px);
+        top: 0;
         left: 0;
         right: 0;
       }

@@ -225,7 +225,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const animatedComposerStyle = useAnimatedStyle(() => {
     if (Platform.OS === 'web') {
       return {
-        paddingBottom: spacing.xs,
+        paddingBottom: webKeyboardOpen ? 2 : Math.max(insets.bottom, spacing.xs),
       };
     }
     if (Platform.OS === 'android') {
@@ -237,7 +237,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     return {
       paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
     };
-  }, [keyboardOpen, insets.bottom]);
+  }, [webKeyboardOpen, keyboardOpen, insets.bottom]);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);
@@ -2004,6 +2004,18 @@ export default function ChatScreen({ route, navigation }: Props) {
                 importantForAutofill="no"
                 autoCorrect
                 spellCheck
+                {...(Platform.OS === 'web'
+                  ? ({
+                      name: 'chat_message_draft',
+                      id: 'chat_message_draft',
+                      autoComplete: 'off',
+                      inputMode: 'text',
+                      enterKeyHint: 'send',
+                      'data-form-type': 'other',
+                      'data-lpignore': 'true',
+                      'aria-autocomplete': 'none',
+                    } as any)
+                  : {})}
               />
               )}
               {isRecordingVoice && <View style={styles.input} />}
@@ -2411,9 +2423,14 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web'
       ? ({
           outlineStyle: 'none',
+          outlineWidth: 0,
+          outlineColor: 'transparent',
+          boxShadow: 'none',
           resize: 'none',
           boxSizing: 'border-box',
           verticalAlign: 'middle',
+          display: 'flex',
+          justifyContent: 'center',
         } as any)
       : {}),
   },
