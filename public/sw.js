@@ -29,7 +29,9 @@ self.addEventListener('push', (event) => {
     // Same tag replaces rather than stacks — matches the in-tab Notification
     // behavior in src/lib/webNotifications.ts.
     renotify: !!payload.tag,
-    icon: '/icon-192.png',
+    // The GC's own avatar when it has one, so the card is recognisable at a
+    // glance the way the title is; the app icon is only the fallback.
+    icon: payload.icon || '/icon-192.png',
     badge: '/icon-192.png',
     data: payload.data || {},
   };

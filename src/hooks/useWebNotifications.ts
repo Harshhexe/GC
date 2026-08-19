@@ -67,7 +67,7 @@ export function useWebNotifications(
             return;
 
           const [{ data: group }, { data: author }] = await Promise.all([
-            supabase.from('groups').select('name').eq('id', row.group_id).maybeSingle(),
+            supabase.from('groups').select('name, avatar_url').eq('id', row.group_id).maybeSingle(),
             row.author_id
               ? supabase.from('profiles').select('display_name').eq('id', row.author_id).maybeSingle()
               : Promise.resolve({ data: null }),
@@ -82,6 +82,9 @@ export function useWebNotifications(
             body: `${author?.display_name ?? 'Someone'}: ${preview}`,
             // One live notification per group, replaced rather than stacked.
             tag: row.group_id,
+            // Same treatment as the Web Push path (see public/sw.js): the
+            // GC's own avatar, falling back to the app icon.
+            icon: group?.avatar_url ?? undefined,
             onClick: () => openRef.current(row.group_id),
           });
         }

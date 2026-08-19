@@ -514,7 +514,7 @@ export default function GroupListScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#07060B' },
-  safe: { flex: 1 },
+  safe: { flex: 1, minHeight: 0 },
   glowBgRoot: { backgroundColor: '#07060B', overflow: 'hidden' },
   topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
   cornerBlob: { position: 'absolute', borderRadius: 999 },

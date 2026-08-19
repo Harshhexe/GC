@@ -20,6 +20,7 @@ import PinnedMessagesScreen from '../PinnedMessagesScreen';
 import MediaLinksFilesScreen from '../MediaLinksFilesScreen';
 import GroupSearchScreen from '../GroupSearchScreen';
 import WordyScreen from '../WordyScreen';
+import NotificationsScreen from '../NotificationsScreen';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -45,6 +46,7 @@ const PANE_SCREENS = [
   'MediaLinksFiles',
   'GroupSearch',
   'Wordy',
+  'Notifications',
 ] as const;
 
 type PaneScreenName = (typeof PANE_SCREENS)[number];
@@ -59,7 +61,7 @@ type PaneScreenName = (typeof PANE_SCREENS)[number];
  * over it keeps the chat visible behind, which is also what makes the
  * dismissal obvious.
  */
-const MODAL_SCREENS: readonly PaneScreenName[] = ['WhatDidIMiss', 'GCDNA', 'Wordy'];
+const MODAL_SCREENS: readonly PaneScreenName[] = ['WhatDidIMiss', 'GCDNA', 'Wordy', 'Notifications'];
 
 type Tab = 'chats' | 'create' | 'awards' | 'profile';
 
@@ -245,6 +247,8 @@ export default function WebShell({ navigation, route }: Props) {
         return <GroupSearchScreen {...p} />;
       case 'Wordy':
         return <WordyScreen {...p} />;
+      case 'Notifications':
+        return <NotificationsScreen {...p} />;
       default:
         return null;
     }

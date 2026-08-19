@@ -1,7 +1,8 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, glass, radius, spacing, typography } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
@@ -28,88 +29,125 @@ export default function NotificationsScreen({ navigation }: Props) {
   );
 
   function openNotification(n: NotificationItem) {
+    if (!n.groupId) return;
     markRead(n.id);
-    navigation.navigate('Chat', { groupId: n.groupId, jumpToMessageId: n.messageId });
+
+    const state = navigation.getState();
+    const previousRoute = state?.routes ? state.routes[state.routes.length - 2] : null;
+
+    if (
+      previousRoute &&
+      previousRoute.name === 'Chat' &&
+      (previousRoute.params as any)?.groupId === n.groupId
+    ) {
+      navigation.navigate({
+        name: 'Chat',
+        params: { groupId: n.groupId, jumpToMessageId: n.messageId },
+        merge: true,
+      });
+    } else if (Platform.OS === 'web') {
+      // In WebShell paneNavigation, navigate('Chat') seamlessly selects the 2-pane chat
+      navigation.navigate('Chat', { groupId: n.groupId, jumpToMessageId: n.messageId });
+    } else {
+      navigation.replace('Chat', { groupId: n.groupId, jumpToMessageId: n.messageId });
+    }
   }
 
   return (
     <View style={styles.root}>
       <AmbientBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <AppHeader
-          title="Mentions"
-          left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
-        />
+        <View style={styles.webContainer}>
+          <AppHeader
+            title="Mentions"
+            left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
+          />
 
-        {loading ? (
-          <EmptyState emoji="⏳" text="catching up..." />
-        ) : mentions.length === 0 ? (
-          <EmptyState emoji="✨" text="no mentions yet. you're all caught up!" />
-        ) : (
-          <FlatList
-            data={mentions}
-            keyExtractor={(n) => n.id}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item, index }) => (
-              <Animated.View
-                entering={FadeInDown.delay(Math.min(index, 8) * STAGGER_MS)
-                  .duration(duration.slow)
-                  .easing(easing.out)
-                  .reduceMotion(reduceMotion)}
-              >
-                <PressableScale
-                  style={[styles.row, !item.readAt && styles.rowUnread]}
-                  scaleTo={0.98}
-                  onPress={() => openNotification(item)}
+          {loading ? (
+            <EmptyState emoji="⏳" text="catching up..." />
+          ) : mentions.length === 0 ? (
+            <EmptyState emoji="✨" text="no mentions yet. you're all caught up!" />
+          ) : (
+            <FlatList
+              data={mentions}
+              keyExtractor={(n) => n.id}
+              contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item, index }) => (
+                <Animated.View
+                  entering={FadeInDown.delay(Math.min(index, 8) * STAGGER_MS)
+                    .duration(duration.slow)
+                    .easing(easing.out)
+                    .reduceMotion(reduceMotion)}
                 >
-                  {!item.readAt && <View style={styles.unreadDot} />}
+                  <PressableScale
+                    style={[styles.row, !item.readAt && styles.rowUnread]}
+                    scaleTo={0.98}
+                    onPress={() => openNotification(item)}
+                  >
+                    {!item.readAt && (
+                      <LinearGradient
+                        colors={['rgba(129, 140, 248, 0.12)', 'rgba(99, 102, 241, 0.03)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[StyleSheet.absoluteFill, { borderRadius: radius.lg }]}
+                        pointerEvents="none"
+                      />
+                    )}
 
-                  {item.kind === 'mention_everyone' ? (
-                    <View style={styles.everyoneIcon}>
-                      <Ionicons name="megaphone" size={18} color={colors.primary} />
-                    </View>
-                  ) : (
-                    <Avatar
-                      imageUrl={item.actorAvatarUrl}
-                      emoji={item.actorEmoji}
-                      label={item.actorName}
-                      size={42}
-                      ringColors={[item.actorColor, colors.secondary]}
-                    />
-                  )}
+                    {!item.readAt && <View style={styles.unreadDot} />}
 
-                  <View style={styles.copy}>
-                    <View style={styles.headerRow}>
-                      <Text style={styles.actorName} numberOfLines={1}>
-                        {item.kind === 'mention_everyone' ? 'Everyone' : item.actorName}
-                      </Text>
-                      <View style={styles.groupBadge}>
-                        <Text style={styles.groupBadgeText} numberOfLines={1}>
-                          {item.groupName}
+                    {item.kind === 'mention_everyone' ? (
+                      <View style={styles.everyoneIcon}>
+                        <Ionicons name="megaphone" size={18} color="#818CF8" />
+                      </View>
+                    ) : (
+                      <Avatar
+                        imageUrl={item.actorAvatarUrl}
+                        emoji={item.actorEmoji}
+                        label={item.actorName}
+                        size={44}
+                        ringColors={[item.actorColor, colors.secondary]}
+                      />
+                    )}
+
+                    <View style={styles.copy}>
+                      <View style={styles.headerRow}>
+                        <Text style={styles.actorName} numberOfLines={1}>
+                          {item.kind === 'mention_everyone' ? 'Everyone' : item.actorName}
                         </Text>
+                        <View style={styles.groupBadge}>
+                          <Text style={styles.groupBadgeText} numberOfLines={1}>
+                            {item.groupName}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.label}>
+                        {item.kind === 'mention_everyone'
+                          ? 'notified everyone in the group'
+                          : 'mentioned you in a message'}
+                      </Text>
+
+                      <Text style={styles.snippet} numberOfLines={2}>
+                        {item.messageDeleted
+                          ? 'Original message was deleted'
+                          : item.messageText || 'Sent media'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaCol}>
+                      <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
+                      <View style={styles.jumpPill}>
+                        <Ionicons name="arrow-forward" size={12} color="#818CF8" />
                       </View>
                     </View>
-
-                    <Text style={styles.label}>
-                      {item.kind === 'mention_everyone'
-                        ? 'notified everyone in the group'
-                        : 'mentioned you in a message'}
-                    </Text>
-
-                    <Text style={styles.snippet} numberOfLines={2}>
-                      {item.messageDeleted
-                        ? 'Original message was deleted'
-                        : item.messageText || 'Sent media'}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
-                </PressableScale>
-              </Animated.View>
-            )}
-          />
-        )}
+                  </PressableScale>
+                </Animated.View>
+              )}
+            />
+          )}
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -117,8 +155,19 @@ export default function NotificationsScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  safe: { flex: 1 },
-  list: { padding: CONTAINER_MARGIN, gap: spacing.sm },
+  safe: { flex: 1, minHeight: 0 },
+  webContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    minHeight: 0,
+  },
+  list: {
+    padding: CONTAINER_MARGIN,
+    gap: spacing.sm + 2,
+    paddingBottom: spacing.xxl,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -128,29 +177,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#13121D', // Solid dark card
     borderWidth: 1,
     borderColor: '#26243A',
+    overflow: 'hidden',
   },
   rowUnread: {
-    backgroundColor: '#1A1828',
-    borderColor: 'rgba(129, 140, 248, 0.4)',
+    backgroundColor: '#161426',
+    borderColor: 'rgba(129, 140, 248, 0.45)',
   },
   unreadDot: {
     position: 'absolute',
-    left: 8,
+    left: 7,
     top: 18,
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.primary,
+    backgroundColor: '#818CF8',
   },
   everyoneIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.pill,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(129, 140, 248, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.3)',
+    backgroundColor: 'rgba(129, 140, 248, 0.16)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(129, 140, 248, 0.35)',
   },
   copy: {
     flex: 1,
@@ -168,10 +218,12 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
   },
   groupBadge: {
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.25)',
   },
   groupBadgeText: {
     ...typography.caption,
@@ -188,14 +240,29 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: 13,
     color: '#E2E8F0',
-    marginTop: 2,
-    lineHeight: 17,
+    marginTop: 3,
+    lineHeight: 18,
+  },
+  metaCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: '100%',
+    minHeight: 44,
+    gap: 6,
   },
   time: {
     ...typography.micro,
     fontSize: 11,
     color: colors.outline,
-    alignSelf: 'flex-start',
-    marginTop: 2,
+  },
+  jumpPill: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.25)',
   },
 });

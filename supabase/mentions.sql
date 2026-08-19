@@ -86,15 +86,11 @@ begin
     and (tg_op = 'INSERT' or old.mention_everyone is distinct from true);
 
   if becoming_everyone then
-    if public.group_role(new.group_id, auth.uid()) not in ('owner', 'admin') then
+    select last_everyone_mention_at into last_everyone from public.groups where id = new.group_id;
+    if last_everyone is not null and now() - last_everyone < cooldown then
       new.mention_everyone := false;
     else
-      select last_everyone_mention_at into last_everyone from public.groups where id = new.group_id;
-      if last_everyone is not null and now() - last_everyone < cooldown then
-        new.mention_everyone := false;
-      else
-        update public.groups set last_everyone_mention_at = now() where id = new.group_id;
-      end if;
+      update public.groups set last_everyone_mention_at = now() where id = new.group_id;
     end if;
   end if;
 

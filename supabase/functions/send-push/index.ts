@@ -25,6 +25,9 @@ type WebPushItem = {
   title: string;
   body: string;
   tag?: string;
+  /** Shown as the notification's image. The group's avatar, so the card is
+   *  identified by the GC the same way the title is. */
+  icon?: string | null;
   data?: Record<string, unknown>;
 };
 
@@ -157,6 +160,7 @@ Deno.serve(async (req) => {
         title,
         body: previewBody,
         tag: body.groupId,
+        icon: group?.avatar_url ?? null,
         data: eventData,
       }));
 
@@ -210,6 +214,7 @@ Deno.serve(async (req) => {
         title,
         body: previewBody,
         tag: body.groupId,
+        icon: group?.avatar_url ?? null,
         data: eventData,
       }));
 
@@ -265,6 +270,7 @@ Deno.serve(async (req) => {
         title,
         body: previewBody,
         tag: body.groupId,
+        icon: group?.avatar_url ?? null,
         data: eventData,
       }));
 
@@ -334,10 +340,13 @@ Deno.serve(async (req) => {
       .in('kind', ['mention', 'mention_everyone']);
     const mentionedIds = new Set((mentionRows ?? []).map((r) => r.user_id as string));
 
+    // Plain names, no emoji prefixes: the card reads
+    //   <group avatar>  Group Name
+    //                   Member Name: message
+    // so the group's identity comes from the avatar + title, and the body is
+    // only ever "who said what".
     const groupName = group?.name ?? 'your GC';
-    const groupEmojiPrefix = group?.emoji ? `${group.emoji} ` : '';
     const authorName = author?.display_name ?? 'Someone';
-    const authorEmojiPrefix = author?.avatar_emoji ? `${author.avatar_emoji} ` : '';
     const preview = previewFor(message.text, message.media_type);
 
     // Coalesce per recipient. Expo's push API has no Android grouping flag
@@ -372,19 +381,11 @@ Deno.serve(async (req) => {
       .map((row) => {
       const mentioned = mentionedIds.has(row.user_id);
       const pending = coalesceByUser.get(row.user_id) ?? 1;
-      // More than one banked: report the count rather than only the newest
-      // line, so a single card still tells you how much is waiting.
-      const bodyText =
-        pending > 1
-          ? `${pending} new messages`
-          : mentioned
-            ? preview
-            : `${authorEmojiPrefix}${authorName}: ${preview}`;
+      // Always show the actual message content so the user sees what was said
+      const bodyText = `${authorName}: ${preview}`;
       return {
         to: row.token,
-        title: mentioned
-          ? `${authorName} mentioned you in ${groupEmojiPrefix}${groupName}`
-          : `${groupEmojiPrefix}${groupName}`,
+        title: mentioned ? `${authorName} mentioned you in ${groupName}` : groupName,
         body: bodyText,
         sound: 'default',
         categoryId: 'gc_message',
@@ -408,21 +409,15 @@ Deno.serve(async (req) => {
 
     const webItems: WebPushItem[] = Array.from(coalesceByUser.entries())
       .filter(([, pending]) => pending > 0)
-      .map(([userId, pending]) => {
+      .map(([userId]) => {
         const mentioned = mentionedIds.has(userId);
-        const bodyText =
-          pending > 1
-            ? `${pending} new messages`
-            : mentioned
-              ? preview
-              : `${authorEmojiPrefix}${authorName}: ${preview}`;
+        const bodyText = `${authorName}: ${preview}`;
         return {
           userId,
-          title: mentioned
-            ? `${authorName} mentioned you in ${groupEmojiPrefix}${groupName}`
-            : `${groupEmojiPrefix}${groupName}`,
+          title: mentioned ? `${authorName} mentioned you in ${groupName}` : groupName,
           body: bodyText,
           tag: message.group_id,
+          icon: group?.avatar_url ?? null,
           data: {
             type: 'message',
             groupId: message.group_id,
@@ -526,7 +521,13 @@ async function sendToWebPush(items: WebPushItem[], db: any): Promise<number> {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify({ title: item.title, body: item.body, tag: item.tag, data: item.data ?? {} })
+          JSON.stringify({
+            title: item.title,
+            body: item.body,
+            tag: item.tag,
+            icon: item.icon ?? null,
+            data: item.data ?? {},
+          })
         );
         sent++;
       } catch (e: any) {

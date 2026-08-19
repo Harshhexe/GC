@@ -1145,7 +1145,6 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const showEveryoneOption = !!(
     activeMentionQuery &&
-    canModerate &&
     EVERYONE_TOKEN.startsWith(activeMentionQuery.query.toLowerCase())
   );
 
@@ -1418,7 +1417,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       if (index < 0) {
         const loaded = await loadUntilMessage(id);
         if (!loaded) return;
-        await new Promise((resolve) => requestAnimationFrame(() => resolve(true)));
+        await new Promise((resolve) => setTimeout(resolve, 80));
         index = messagesRef.current.slice().reverse().findIndex((m) => m.id === id);
       }
 
@@ -1429,14 +1428,18 @@ export default function ChatScreen({ route, navigation }: Props) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
         }
-        try {
-          flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
-        } catch {
-          // handled by onScrollToIndexFailed
-        }
+        const doScroll = () => {
+          try {
+            flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
+          } catch {}
+        };
+        doScroll();
+        setTimeout(doScroll, 120);
+        setTimeout(doScroll, 300);
+
         if (highlightTimer.current) clearTimeout(highlightTimer.current);
         setHighlightedId(id);
-        highlightTimer.current = setTimeout(() => setHighlightedId(null), 1200);
+        highlightTimer.current = setTimeout(() => setHighlightedId(null), 2500);
       }
     },
     [invertedMessages, loadUntilMessage]
@@ -1444,10 +1447,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     const jumpId = route.params.jumpToMessageId;
-    if (!jumpId || loading || messages.length === 0) return;
+    if (!jumpId || loading) return;
     navigation.setParams({ jumpToMessageId: undefined });
-    jumpToMessage(jumpId);
-  }, [route.params.jumpToMessageId, loading, messages.length, jumpToMessage, navigation]);
+    const timer = setTimeout(() => {
+      jumpToMessage(jumpId);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [route.params.jumpToMessageId, loading, jumpToMessage, navigation]);
 
   // ── Stable per-row callbacks handed to every MessageBubble ───────────────
   const handleLongPress = useCallback((message: Message, pageY: number) => {
@@ -2239,8 +2245,8 @@ export default function ChatScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  safe: { flex: 1 },
-  flex: { flex: 1 },
+  safe: { flex: 1, minHeight: 0 },
+  flex: { flex: 1, minHeight: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
