@@ -225,7 +225,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const animatedComposerStyle = useAnimatedStyle(() => {
     if (Platform.OS === 'web') {
       return {
-        paddingBottom: webKeyboardOpen ? 2 : Math.max(insets.bottom, spacing.xs),
+        paddingBottom: webKeyboardOpen ? 2 : 6,
       };
     }
     if (Platform.OS === 'android') {
@@ -2362,7 +2362,7 @@ const styles = StyleSheet.create({
   composerWrap: {
     position: 'relative',
     paddingHorizontal: Platform.OS === 'web' ? spacing.md : spacing.lg,
-    paddingBottom: Platform.OS === 'web' ? spacing.xs : spacing.sm,
+    paddingBottom: 0,
     paddingTop: spacing.xs,
   },
   composerPreviewWrap: { marginBottom: spacing.xs },
@@ -2433,8 +2433,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.sm,
-    paddingVertical: Platform.OS === 'web' ? 4 : spacing.sm,
-    minHeight: Platform.OS === 'web' ? 42 : undefined,
+    paddingVertical: Platform.OS === 'web' ? 4 : 4,
+    minHeight: Platform.OS === 'web' ? 42 : 44,
   },
   plusButton: {
     width: Platform.OS === 'web' ? 34 : 40,
@@ -2449,8 +2449,10 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     maxHeight: 110,
     textAlignVertical: 'center',
-    paddingVertical: Platform.OS === 'web' ? 0 : spacing.sm,
-    paddingHorizontal: Platform.OS === 'web' ? 6 : 0,
+    paddingVertical: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.xs,
     fontSize: Platform.OS === 'web' ? 14.5 : 15,
     lineHeight: Platform.OS === 'web' ? 20 : undefined,
     alignSelf: 'center',
