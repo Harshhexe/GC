@@ -52,7 +52,9 @@
         background-color: #0B0B12;
         overflow: hidden;
         position: fixed;
-        top: 0;
+        /* Follows the visible region rather than the layout viewport — see the
+           --gc-app-offset note in useVisualViewportHeight. */
+        top: var(--gc-app-offset, 0px);
         left: 0;
         right: 0;
       }

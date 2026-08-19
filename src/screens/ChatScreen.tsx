@@ -77,6 +77,7 @@ import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
 import { TEA_THEME, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
+import { useWebKeyboardOpen } from '../hooks/useWebKeyboardOpen';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
 import { usePinnedMessages } from '../hooks/usePinnedMessages';
@@ -189,6 +190,9 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const keyboard = useAnimatedKeyboard();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  // The web half of the same signal — RN's Keyboard events never fire there.
+  const webKeyboardOpen = useWebKeyboardOpen();
+  const keyboardOpen = isKeyboardOpen || webKeyboardOpen;
 
   useEffect(() => {
     const onShow = () => {
@@ -226,9 +230,9 @@ export default function ChatScreen({ route, navigation }: Props) {
       };
     }
     return {
-      paddingBottom: isKeyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
+      paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
     };
-  }, [isKeyboardOpen, insets.bottom]);
+  }, [keyboardOpen, insets.bottom]);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);

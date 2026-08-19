@@ -187,14 +187,14 @@ function MessageBubbleImpl({
   const replyArmed = useSharedValue(0);
 
   const panGesture = Gesture.Pan()
-    // Off on web. `failOffsetY` below is supposed to yield vertical drags to
-    // the list, but on web react-native-gesture-handler preventDefault()s the
-    // first touchmove while the gesture is still undecided — and iOS decides
-    // at that first move whether the container scrolls at all. The scroll
-    // therefore never starts on top of a bubble, which is why the transcript
-    // only scrolled from the gaps between them. Reply is still reachable on
-    // web through the long-press action sheet.
-    .enabled(!!onSwipeReply && !selectMode && Platform.OS !== 'web')
+    // On web too. This used to be disabled off-native because the gesture
+    // swallowed vertical drags and the transcript would only scroll from the
+    // gaps between bubbles. The actual cure was `touch-action: pan-y` on the
+    // row (see public/index.html): touch-action is resolved at touchstart, so
+    // the browser keeps ownership of vertical panning no matter what the
+    // handler does afterwards, while horizontal movement still reaches the
+    // handler. Scrolling and swipe-to-reply can therefore both work.
+    .enabled(!!onSwipeReply && !selectMode)
     .activeOffsetX([-1000, 12])
     .failOffsetY([-14, 14])
     .onUpdate((e) => {
