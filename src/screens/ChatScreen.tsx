@@ -2479,7 +2479,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(129, 140, 248, 0.3)',
   },
-  list: { paddingVertical: spacing.xl },
+  list: {
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.lg,
+  },
   dayRow: {
     alignItems: 'center',
     justifyContent: 'center',

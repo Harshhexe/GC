@@ -307,7 +307,7 @@ function MessageBubbleImpl({
                       entering={FadeInDown.duration(duration.fast).reduceMotion(reduceMotion)}
                       style={styles.avatarSeenCluster}
                     >
-                      {otherReaders.slice(0, 3).map((r, i) => (
+                      {otherReaders.slice(0, 5).map((r, i) => (
                         <View key={r.id} style={[styles.seenAvatar, i > 0 && styles.seenOverlap]}>
                           <Avatar
                             emoji={r.avatarEmoji}
@@ -318,8 +318,8 @@ function MessageBubbleImpl({
                           />
                         </View>
                       ))}
-                      {otherReaders.length > 3 && (
-                        <Text style={styles.seenMore}>+{otherReaders.length - 3}</Text>
+                      {otherReaders.length > 5 && (
+                        <Text style={styles.seenMore}>+{otherReaders.length - 5}</Text>
                       )}
                     </Animated.View>
                   </Pressable>
