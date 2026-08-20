@@ -66,6 +66,7 @@ function MessageBubbleImpl({
   onQuotePress,
   onMentionPress,
   onMediaPress,
+  myId,
 }: {
   message: Message;
   isMessageOfTheDay?: boolean;
@@ -105,6 +106,7 @@ function MessageBubbleImpl({
   onMentionPress?: (userId: string) => void;
   /** Tapping an image/video/document attachment. */
   onMediaPress?: (message: Message) => void;
+  myId?: string;
 }) {
   const [showSeenText, setShowSeenText] = useState(false);
   const mine = message.isMine;
@@ -336,7 +338,7 @@ function MessageBubbleImpl({
                         text={message.replyPreview.text}
                         kind={message.replyPreview.kind}
                         isDeleted={message.replyPreview.isDeleted}
-                        isMine={message.replyPreview.authorId === message.authorId}
+                        isMine={message.replyPreview.authorId === myId}
                         onPress={onQuotePress ? () => onQuotePress(message) : undefined}
                         onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                       />
@@ -386,7 +388,7 @@ function MessageBubbleImpl({
                         text={message.replyPreview.text}
                         kind={message.replyPreview.kind}
                         isDeleted={message.replyPreview.isDeleted}
-                        isMine={message.replyPreview.authorId === message.authorId}
+                        isMine={message.replyPreview.authorId === myId}
                         onPress={onQuotePress ? () => onQuotePress(message) : undefined}
                         onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                       />

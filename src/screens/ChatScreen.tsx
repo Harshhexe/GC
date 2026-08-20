@@ -1805,6 +1805,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             </View>
           )}
           <MessageBubble
+            myId={session?.user.id}
             message={item}
             isMessageOfTheDay={item.id === motdId}
             isPinned={pinnedIds.has(item.id)}
