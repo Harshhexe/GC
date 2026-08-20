@@ -62,21 +62,15 @@ function SpotlightDockItem({
   routeName,
   focused,
   onPress,
-  activeIndex,
-  position,
   avatar,
 }: {
   routeName: string;
   focused: boolean;
   onPress: () => void;
-  activeIndex: number;
-  position: number;
   /** Rendered in place of the icon — the Profile tab shows you, not a cog. */
   avatar?: { imageUrl?: string | null; label?: string | null };
 }) {
   const icon = ICONS[routeName] ?? { ...FALLBACK_ICON, label: routeName };
-  const distance = Math.abs(activeIndex - position);
-  const spotlightOpacity = focused ? 1 : Math.max(0, 1 - distance * 0.6);
 
   const active = useSharedValue(focused ? 1 : 0);
 
@@ -84,20 +78,19 @@ function SpotlightDockItem({
     active.value = withTiming(focused ? 1 : 0, { duration: 300, easing: Easing.bezier(0.4, 0, 0.2, 1) });
   }, [focused, active]);
 
-  const spotlightStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(spotlightOpacity, { duration: 300 }),
-  }));
-
-  // The halo is what sells the "lit from within" read; it grows and fades in
-  // with focus rather than popping, so the beam and the icon move together.
+  // One soft circular pool behind the active icon. An earlier version also lit
+  // the neighbours by distance and drew a rectangular beam above each item;
+  // both showed as hard-edged blobs on web, where the gradient has no blur to
+  // hide its bounds. The halo is round, clipped and only ever on the focused
+  // tab, so there is nothing to leak.
   const haloStyle = useAnimatedStyle(() => ({
     opacity: active.value,
-    transform: [{ scale: interpolate(active.value, [0, 1], [0.6, 1]) }],
+    transform: [{ scale: interpolate(active.value, [0, 1], [0.7, 1]) }],
   }));
 
   const iconStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: interpolate(active.value, [0, 1], [1, 1.22]) },
+      { scale: interpolate(active.value, [0, 1], [1, 1.16]) },
       { translateY: interpolate(active.value, [0, 1], [0, -1]) },
     ],
   }));
@@ -105,7 +98,7 @@ function SpotlightDockItem({
   const iconColor = focused
     ? icon.accent
     : icon.alwaysTinted
-      ? alpha(icon.accent, 0.5)
+      ? alpha(icon.accent, 0.55)
       : 'rgba(255, 255, 255, 0.45)';
 
   return (
@@ -118,20 +111,11 @@ function SpotlightDockItem({
         onPress();
       }}
     >
-      {/* Spotlight beam background */}
-      <Animated.View style={[styles.spotlightWrapper, spotlightStyle]} pointerEvents="none">
-        <LinearGradient
-          colors={[alpha(icon.accent, 0.45), alpha(icon.accent, 0.12), 'transparent']}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={styles.spotlightBeam}
-        />
-      </Animated.View>
-
-      {/* Halo pooled under the icon where the beam lands */}
       <Animated.View style={[styles.halo, haloStyle]} pointerEvents="none">
         <LinearGradient
-          colors={[alpha(icon.accent, 0.32), alpha(icon.accentDeep, 0.06), 'transparent']}
+          colors={[alpha(icon.accent, 0.30), alpha(icon.accentDeep, 0.10)]}
+          start={{ x: 0.3, y: 0 }}
+          end={{ x: 0.7, y: 1 }}
           style={styles.haloFill}
         />
       </Animated.View>
@@ -139,7 +123,9 @@ function SpotlightDockItem({
       <Animated.View
         style={[
           iconStyle,
-          focused && { shadowColor: icon.accent, ...styles.iconGlow },
+          // Native only: on web a View shadow is a *box* shadow, so this drew a
+          // dark square behind the icon instead of a glow.
+          focused && Platform.OS !== 'web' ? { shadowColor: icon.accent, ...styles.iconGlow } : null,
           !focused && avatar ? styles.avatarDimmed : null,
         ]}
       >
@@ -151,7 +137,7 @@ function SpotlightDockItem({
             ring={focused}
           />
         ) : (
-          <Ionicons name={focused ? icon.on : icon.off} size={28} color={iconColor} />
+          <Ionicons name={focused ? icon.on : icon.off} size={26} color={iconColor} />
         )}
       </Animated.View>
     </PressableScale>
@@ -192,20 +178,11 @@ export default function Dock({ state, navigation }: BottomTabBarProps) {
       ]}
       pointerEvents="box-none"
     >
-      {/* Accent bloom cast on the screen behind the dock. Sits outside the
-          clipped pill so it can spill past the rounded edge. */}
-      <View style={styles.bloomWrap} pointerEvents="none">
-        <LinearGradient
-          colors={[alpha(activeIcon.accent, 0.22), 'transparent']}
-          style={styles.bloom}
-        />
-      </View>
-
-      <View style={[styles.dockShadow, { shadowColor: activeIcon.accentDeep }]}>
+      <View style={styles.dockShadow}>
         {/* Gradient hairline: a 1px padded frame around the glass body, which
             catches light along the top edge the way a real bezel would. */}
         <LinearGradient
-          colors={[alpha(activeIcon.accent, 0.55), 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.04)']}
+          colors={[alpha(activeIcon.accent, 0.32), 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.03)']}
           start={{ x: 0.2, y: 0 }}
           end={{ x: 0.8, y: 1 }}
           style={styles.dockBorder}
@@ -243,8 +220,6 @@ export default function Dock({ state, navigation }: BottomTabBarProps) {
                   key={route.key}
                   routeName={route.name}
                   focused={focused}
-                  position={index}
-                  activeIndex={activeIndex}
                   avatar={
                     route.name === 'Profile'
                       ? { imageUrl: profile?.avatar_url, label: profile?.display_name }
@@ -278,26 +253,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
   },
-  bloomWrap: {
-    position: 'absolute',
-    bottom: 0,
-    width: 360,
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  bloom: {
-    width: 360,
-    height: 140,
-    borderRadius: 180,
-    opacity: 0.9,
-    transform: [{ scaleY: 0.6 }],
-  },
   dockShadow: {
     borderRadius: 9999,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.45,
-    shadowRadius: 28,
+    // Plain black drop shadow. Tinting it with the active accent read as a
+    // coloured ring around the pill on web rather than as depth.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 22,
     elevation: 20,
   },
   dockBorder: {
@@ -350,25 +313,10 @@ const styles = StyleSheet.create({
   avatarDimmed: { opacity: 0.55 },
   halo: {
     position: 'absolute',
-    width: 46,
-    height: 46,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  haloFill: { width: 46, height: 46, borderRadius: 23 },
-  spotlightWrapper: {
-    position: 'absolute',
-    top: 0,
-    width: 52,
-    height: 54,
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-  },
-  spotlightBeam: {
-    width: 48,
-    height: 60,
-    borderRadius: 24,
-  },
+  haloFill: { width: 44, height: 44, borderRadius: 22 },
 });
