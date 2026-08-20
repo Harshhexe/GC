@@ -243,7 +243,9 @@ export default function ChatScreen({ route, navigation }: Props) {
     }
     return {
       paddingBottom: keyboardOpen 
-        ? spacing.xs 
+        ? Platform.OS === 'web'
+          ? 'calc(var(--gc-keyboard-height, 0px) + 8px)' as any
+          : spacing.xs 
         : Platform.OS === 'web' 
           ? 'calc(env(safe-area-inset-bottom, 0px) + 8px)' as any
           : Math.max(insets.bottom, spacing.xs),

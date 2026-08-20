@@ -38,25 +38,13 @@ export function useVisualViewportHeight() {
     const sync = () => {
       const keyboardOpen = !!vv && window.innerHeight - vv.height > KEYBOARD_MIN_PX;
       if (vv && vv.height > 0 && keyboardOpen) {
-        const h = Math.round(vv.height);
-        document.documentElement.style.setProperty('--gc-app-height', `${h}px`);
+        const keyboardHeight = Math.round(window.innerHeight - vv.height);
+        document.documentElement.style.setProperty('--gc-keyboard-height', `${keyboardHeight}px`);
         const offset = Math.max(0, Math.round(vv.offsetTop));
-        document.documentElement.style.setProperty('--gc-app-offset', `${offset}px`);
-        const root = document.getElementById('root');
-        if (root) {
-          root.style.height = `${h}px`;
-          root.style.maxHeight = `${h}px`;
-          root.style.transform = offset ? `translateY(${offset}px)` : '';
-        }
+        document.documentElement.style.setProperty('--gc-keyboard-offset', `${offset}px`);
       } else {
-        document.documentElement.style.removeProperty('--gc-app-height');
-        document.documentElement.style.removeProperty('--gc-app-offset');
-        const root = document.getElementById('root');
-        if (root) {
-          root.style.height = '';
-          root.style.maxHeight = '';
-          root.style.transform = '';
-        }
+        document.documentElement.style.removeProperty('--gc-keyboard-height');
+        document.documentElement.style.removeProperty('--gc-keyboard-offset');
       }
       resetWindowScroll();
     };

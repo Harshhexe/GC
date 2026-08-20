@@ -98,11 +98,10 @@
         flex-direction: column;
         width: 100%;
         height: 100%;
-        height: var(--gc-app-height, 100dvh);
-        max-height: var(--gc-app-height, 100dvh);
-        /* Cancels the visual-viewport scroll iOS applies when the keyboard
-           lifts a focused input; see useVisualViewportHeight. */
-        transform: translateY(var(--gc-app-offset, 0px));
+        height: 100dvh;
+        max-height: 100dvh;
+        /* The visual viewport is now handled purely via CSS custom properties on
+           specific components (e.g. ChatScreen) instead of transforming the root */
         flex: 1;
         background-color: #030206;
         overflow: hidden;
