@@ -120,6 +120,7 @@ function Section({
   delay,
   onLayout,
   highlighted,
+  aiGenerated,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
@@ -129,6 +130,8 @@ function Section({
   delay: number;
   onLayout?: (event: LayoutChangeEvent) => void;
   highlighted?: boolean;
+  /** Marks the section's contents as model-written. See the chip below. */
+  aiGenerated?: boolean;
 }) {
   return (
     <Animated.View
@@ -154,7 +157,17 @@ function Section({
       >
         <View style={styles.cardHeader}>
           <Ionicons name={icon} size={18} color={iconColor} />
-          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardTitle} accessibilityRole="header">
+            {title}
+          </Text>
+          {/* Says outright that a model wrote this. The sparkles icon hinted at
+              it, but a hint isn't attribution — and these summaries can be
+              wrong in ways a human-written recap wouldn't be. */}
+          {aiGenerated && (
+            <View style={[styles.aiChip, { borderColor: `${iconColor}59` }]}>
+              <Text style={[styles.aiChipText, { color: iconColor }]}>AI</Text>
+            </View>
+          )}
           <View style={styles.spacer} />
           {trailing}
         </View>
@@ -574,14 +587,16 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
           style={styles.hero}
         >
-          <Text style={styles.heroTitle}>What I Missed</Text>
+          <Text style={styles.heroTitle} accessibilityRole="header">
+            What I Missed
+          </Text>
           <Text style={styles.heroSub}>
             Recap of the chaos while you were AFK.
           </Text>
         </Animated.View>
 
         {/* Segmented Control Track */}
-        <View style={styles.tabTrack}>
+        <View style={styles.tabTrack} accessibilityRole="tablist">
           {TABS.map((t) => {
             const isActive = activeTab === t.id;
             let badgeCount: string | undefined;
@@ -599,6 +614,13 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 scaleTo={0.97}
                 haptic="light"
                 onPress={() => handleTabChange(t.id)}
+                // Without these a screen reader announces three unlabelled
+                // buttons and never says which one is showing.
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={
+                  badgeCount ? `${t.label}, ${badgeCount} new` : t.label
+                }
                 style={[styles.tab, isActive && styles.tabActive]}
               >
                 <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
@@ -627,11 +649,41 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                   .easing(easing.out)
                   .reduceMotion(reduceMotion)}
               >
-                <GlassPanel borderRadius={radius.lg} style={styles.vibeCard}>
-                  <Text style={styles.vibeLabel}>DAILY VIBE CHECK</Text>
-                  <View style={styles.vibePill}>
+                <GlassPanel
+                  borderRadius={radius.lg}
+                  style={[styles.vibeCard, { borderColor: `${activeTheme.accent}3D` }]}
+                >
+                  {/* The screen's headline stat was rendering in flat grey,
+                      indistinguishable from the sections beneath it. It now
+                      carries the group's own colour, like every other themed
+                      surface in the app. */}
+                  <LinearGradient
+                    colors={[`${activeTheme.colors[0]}1A`, 'transparent']}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={[StyleSheet.absoluteFill, { borderRadius: radius.lg }]}
+                    pointerEvents="none"
+                  />
+
+                  <View style={styles.vibeLabelRow}>
+                    <Ionicons name="pulse" size={12} color={activeTheme.accent} />
+                    <Text style={[styles.vibeLabel, { color: activeTheme.accent }]}>
+                      DAILY VIBE CHECK
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.vibePill,
+                      {
+                        borderColor: `${activeTheme.accent}4D`,
+                        backgroundColor: `${activeTheme.colors[0]}1F`,
+                      },
+                    ]}
+                  >
                     <Text style={styles.vibeValue}>{recap.vibe.label}</Text>
                   </View>
+
                   <Text style={styles.vibeDetail}>{recap.vibe.detail}</Text>
                 </GlassPanel>
               </Animated.View>
@@ -641,6 +693,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 icon="sparkles"
                 iconColor={activeTheme.accent}
                 title="What You Missed"
+                aiGenerated
                 delay={STAGGER_MS * 2}
                 trailing={
                   <PressableScale
@@ -649,6 +702,12 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                     haptic="medium"
                     onPress={handleCatchUp}
                     disabled={ai.loading}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: ai.loading, busy: ai.loading }}
+                    accessibilityLabel={
+                      ai.loading ? 'Generating recap' : 'Catch up, regenerate the AI recap'
+                    }
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                   >
                     <LinearGradient
                       colors={
@@ -807,6 +866,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 icon="cafe"
                 iconColor={colors.yellow}
                 title="Today's Tea"
+                aiGenerated
                 delay={STAGGER_MS}
                 trailing={
                   todaysTea.sessions.length > 0 ? (
@@ -862,6 +922,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 icon="trophy"
                 iconColor={colors.yellow}
                 title="GC Awards"
+                aiGenerated
                 delay={STAGGER_MS * 1.5}
               >
                 {weeklyAwards.loading ? (
@@ -1187,7 +1248,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 7,
+    // 44pt minimum, less the 3px padding on the track either side.
+    minHeight: 38,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: radius.pill,
     gap: 6,
@@ -1234,26 +1297,56 @@ const styles = StyleSheet.create({
   tabBadgeTextActive: {
     color: '#FFFFFF',
   },
-  scroll: { padding: CONTAINER_MARGIN, paddingTop: spacing.xs, paddingBottom: spacing.section + 40, gap: spacing.lg },
-  vibeCard: { padding: spacing.lg, alignItems: 'center', gap: spacing.sm },
-  vibeLabel: { ...typography.label, fontSize: 11, color: colors.tertiary, letterSpacing: 1 },
+  scroll: {
+    padding: CONTAINER_MARGIN,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.section + 40,
+    gap: spacing.lg,
+    // Prose-heavy screen: capped and centred so paragraphs stay near the
+    // 65-75 character measure instead of running the full width of a tablet
+    // or the desktop shell's pane.
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+  },
+  vibeCard: {
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  vibeLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  vibeLabel: { ...typography.label, fontSize: 11, letterSpacing: 1 },
   vibePill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: radius.pill,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     width: '100%',
   },
-  vibeValue: { ...typography.titleMd, fontSize: 17, color: colors.onSurface, textAlign: 'center' },
-  vibeDetail: { ...typography.micro, color: colors.outline, textAlign: 'center' },
+  vibeValue: {
+    ...typography.titleMd,
+    fontSize: 19,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  vibeDetail: { ...typography.micro, color: colors.textMuted, textAlign: 'center' },
   card: { padding: spacing.lg },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   cardTitle: { ...typography.title, fontSize: 18, color: colors.onSurface },
   spacer: { flex: 1 },
   divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.06)', marginVertical: spacing.md },
   aiBody: { gap: spacing.lg },
+  aiChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    marginLeft: 2,
+  },
+  aiChipText: { ...typography.micro, fontSize: 9, fontWeight: '800', letterSpacing: 0.6 },
   recapCard: {
     gap: spacing.md,
     paddingBottom: spacing.lg,
@@ -1262,7 +1355,7 @@ const styles = StyleSheet.create({
   },
   recapCardLast: { paddingBottom: 0, borderBottomWidth: 0 },
   recapCardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  recapTime: { ...typography.micro, color: colors.outline, paddingTop: 4 },
+  recapTime: { ...typography.micro, color: colors.textMuted, paddingTop: 4 },
   aiHeadline: { ...typography.title, fontSize: 20, color: colors.onSurface, flex: 1 },
   aiSummary: { ...typography.body, color: colors.onSurfaceVariant, lineHeight: 21 },
   highlight: {
@@ -1278,7 +1371,7 @@ const styles = StyleSheet.create({
   highlightBody: { ...typography.body, color: colors.onSurface, lineHeight: 20 },
   viewMessage: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
   viewMessageText: { ...typography.label, fontSize: 11 },
-  aiFootnote: { ...typography.micro, color: colors.outline, fontStyle: 'italic' },
+  aiFootnote: { ...typography.micro, color: colors.textMuted, fontStyle: 'italic' },
   dailyList: { gap: spacing.sm },
   dailyRow: {
     flexDirection: 'row',
@@ -1337,7 +1430,7 @@ const styles = StyleSheet.create({
   },
   statLabel: { ...typography.label, color: colors.secondary },
   statValue: { ...typography.title, fontSize: 24, color: colors.onSurface },
-  statMeta: { ...typography.micro, color: colors.outline },
+  statMeta: { ...typography.micro, color: colors.textMuted },
   countBadge: {
     minWidth: 26,
     height: 26,
@@ -1348,7 +1441,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   countBadgeText: { ...typography.label, color: colors.onSecondary },
-  emptyMentions: { ...typography.body, color: colors.outline },
+  emptyMentions: { ...typography.body, color: colors.textMuted },
   // Sits above the recap stack, so it needs its own edges rather than relying
   // on the empty state's padding.
   serverNote: {
@@ -1378,7 +1471,7 @@ const styles = StyleSheet.create({
   },
   mentionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   mentionName: { ...typography.label, fontSize: 13 },
-  mentionTime: { ...typography.micro, color: colors.outline },
+  mentionTime: { ...typography.micro, color: colors.textMuted },
   mentionText: { ...typography.body, color: colors.onSurfaceVariant },
   missedCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',

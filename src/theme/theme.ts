@@ -17,6 +17,14 @@ export const colors = {
 
   onSurface: '#F3F4F6',
   onSurfaceVariant: '#9CA3AF',
+  /**
+   * Muted body text that still clears WCAG AA (4.5:1) on every surface in the
+   * app. `outline` is dimmer and reads as the natural choice for de-emphasised
+   * copy, but it measures ~3.3-3.8:1 against the card fills these screens use —
+   * the gray-on-gray trap. Reach for this for secondary *text*; keep `outline`
+   * for borders, dividers and disabled states, where the rule doesn't apply.
+   */
+  textMuted: '#8A92A0',
   outline: '#6B7280',
   outlineVariant: '#374151',
 

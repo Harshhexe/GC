@@ -804,17 +804,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   groupNameUnread: { color: '#FFFFFF', fontWeight: '800' },
-  time: { ...typography.caption, fontSize: 11.5, fontWeight: '600', color: '#7C8494' },
+  time: { ...typography.caption, fontSize: 11.5, fontWeight: '600', color: colors.textMuted },
   cardMessageRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  /* Read rows recede, but only as far as AA allows. colors.outline (#6B7280)
-     was the natural "dimmer" token and measured 3.79:1 against the card — the
-     gray-on-gray trap. This is the dimmest grey that still clears 4.5:1 here. */
-  lastMessage: { ...typography.body, fontSize: 13.5, color: '#7C8494', flex: 1 },
+  /* Read rows recede, but only as far as AA allows — colors.outline measured
+     3.79:1 against this card. See colors.textMuted. */
+  lastMessage: { ...typography.body, fontSize: 13.5, color: colors.textMuted, flex: 1 },
   lastMessageUnread: { color: colors.onSurfaceVariant },
   lastMessageDead: { color: colors.outline },
   lastMessageAuthor: { fontWeight: '600', color: colors.onSurface },
