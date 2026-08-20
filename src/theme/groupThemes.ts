@@ -188,3 +188,41 @@ export function usePersonalGroupTheme(groupId: string, fallbackThemeKey?: string
   const updateTheme = useCallback((key: GroupThemeKey) => update({ themeKey: key }), [update]);
   return { theme, themeKey, updateTheme };
 }
+
+/**
+ * Flattens a translucent tint into the solid colour it *appears* as over the
+ * chat's dark background.
+ *
+ * Opaque bubbles can't just use the raw theme colours: those are bright brand
+ * hues meant to be seen at ~25-35% over near-black, and at full strength they
+ * turn the bubble light — at which point white body text, accent-coloured
+ * @mentions and timestamps all wash out, since every one of them is designed
+ * for a dark fill.
+ *
+ * Compositing the same tint at the same alpha over the base instead means an
+ * opaque bubble is the exact colour a translucent one already reads as, so
+ * contrast is unchanged and the only difference is what it was asked to be:
+ * the wallpaper no longer shows through.
+ */
+export function flattenTint(hex: string, alpha: number, base = '#0A0A0F'): string {
+  const parse = (value: string) => {
+    const clean = value.replace('#', '');
+    const full =
+      clean.length === 3
+        ? clean.split('').map((c) => c + c).join('')
+        : clean.slice(0, 6);
+    const n = parseInt(full, 16);
+    return Number.isNaN(n) ? [0, 0, 0] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+
+  const [fr, fg, fb] = parse(hex);
+  const [br, bg, bb] = parse(base);
+  const mix = (f: number, b: number) => Math.round(f * alpha + b * (1 - alpha));
+
+  return `#${[mix(fr, br), mix(fg, bg), mix(fb, bb)]
+    .map((c) => c.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/** The alphas the translucent bubble uses, so both modes stay in step. */
+export const BUBBLE_ALPHA = { mineTop: 0.35, mineBottom: 0.24, theirs: 0.05 } as const;

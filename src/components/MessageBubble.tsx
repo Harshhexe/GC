@@ -17,7 +17,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, glass, radius, shadows, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
-import { type BubbleStyle, GroupTheme, groupTheme } from '../theme/groupThemes';
+import {
+  BUBBLE_ALPHA,
+  type BubbleStyle,
+  GroupTheme,
+  flattenTint,
+  groupTheme,
+} from '../theme/groupThemes';
 import { Message } from '../types';
 import { clockTime } from '../utils/time';
 import type { Reader } from '../hooks/useReadReceipts';
@@ -325,7 +331,10 @@ function MessageBubbleImpl({
                   <LinearGradient
                     colors={
                       opaque
-                        ? [theme.colors[0], theme.colors[1]]
+                        ? [
+                            flattenTint(theme.colors[0], BUBBLE_ALPHA.mineTop),
+                            flattenTint(theme.colors[1], BUBBLE_ALPHA.mineBottom),
+                          ]
                         : [`${theme.colors[0]}59`, `${theme.colors[1]}3D`]
                     }
                     start={{ x: 0, y: 0 }}
@@ -333,7 +342,7 @@ function MessageBubbleImpl({
                     style={[
                       styles.bubble,
                       styles.bubbleMine,
-                      { borderColor: opaque ? theme.colors[0] : `${theme.accent}8C` },
+                      { borderColor: `${theme.accent}8C` },
                       isMessageOfTheDay && styles.bubbleMotd,
                       !!message.media && styles.bubbleMedia,
                     ]}
@@ -608,8 +617,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.sm,
   },
   bubbleTheirsOpaque: {
-    backgroundColor: colors.surfaceHigh,
-    borderColor: colors.outlineVariant,
+    backgroundColor: flattenTint('#FFFFFF', BUBBLE_ALPHA.theirs),
   },
   bubbleDeleted: {
     backgroundColor: 'transparent',

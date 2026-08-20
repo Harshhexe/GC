@@ -5,9 +5,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import {
+  BUBBLE_ALPHA,
   GROUP_THEMES,
   type BubbleStyle,
   type ChatAppearance,
+  flattenTint,
   type GroupThemeKey,
 } from '../theme/groupThemes';
 import { PressableScale } from './ui/PressableScale';
@@ -106,20 +108,44 @@ export function ChatThemeSheet({
                       active && { borderColor: theme?.accent ?? colors.primary },
                     ]}
                   >
-                    {/* A miniature of the real bubble, so the difference is
-                        visible rather than described. */}
-                    <View
-                      style={[
-                        styles.bubblePreview,
-                        option.key === 'opaque'
-                          ? { backgroundColor: theme?.colors[0] ?? colors.primaryContainer }
-                          : {
-                              backgroundColor: `${theme?.colors[0] ?? colors.primary}59`,
-                              borderWidth: 1,
-                              borderColor: `${theme?.accent ?? colors.primary}8C`,
-                            },
-                      ]}
-                    />
+                    {/* A miniature of the real bubble sitting on a patterned
+                        strip. The two fills are the same colour by design —
+                        opaque is the flattened translucent look — so the only
+                        honest way to show the difference is over a background
+                        the translucent one lets through. Uses the actual
+                        wallpaper when there is one. */}
+                    <View style={styles.bubblePreviewStage}>
+                      {appearance.wallpaperUri ? (
+                        <Image
+                          source={appearance.wallpaperUri}
+                          style={StyleSheet.absoluteFill}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                        />
+                      ) : (
+                        <LinearGradient
+                          colors={['#4B5563', '#111827']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                      )}
+                      <View
+                        style={[
+                          styles.bubblePreview,
+                          {
+                            borderColor: `${theme?.accent ?? colors.primary}8C`,
+                            backgroundColor:
+                              option.key === 'opaque'
+                                ? flattenTint(
+                                    theme?.colors[0] ?? colors.primary,
+                                    BUBBLE_ALPHA.mineTop
+                                  )
+                                : `${theme?.colors[0] ?? colors.primary}59`,
+                          },
+                        ]}
+                      />
+                    </View>
                     <Text style={styles.bubbleLabel}>{option.label}</Text>
                     <Text style={styles.bubbleCaption}>{option.caption}</Text>
                     {active && (
@@ -280,11 +306,20 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surfaceHigh,
   },
+  bubblePreviewStage: {
+    width: '100%',
+    height: 52,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
   bubblePreview: {
     width: 58,
     height: 26,
     borderRadius: radius.md,
-    marginBottom: spacing.xs + 2,
+    borderWidth: 1,
   },
   bubbleLabel: { ...typography.label, fontSize: 13, color: colors.onSurface },
   bubbleCaption: { ...typography.caption, fontSize: 11, color: colors.textFaint },
