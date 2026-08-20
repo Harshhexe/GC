@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState, memo } from 'react';
-import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
   DOCK_HEIGHT,
@@ -221,6 +227,7 @@ const GroupCard = memo(function GroupCardImpl({
   onCrew: (group: Group) => void;
 }) {
   const dead = isDeadChat(group);
+  const unread = group.unreadCount > 0;
   const { theme } = usePersonalGroupTheme(group.id, group.theme);
   // These three handlers are passed the same stable reference for every row
   // (bound in the parent with useCallback), so this memo() actually holds —
@@ -233,7 +240,10 @@ const GroupCard = memo(function GroupCardImpl({
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(index * STAGGER_MS)
+      // Capped: this is a virtualized list, so a row mounting at index 40
+      // would otherwise sit invisible for 40 × STAGGER_MS after you scrolled
+      // to it. The stagger is only meant to dress the first screenful.
+      entering={FadeInDown.delay(Math.min(index, 6) * STAGGER_MS)
         .duration(duration.slow)
         .easing(easing.out)
         .reduceMotion(reduceMotion)}
@@ -244,28 +254,33 @@ const GroupCard = memo(function GroupCardImpl({
         style={[
           styles.themedCard,
           {
-            borderColor: `${theme.accent}3D`,
-            backgroundColor: 'rgba(18, 15, 28, 0.72)',
+            // Unread is the one thing this list exists to surface, so it drives
+            // border, fill and glow together rather than being left to a 20px
+            // badge. Read rows deliberately recede.
+            borderColor: unread ? `${theme.accent}66` : `${theme.accent}1F`,
+            backgroundColor: unread ? 'rgba(24, 20, 38, 0.82)' : 'rgba(16, 14, 24, 0.62)',
           },
+          unread && { shadowColor: theme.accent, ...styles.unreadGlow },
         ]}
       >
-        {/* Themed Ambient Diffused Gradient inside Card */}
+        {/* One diagonal wash instead of the two stacked full-bleed gradients
+            this had before: they read as a single tint anyway, and every extra
+            translucent layer is another full-card composite per row. */}
         <LinearGradient
-          colors={[`${theme.colors[0]}22`, `${theme.colors[1]}08`, 'transparent']}
+          colors={
+            unread
+              ? [`${theme.colors[0]}2E`, `${theme.colors[1]}0F`, 'transparent']
+              : [`${theme.colors[0]}14`, 'transparent']
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
           pointerEvents="none"
         />
 
-        {/* Top-Right Ambient Accent Glow */}
-        <LinearGradient
-          colors={[`${theme.accent}14`, 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0.2, y: 0.8 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
-          pointerEvents="none"
-        />
+        {/* Unread rail — a single glance down the left edge tells you which
+            chats are waiting, without reading a word. */}
+        {unread && <View style={[styles.unreadRail, { backgroundColor: theme.accent }]} />}
 
         <PressableScale style={styles.cardTop} scaleTo={0.985} onPress={handleOpen}>
           <Avatar
@@ -273,23 +288,37 @@ const GroupCard = memo(function GroupCardImpl({
             label={group.name}
             ringColors={theme.colors}
             size={56}
+            glow={unread}
             status={dead ? 'offline' : 'online'}
           />
 
           <View style={styles.cardCopy}>
             <View style={styles.cardTitleRow}>
-              <Text style={styles.groupName} numberOfLines={1}>
+              <Text
+                style={[styles.groupName, unread && styles.groupNameUnread]}
+                numberOfLines={1}
+              >
                 {group.name}
               </Text>
               {!!group.lastMessageAt && (
-                <Text style={[styles.time, { color: theme.accent }]}>
+                // Muted unless there is something waiting: the accent is the
+                // unread signal, and spending it on every timestamp is what
+                // made the old list read as uniformly loud.
+                <Text style={[styles.time, unread && { color: theme.accent }]}>
                   {timeAgo(group.lastMessageAt)}
                 </Text>
               )}
             </View>
 
             <View style={styles.cardMessageRow}>
-              <Text style={[styles.lastMessage, dead && styles.lastMessageDead]} numberOfLines={2}>
+              <Text
+                style={[
+                  styles.lastMessage,
+                  unread && styles.lastMessageUnread,
+                  dead && styles.lastMessageDead,
+                ]}
+                numberOfLines={2}
+              >
                 {dead ? (
                   'Chat has been quiet for a while'
                 ) : group.lastMessage ? (
@@ -304,7 +333,12 @@ const GroupCard = memo(function GroupCardImpl({
                 )}
               </Text>
               {group.unreadCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: theme.accent, shadowColor: theme.accent },
+                  ]}
+                >
                   <Text style={styles.badgeText}>
                     {group.unreadCount > 99 ? '99+' : group.unreadCount}
                   </Text>
@@ -316,7 +350,15 @@ const GroupCard = memo(function GroupCardImpl({
 
         {/* Action Row with Dynamic Live Pill Badge and Crew Button */}
         <View style={styles.actionRow}>
-          <PressableScale style={styles.dynamicBadgeWrap} haptic="medium" scaleTo={0.94} onPress={badge.onPress}>
+          <PressableScale
+            style={styles.dynamicBadgeWrap}
+            haptic="medium"
+            scaleTo={0.94}
+            // Pills are ~32px tall by design; hitSlop is what actually brings
+            // the tappable area up to the 44px minimum without bloating them.
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            onPress={badge.onPress}
+          >
             <LinearGradient
               colors={badge.gradient}
               start={{ x: 0, y: 0 }}
@@ -338,6 +380,7 @@ const GroupCard = memo(function GroupCardImpl({
               { backgroundColor: `${theme.accent}14`, borderColor: `${theme.accent}33` },
             ]}
             scaleTo={0.94}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
             onPress={handleCrew}
           >
             <Ionicons name="people-outline" size={14} color={theme.accent} />
@@ -349,6 +392,48 @@ const GroupCard = memo(function GroupCardImpl({
     </Animated.View>
   );
 });
+
+/**
+ * Placeholder rows shown while the list loads.
+ *
+ * Preferred over a centred spinner because it occupies the same space the real
+ * cards will, so the screen doesn't jump when data lands, and it communicates
+ * "a list is coming" rather than "something is happening".
+ */
+function GroupCardSkeleton({ index }: { index: number }) {
+  const pulse = useSharedValue(0.5);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      // reduceMotion is passed through: this loops indefinitely, which is
+      // exactly the kind of motion people disable it for.
+      withTiming(1, { duration: 900, easing: easing.inOut, reduceMotion }),
+      -1,
+      true
+    );
+  }, [pulse]);
+
+  const shimmer = useAnimatedStyle(() => ({ opacity: pulse.value }));
+
+  return (
+    <Animated.View
+      style={[styles.cardWrap, shimmer]}
+      // Decorative only: screen readers get the one status message below.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <GlassPanel borderRadius={radius.xl} style={styles.skeletonCard}>
+        <View style={styles.cardTop}>
+          <View style={styles.skeletonAvatar} />
+          <View style={styles.cardCopy}>
+            <View style={[styles.skeletonLine, { width: index % 2 ? '46%' : '62%' }]} />
+            <View style={[styles.skeletonLine, styles.skeletonLineThin, { width: '86%' }]} />
+          </View>
+        </View>
+      </GlassPanel>
+    </Animated.View>
+  );
+}
 
 export default function GroupListScreen({ navigation }: Props) {
   const { session } = useAuth();
@@ -365,6 +450,18 @@ export default function GroupListScreen({ navigation }: Props) {
       refetch();
     }, [refetch])
   );
+
+  // Pulling to refresh is the gesture people already try on a chat list; the
+  // data layer was only ever refreshed on focus before.
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   const totalUnread = groups.reduce((sum, g) => sum + g.unreadCount, 0);
   useEffect(() => {
@@ -472,7 +569,11 @@ export default function GroupListScreen({ navigation }: Props) {
         )}
 
         {loading ? (
-          <EmptyState icon="hourglass-outline" text="Loading your group chats..." iconColor={colors.primary} />
+          <View style={styles.list} accessibilityLabel="Loading your group chats">
+            {[0, 1, 2, 3].map((i) => (
+              <GroupCardSkeleton key={i} index={i} />
+            ))}
+          </View>
         ) : groups.length === 0 ? (
           <View style={styles.emptyContainer}>
             <EmptyState
@@ -488,6 +589,15 @@ export default function GroupListScreen({ navigation }: Props) {
             renderItem={renderGroupItem}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+                progressBackgroundColor={colors.surface}
+              />
+            }
             removeClippedSubviews={Platform.OS !== 'web'}
             initialNumToRender={8}
             maxToRenderPerBatch={8}
@@ -636,9 +746,42 @@ const styles = StyleSheet.create({
   },
   permText: { ...typography.bodyMedium, fontSize: 13, color: colors.onSurface, flex: 1 },
   cardWrap: { width: '100%' },
+  skeletonCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(16, 14, 24, 0.62)',
+    overflow: 'hidden',
+  },
+  skeletonAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  skeletonLine: {
+    height: 12,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  skeletonLineThin: { height: 10, backgroundColor: 'rgba(255, 255, 255, 0.05)' },
   themedCard: {
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  /* Colour-matched rather than black, so the lift reads as the group's own
+     accent catching light instead of a drop shadow. */
+  unreadGlow: {
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  unreadRail: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
   },
   cardTop: {
     flexDirection: 'row',
@@ -653,26 +796,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  groupName: { ...typography.title, fontSize: 17, fontWeight: '700', color: colors.onSurface, flex: 1 },
-  time: { ...typography.caption, fontSize: 11.5, fontWeight: '600' },
+  groupName: {
+    ...typography.title,
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    flex: 1,
+  },
+  groupNameUnread: { color: '#FFFFFF', fontWeight: '800' },
+  time: { ...typography.caption, fontSize: 11.5, fontWeight: '600', color: '#7C8494' },
   cardMessageRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  lastMessage: { ...typography.body, fontSize: 13.5, color: colors.onSurfaceVariant, flex: 1 },
+  /* Read rows recede, but only as far as AA allows. colors.outline (#6B7280)
+     was the natural "dimmer" token and measured 3.79:1 against the card — the
+     gray-on-gray trap. This is the dimmest grey that still clears 4.5:1 here. */
+  lastMessage: { ...typography.body, fontSize: 13.5, color: '#7C8494', flex: 1 },
+  lastMessageUnread: { color: colors.onSurfaceVariant },
   lastMessageDead: { color: colors.outline },
   lastMessageAuthor: { fontWeight: '600', color: colors.onSurface },
   badge: {
-    minWidth: 20,
-    height: 20,
+    minWidth: 22,
+    height: 22,
     borderRadius: radius.pill,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
   },
-  badgeText: { ...typography.micro, fontSize: 10, color: '#FFFFFF', fontWeight: '700' },
+  badgeText: { ...typography.micro, fontSize: 11, color: '#FFFFFF', fontWeight: '800' },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -687,8 +844,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderRadius: radius.pill,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: glass.strokeBright,
   },
@@ -698,8 +855,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderRadius: radius.pill,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
     borderWidth: 1,
   },
   crewText: { ...typography.label, fontSize: 12, fontWeight: '600' },
