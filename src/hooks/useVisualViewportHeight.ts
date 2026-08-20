@@ -38,27 +38,25 @@ export function useVisualViewportHeight() {
     const sync = () => {
       const keyboardOpen = !!vv && window.innerHeight - vv.height > KEYBOARD_MIN_PX;
       if (vv && vv.height > 0 && keyboardOpen) {
-        document.documentElement.style.setProperty('--gc-app-height', `${vv.height}px`);
-        // WebKit scrolls the *visual* viewport (not the layout one) to lift a
-        // focused input clear of the keyboard. #root is position:fixed, which
-        // is laid out against the layout viewport, so that scroll drags the
-        // whole app upward and the composer ends up under the keyboard —
-        // exactly what happens when the reply preview grows the composer while
-        // the keyboard is still animating in. resetWindowScroll() can't see
-        // this; offsetTop is the only signal, and shifting #root down by it
-        // puts the app back inside the visible area.
+        const h = Math.round(vv.height);
+        document.documentElement.style.setProperty('--gc-app-height', `${h}px`);
         const offset = Math.max(0, Math.round(vv.offsetTop));
         document.documentElement.style.setProperty('--gc-app-offset', `${offset}px`);
-        // Applied to the node directly as well as through the variable: the
-        // service worker can still be serving a cached index.html whose #root
-        // rule has no transform in it.
         const root = document.getElementById('root');
-        if (root) root.style.transform = offset ? `translateY(${offset}px)` : '';
+        if (root) {
+          root.style.height = `${h}px`;
+          root.style.maxHeight = `${h}px`;
+          root.style.transform = offset ? `translateY(${offset}px)` : '';
+        }
       } else {
         document.documentElement.style.removeProperty('--gc-app-height');
         document.documentElement.style.removeProperty('--gc-app-offset');
         const root = document.getElementById('root');
-        if (root) root.style.transform = '';
+        if (root) {
+          root.style.height = '';
+          root.style.maxHeight = '';
+          root.style.transform = '';
+        }
       }
       resetWindowScroll();
     };
