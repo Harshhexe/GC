@@ -58,6 +58,7 @@ function MessageBubbleImpl({
   readers,
   tint,
   bubbleStyle = 'translucent',
+  onWallpaper = false,
   highlighted,
   selectMode,
   selected,
@@ -90,6 +91,9 @@ function MessageBubbleImpl({
   tint?: GroupTheme;
   /** Glass or solid fill — a personal readability choice, set per group. */
   bubbleStyle?: BubbleStyle;
+  /** Whether a custom wallpaper is behind the transcript. Translucent bubbles
+   *  need a dark backing there — see WALLPAPER_BACKING. */
+  onWallpaper?: boolean;
   /** Briefly true right after a "jump to original" lands here. */
   highlighted?: boolean;
   selectMode?: boolean;
@@ -121,6 +125,9 @@ function MessageBubbleImpl({
   const mine = message.isMine;
   const theme = tint ?? groupTheme('violet');
   const opaque = bubbleStyle === 'opaque';
+  // Only translucent fills need this: an opaque one already blocks whatever is
+  // behind it, so there is nothing to guard against.
+  const backing = onWallpaper && !opaque;
   const hasCaption = message.text.trim().length > 0;
   const detectedUrl = useMemo(() => extractFirstUrl(message.text), [message.text]);
 
@@ -309,7 +316,15 @@ function MessageBubbleImpl({
             )}
 
             {!mine && showAuthor !== false && (
-              <Text style={[styles.author, { color: message.authorColor }]}>{message.authorName}</Text>
+              <Text
+                style={[
+                  styles.author,
+                  { color: message.authorColor },
+                  onWallpaper && styles.textHaloOnWallpaper,
+                ]}
+              >
+                {message.authorName}
+              </Text>
             )}
 
             <PressableScale
@@ -342,7 +357,10 @@ function MessageBubbleImpl({
                     style={[
                       styles.bubble,
                       styles.bubbleMine,
-                      { borderColor: `${theme.accent}8C` },
+                      {
+                        borderColor: `${theme.accent}8C`,
+                        ...(backing ? { backgroundColor: WALLPAPER_BACKING.mine } : null),
+                      },
                       isMessageOfTheDay && styles.bubbleMotd,
                       !!message.media && styles.bubbleMedia,
                     ]}
@@ -393,6 +411,7 @@ function MessageBubbleImpl({
                       styles.bubble,
                       styles.bubbleTheirs,
                       opaque && styles.bubbleTheirsOpaque,
+                      backing && styles.bubbleTheirsOnWallpaper,
                       isMessageOfTheDay && styles.bubbleMotd,
                       deleted && styles.bubbleDeleted,
                       !!message.media && !deleted && styles.bubbleMedia,
@@ -459,8 +478,16 @@ function MessageBubbleImpl({
 
             {!deleted && (showTimestamp || message.reactions.length > 0 || message.editedAt) && (
               <View style={[styles.metaRow, mine && styles.metaRowMine]}>
-                {showTimestamp && <Text style={styles.time}>{clockTime(message.createdAt)}</Text>}
-                {!!message.editedAt && <Text style={styles.editedTag}>edited</Text>}
+                {showTimestamp && (
+                  <Text style={[styles.time, onWallpaper && styles.metaOnWallpaper]}>
+                    {clockTime(message.createdAt)}
+                  </Text>
+                )}
+                {!!message.editedAt && (
+                  <Text style={[styles.editedTag, onWallpaper && styles.metaOnWallpaper]}>
+                    edited
+                  </Text>
+                )}
                 {message.reactions.map((r) => (
                   <ReactionPill key={r.emoji} reaction={r} onPress={() => onToggleReaction(message, r.emoji)} />
                 ))}
@@ -479,7 +506,9 @@ function MessageBubbleImpl({
                     style={[styles.seenRow, mine && styles.seenRowMine]}
                   >
                     {showSeenText ? (
-                      <Text style={styles.seenText}>Seen by {names}</Text>
+                      <Text style={[styles.seenText, onWallpaper && styles.metaOnWallpaper]}>
+                        Seen by {names}
+                      </Text>
                     ) : (
                       <>
                         {otherReaders.slice(0, 5).map((r, i) => (
@@ -520,6 +549,7 @@ function arePropsEqual(prev: any, next: any) {
     prev.readers === next.readers &&
     prev.tint === next.tint &&
     prev.bubbleStyle === next.bubbleStyle &&
+    prev.onWallpaper === next.onWallpaper &&
     prev.highlighted === next.highlighted &&
     prev.selectMode === next.selectMode &&
     prev.selected === next.selected &&
@@ -538,6 +568,19 @@ function arePropsEqual(prev: any, next: any) {
 }
 
 export const MessageBubble = memo(MessageBubbleImpl, arePropsEqual);
+
+/**
+ * Dark under-layer for translucent bubbles sitting on a custom wallpaper.
+ *
+ * Kept translucent so the photo still reads through the bubble — the point is
+ * to bound how *light* the backdrop behind the text can get, not to hide the
+ * wallpaper. Own bubbles sit slightly darker because a colour tint goes on top
+ * of them as well.
+ */
+const WALLPAPER_BACKING = {
+  mine: 'rgba(10, 10, 15, 0.72)',
+  theirs: 'rgba(10, 10, 15, 0.66)',
+} as const;
 
 const styles = StyleSheet.create({
   rowOuter: { justifyContent: 'center' },
@@ -616,6 +659,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderBottomLeftRadius: radius.sm,
   },
+  // A 5% white wash reads as a bubble over the app's near-black background,
+  // but over a bright photo it is invisible and leaves the text sitting
+  // directly on the wallpaper. These darken the fill instead of lightening it,
+  // which is the only way to keep white text legible over an arbitrary image.
+  bubbleTheirsOnWallpaper: {
+    backgroundColor: WALLPAPER_BACKING.theirs,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
   bubbleTheirsOpaque: {
     backgroundColor: flattenTint('#FFFFFF', BUBBLE_ALPHA.theirs),
   },
@@ -659,6 +710,28 @@ const styles = StyleSheet.create({
   },
   metaRowMine: { justifyContent: 'flex-end' },
   time: { ...typography.micro, fontSize: 11, color: colors.outline },
+  /*
+   * The meta row (time, "edited", seen-by) sits *outside* the bubble, so the
+   * bubble's dark backing does nothing for it — this text lands straight on
+   * the wallpaper. At the usual muted grey it measures 1.49:1 against a bright
+   * photo, i.e. invisible.
+   *
+   * Brightening alone isn't enough either: white on a white photo is only
+   * 2.7:1. The dark halo is what actually guarantees an edge, because it is
+   * drawn per-glyph regardless of what the photo does behind it — the standard
+   * treatment for small text over arbitrary imagery.
+   */
+  textHaloOnWallpaper: {
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  metaOnWallpaper: {
+    color: 'rgba(255, 255, 255, 0.92)',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   editedTag: { ...typography.micro, fontSize: 11, color: colors.outline, fontStyle: 'italic' },
 
   seenRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3, marginHorizontal: spacing.xs },

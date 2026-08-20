@@ -1748,8 +1748,8 @@ export default function ChatScreen({ route, navigation }: Props) {
           <View nativeID={`msg-${item.id}`}>
             {newDay && (
               <View style={styles.dayRow}>
-                <Chip style={styles.dayChip}>
-                  <Text style={styles.dayText}>{dayLabel(item.createdAt)}</Text>
+                <Chip style={[styles.dayChip, !!wallpaperUri && styles.dayChipOnWallpaper]}>
+                  <Text style={[styles.dayText, !!wallpaperUri && styles.dayTextOnWallpaper]}>{dayLabel(item.createdAt)}</Text>
                 </Chip>
               </View>
             )}
@@ -1775,8 +1775,8 @@ export default function ChatScreen({ route, navigation }: Props) {
           <View nativeID={`msg-${item.id}`}>
             {newDay && (
               <View style={styles.dayRow}>
-                <Chip style={styles.dayChip}>
-                  <Text style={styles.dayText}>{dayLabel(item.createdAt)}</Text>
+                <Chip style={[styles.dayChip, !!wallpaperUri && styles.dayChipOnWallpaper]}>
+                  <Text style={[styles.dayText, !!wallpaperUri && styles.dayTextOnWallpaper]}>{dayLabel(item.createdAt)}</Text>
                 </Chip>
               </View>
             )}
@@ -1793,8 +1793,8 @@ export default function ChatScreen({ route, navigation }: Props) {
         <View nativeID={`msg-${item.id}`}>
           {newDay && (
             <View style={styles.dayRow}>
-              <Chip style={styles.dayChip}>
-                <Text style={styles.dayText}>{dayLabel(item.createdAt)}</Text>
+              <Chip style={[styles.dayChip, !!wallpaperUri && styles.dayChipOnWallpaper]}>
+                <Text style={[styles.dayText, !!wallpaperUri && styles.dayTextOnWallpaper]}>{dayLabel(item.createdAt)}</Text>
               </Chip>
             </View>
           )}
@@ -1802,7 +1802,13 @@ export default function ChatScreen({ route, navigation }: Props) {
           {isFirstUnread && unreadCount > 0 && (
             <View nativeID={UNREAD_DIVIDER_ID} style={styles.unreadRow}>
               <View style={[styles.unreadLine, { backgroundColor: `${theme.accent}66` }]} />
-              <Text style={[styles.unreadText, { color: theme.accent }]}>
+              <Text
+                style={[
+                  styles.unreadText,
+                  { color: theme.accent },
+                  !!wallpaperUri && styles.textHaloOnWallpaper,
+                ]}
+              >
                 {unreadCount} unread message{unreadCount === 1 ? '' : 's'}
               </Text>
               <View style={[styles.unreadLine, { backgroundColor: `${theme.accent}66` }]} />
@@ -1819,6 +1825,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             readers={readersByMessage.get(item.id)}
             tint={theme}
             bubbleStyle={bubbleStyle}
+            onWallpaper={!!wallpaperUri}
             highlighted={item.id === highlightedId}
             selectMode={selectMode}
             selected={selectedIds.has(item.id)}
@@ -1845,6 +1852,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       unreadCount,
       theme,
       bubbleStyle,
+      wallpaperUri,
       motdId,
       pinnedIds,
       readersByMessage,
@@ -2563,6 +2571,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   dayText: { ...typography.label, color: colors.onSurfaceVariant, fontSize: 11 },
+  // Same problem as the bubbles: a translucent *white* chip disappears over a
+  // bright wallpaper. Darkening keeps the divider readable whatever the photo.
+  dayChipOnWallpaper: {
+    backgroundColor: 'rgba(10, 10, 15, 0.66)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  dayTextOnWallpaper: { color: 'rgba(255, 255, 255, 0.92)' },
+  textHaloOnWallpaper: {
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
 
   unreadRow: {
     flexDirection: 'row',
