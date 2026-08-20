@@ -260,6 +260,138 @@ export function supportsWebCamera(): boolean {
 }
 
 /**
+ * Web-only: turn a dropped or pasted File object into a PendingAttachment.
+ */
+export async function fromWebFile(file: File): Promise<PickResult> {
+  const mime = file.type || 'application/octet-stream';
+  const isVideo = mime.startsWith('video/') || /\.(mov|mp4|m4v|webm|avi|mkv)$/i.test(file.name);
+  const isGif = mime === 'image/gif' || /\.gif$/i.test(file.name);
+  const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|svg)$/i.test(file.name);
+  const type: MediaType = isVideo ? 'video' : isGif ? 'gif' : isImage ? 'image' : 'file';
+
+  const size = file.size;
+  const sizeError = tooLarge(type, size);
+  if (sizeError) return { attachment: null, error: sizeError };
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const comma = dataUrl.indexOf(',');
+      const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : '';
+
+      let width: number | null = null;
+      let height: number | null = null;
+
+      if (type === 'image' || type === 'gif') {
+        try {
+          const img = new (window as any).Image();
+          img.src = dataUrl;
+          await new Promise<void>((r) => {
+            img.onload = () => {
+              width = img.naturalWidth || null;
+              height = img.naturalHeight || null;
+              r();
+            };
+            img.onerror = () => r();
+          });
+        } catch {}
+      }
+
+      resolve({
+        attachment: {
+          uri: dataUrl,
+          base64,
+          mime,
+          type,
+          name: file.name,
+          size,
+          width,
+          height,
+          durationMs: null,
+          thumbUri: null,
+        },
+        error: null,
+      });
+    };
+    reader.onerror = () => {
+      resolve({ attachment: null, error: 'Could not read that file.' });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Turns an image retrieved from clipboard (base64 string or data URI) into a PendingAttachment.
+ * Works across both Native (iOS/Android) and Web.
+ */
+export async function fromClipboardImage(data: string, name?: string): Promise<PickResult> {
+  try {
+    let base64 = data;
+    let mime = 'image/png';
+    let uri = data;
+
+    if (data.startsWith('data:')) {
+      const comma = data.indexOf(',');
+      const semi = data.indexOf(';');
+      if (comma >= 0 && semi >= 0) {
+        mime = data.slice(5, semi);
+        base64 = data.slice(comma + 1);
+      }
+    } else {
+      uri = `data:image/png;base64,${data}`;
+    }
+
+    const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+    const size = Math.floor((base64.length * 3) / 4) - padding;
+
+    const sizeError = tooLarge('image', size);
+    if (sizeError) return { attachment: null, error: sizeError };
+
+    let width: number | null = null;
+    let height: number | null = null;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const img = new (window as any).Image();
+        img.src = uri;
+        await new Promise<void>((r) => {
+          img.onload = () => {
+            width = img.naturalWidth || null;
+            height = img.naturalHeight || null;
+            r();
+          };
+          img.onerror = () => r();
+        });
+      } catch {}
+    } else if (Platform.OS !== 'web') {
+      const localUri = `${FileSystem.cacheDirectory}pasted-${Date.now()}.png`;
+      await FileSystem.writeAsStringAsync(localUri, base64, { encoding: 'base64' });
+      uri = localUri;
+    }
+
+    return {
+      attachment: {
+        uri,
+        base64: Platform.OS === 'web' ? base64 : '',
+        mime,
+        type: 'image',
+        name: name || `pasted-image-${Date.now()}.png`,
+        size,
+        width,
+        height,
+        durationMs: null,
+        thumbUri: null,
+      },
+      error: null,
+    };
+  } catch (err) {
+    console.warn('[media] fromClipboardImage failed:', err);
+    return { attachment: null, error: 'Could not paste image from clipboard.' };
+  }
+}
+
+/**
  * Web-only: turn a still grabbed off a live camera stream into an attachment.
  * The canvas already emits a sized, compressed JPEG, so this skips
  * compressImage() and only has to re-check the size limit.

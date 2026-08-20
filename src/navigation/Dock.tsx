@@ -10,7 +10,7 @@ import Animated, {
   interpolate,
   Easing,
 } from 'react-native-reanimated';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Avatar } from '../components/ui/Avatar';
@@ -153,9 +153,38 @@ function SpotlightDockItem({
  */
 export default function Dock({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const [webBottomInset, setWebBottomInset] = useState(0);
   const { profile } = useAuth();
   const activeIndex = state.index;
   const activeIcon = ICONS[state.routes[activeIndex]?.name ?? ''] ?? FALLBACK_ICON;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || typeof document === 'undefined') return;
+    const updateInsets = () => {
+      try {
+        const div = document.createElement('div');
+        div.style.position = 'fixed';
+        div.style.bottom = '0';
+        div.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+        div.style.visibility = 'hidden';
+        div.style.pointerEvents = 'none';
+        document.body.appendChild(div);
+        const pb = window.getComputedStyle(div).paddingBottom;
+        document.body.removeChild(div);
+        const parsed = parseInt(pb, 10);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          setWebBottomInset(parsed);
+        }
+      } catch {}
+    };
+    updateInsets();
+    window.addEventListener('resize', updateInsets);
+    window.addEventListener('orientationchange', updateInsets);
+    return () => {
+      window.removeEventListener('resize', updateInsets);
+      window.removeEventListener('orientationchange', updateInsets);
+    };
+  }, []);
 
   const indicatorPos = useSharedValue(activeIndex * ITEM_WIDTH);
 
@@ -170,11 +199,14 @@ export default function Dock({ state, navigation }: BottomTabBarProps) {
     transform: [{ translateX: indicatorPos.value }],
   }));
 
+  const effectiveBottomInset = Math.max(insets.bottom, webBottomInset);
+  const bottomPadding = effectiveBottomInset > 0 ? effectiveBottomInset + 4 : 20;
+
   return (
     <View
       style={[
         styles.wrap,
-        { paddingBottom: Math.max(insets.bottom, 20) },
+        { paddingBottom: bottomPadding },
       ]}
       pointerEvents="box-none"
     >

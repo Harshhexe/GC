@@ -8,6 +8,7 @@ import {
   type LayoutChangeEvent,
   Linking,
   Platform,
+  Pressable,
   Share,
   StyleSheet,
   Text,
@@ -122,8 +123,11 @@ import {
   findActiveMentionQuery,
   insertMentionToken,
 } from '../lib/mentions';
+import { DropZoneOverlay } from '../components/DropZoneOverlay';
 import {
   downloadMediaToDevice,
+  fromClipboardImage,
+  fromWebFile,
   pickDocument,
   pickFromCamera,
   supportsWebCamera,
@@ -523,6 +527,140 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   // Desktop web has no OS camera to hand off to; this is the in-app one.
   const [webCameraVisible, setWebCameraVisible] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounter = useRef(0);
+  const [hasClipboardImage, setHasClipboardImage] = useState(false);
+
+  const checkClipboardForImage = useCallback(async () => {
+    try {
+      const hasImg = await Clipboard.hasImageAsync();
+      setHasClipboardImage(hasImg);
+    } catch {
+      setHasClipboardImage(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkClipboardForImage();
+    if (Platform.OS !== 'web') {
+      const sub = Clipboard.addClipboardListener(async () => {
+        await checkClipboardForImage();
+      });
+      return () => {
+        Clipboard.removeClipboardListener(sub);
+      };
+    }
+  }, [checkClipboardForImage]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void checkClipboardForImage();
+    }, [checkClipboardForImage])
+  );
+
+  const pasteImageFromClipboard = useCallback(async () => {
+    try {
+      const img = await Clipboard.getImageAsync({ format: 'png' });
+      if (!img?.data) return;
+      const res = await fromClipboardImage(img.data);
+      if (res.error) {
+        setAttachError(res.error);
+      } else if (res.attachment) {
+        setAttachError(null);
+        setPendingAttachment(res.attachment);
+        setHasClipboardImage(false);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    } catch (err) {
+      console.warn('pasteImageFromClipboard failed:', err);
+    }
+  }, []);
+
+  // Web Drag & Drop and Ctrl+V / Cmd+V
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current += 1;
+      if (e.dataTransfer?.types?.includes('Files')) {
+        setIsDraggingOver(true);
+      }
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current -= 1;
+      if (dragCounter.current <= 0) {
+        dragCounter.current = 0;
+        setIsDraggingOver(false);
+      }
+    };
+
+    const onDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current = 0;
+      setIsDraggingOver(false);
+
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+
+      const file = files[0];
+      const res = await fromWebFile(file);
+      if (res.error) {
+        setAttachError(res.error);
+      } else if (res.attachment) {
+        setAttachError(null);
+        setPendingAttachment(res.attachment);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    };
+
+    const onPaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            const res = await fromWebFile(file);
+            if (res.error) {
+              setAttachError(res.error);
+            } else if (res.attachment) {
+              setAttachError(null);
+              setPendingAttachment(res.attachment);
+              setTimeout(() => inputRef.current?.focus(), 50);
+            }
+            return;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    window.addEventListener('paste', onPaste);
+
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+      window.removeEventListener('paste', onPaste);
+    };
+  }, []);
 
   // Anything that changes the composer's height while the keyboard is up —
   // the reply quote, the edit row, an attachment chip — moves the text field
@@ -1734,6 +1872,7 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.root}>
+      <DropZoneOverlay visible={isDraggingOver} />
       <Image
         source={CHAT_BG}
         style={StyleSheet.absoluteFill}
@@ -2006,6 +2145,34 @@ export default function ChatScreen({ route, navigation }: Props) {
               onSelectGC={selectMentionGC}
             />
 
+            {hasClipboardImage && !pendingAttachment && !editingMessage && (
+              <Animated.View
+                entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
+                exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
+                style={styles.clipboardPastePillWrap}
+              >
+                <PressableScale
+                  style={styles.clipboardPastePill}
+                  scaleTo={0.94}
+                  haptic="medium"
+                  onPress={pasteImageFromClipboard}
+                >
+                  <Ionicons name="clipboard" size={14} color={theme.accent} />
+                  <Text style={styles.clipboardPastePillText}>Paste copied photo</Text>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={(e: any) => {
+                      e?.stopPropagation?.();
+                      setHasClipboardImage(false);
+                    }}
+                    style={styles.clipboardPasteClose}
+                  >
+                    <Ionicons name="close-circle" size={15} color={colors.outline} />
+                  </Pressable>
+                </PressableScale>
+              </Animated.View>
+            )}
+
             <View style={styles.composer}>
               <PressableScale
                 style={styles.plusButton}
@@ -2242,6 +2409,8 @@ export default function ChatScreen({ route, navigation }: Props) {
         onWordy={() => navigation.navigate('Wordy', { groupId })}
         onStartTea={confirmStartTea}
         teaActive={tea.isActive}
+        hasClipboardImage={hasClipboardImage}
+        onPasteImage={pasteImageFromClipboard}
         onClose={() => setAttachmentSheetVisible(false)}
         onClosed={launchPendingPicker}
       />
@@ -2403,6 +2572,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: Platform.OS === 'web' ? spacing.md : spacing.lg,
     paddingBottom: 0,
     paddingTop: spacing.xs,
+  },
+  clipboardPastePillWrap: {
+    alignSelf: 'flex-start',
+    marginBottom: spacing.xs,
+  },
+  clipboardPastePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(25, 25, 40, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.35)',
+    borderRadius: radius.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    shadowColor: '#818CF8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  clipboardPastePillText: {
+    ...typography.bodyMedium,
+    fontSize: 12.5,
+    color: colors.onSurface,
+  },
+  clipboardPasteClose: {
+    marginLeft: 2,
   },
   composerPreviewWrap: { marginBottom: spacing.xs },
   attachmentPreviewWrap: { marginBottom: spacing.xs },
