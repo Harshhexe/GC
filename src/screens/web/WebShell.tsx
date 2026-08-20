@@ -66,6 +66,9 @@ const MODAL_SCREENS: readonly PaneScreenName[] = ['WhatDidIMiss', 'GCDNA', 'Word
 
 type Tab = 'chats' | 'create' | 'awards' | 'profile';
 
+/** Matches the mobile dock's Awards accent. */
+const GOLD = '#FFD76A';
+
 const TABS: { id: Tab; on: keyof typeof Ionicons.glyphMap; off: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { id: 'chats', on: 'chatbubble', off: 'chatbubble-outline', label: 'Chats' },
   { id: 'create', on: 'add-circle', off: 'add-circle-outline', label: 'Create' },
@@ -296,7 +299,10 @@ export default function WebShell({ navigation, route }: Props) {
           return (
             <PressableScale
               key={t.id}
-              style={[styles.railItem, active && styles.railItemActive]}
+              style={[
+                styles.railItem,
+                active && (t.id === 'awards' ? styles.railItemAwardsActive : styles.railItemActive),
+              ]}
               scaleTo={0.92}
               onPress={() => setTab(t.id)}
             >
@@ -312,10 +318,22 @@ export default function WebShell({ navigation, route }: Props) {
                 <Ionicons
                   name={active ? t.on : t.off}
                   size={21}
-                  color={active ? colors.primary : colors.onSurfaceVariant}
+                  color={
+                    // Awards keeps its gold even unfocused, as in the dock.
+                    t.id === 'awards'
+                      ? active ? GOLD : 'rgba(255, 215, 106, 0.5)'
+                      : active ? colors.primary : colors.onSurfaceVariant
+                  }
                 />
               )}
-              <Text style={[styles.railLabel, active && { color: colors.primary }]}>{t.label}</Text>
+              <Text
+                style={[
+                  styles.railLabel,
+                  active && { color: t.id === 'awards' ? GOLD : colors.primary },
+                ]}
+              >
+                {t.label}
+              </Text>
               {t.id === 'chats' && totalUnread > 0 && (
                 <View style={styles.railBadge}>
                   <Text style={styles.railBadgeText}>
@@ -454,6 +472,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   railItemActive: { backgroundColor: 'rgba(129,140,248,0.12)' },
+  railItemAwardsActive: { backgroundColor: 'rgba(255,215,106,0.12)' },
   railLabel: { ...typography.micro, fontSize: 10, color: colors.onSurfaceVariant },
   railBadge: {
     position: 'absolute',
