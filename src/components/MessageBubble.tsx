@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -243,6 +243,31 @@ function MessageBubbleImpl({
   }));
 
   const deleted = !!message.isDeleted;
+  const lastTapRef = useRef<number>(0);
+
+  const handleBubblePress = useCallback(() => {
+    if (selectMode) {
+      onPress?.(message);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastTapRef.current < 320) {
+      lastTapRef.current = 0;
+      if (onSwipeReply && !deleted) {
+        tapFeedback();
+        onSwipeReply(message);
+      }
+    } else {
+      lastTapRef.current = now;
+      onPress?.(message);
+    }
+  }, [selectMode, onPress, message, onSwipeReply, deleted]);
+
+  const handleDoubleClick = useCallback(() => {
+    if (selectMode || deleted || !onSwipeReply) return;
+    tapFeedback();
+    onSwipeReply(message);
+  }, [selectMode, deleted, onSwipeReply, message]);
 
   return (
     <Animated.View
@@ -356,7 +381,8 @@ function MessageBubbleImpl({
 
             <PressableScale
               onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
-              onPress={selectMode ? () => onPress?.(message) : undefined}
+              onPress={handleBubblePress}
+              {...(Platform.OS === 'web' ? { onDoubleClick: handleDoubleClick } : {})}
               scaleTo={0.98}
               haptic="medium"
             >
