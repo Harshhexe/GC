@@ -351,7 +351,7 @@ const GroupCard = memo(function GroupCardImpl({
 });
 
 export default function GroupListScreen({ navigation }: Props) {
-  const { session, profile } = useAuth();
+  const { session } = useAuth();
   const { groups, loading, refetch } = useGroups();
   const { unreadCount: unreadNotifications } = useNotifications(session?.user?.id);
   // Lives here rather than only in WebShell: this screen is what mobile web
@@ -429,19 +429,6 @@ export default function GroupListScreen({ navigation }: Props) {
                   </Text>
                 </View>
               )}
-            </PressableScale>
-
-            <PressableScale
-              scaleTo={0.9}
-              onPress={() => navigation.navigate('Profile')}
-              style={styles.profileAvatarButton}
-            >
-              <Avatar
-                imageUrl={profile?.avatar_url}
-                label={profile?.display_name ?? 'Me'}
-                ringColors={gradients.brandSoft}
-                size={34}
-              />
             </PressableScale>
           </View>
         </View>
@@ -575,9 +562,6 @@ const styles = StyleSheet.create({
     borderColor: colors.bg,
   },
   bellBadgeText: { ...typography.micro, fontSize: 9, color: '#FFFFFF', fontWeight: '700' },
-  profileAvatarButton: {
-    marginLeft: 2,
-  },
   heroSection: {
     paddingHorizontal: CONTAINER_MARGIN,
     paddingTop: spacing.xs,

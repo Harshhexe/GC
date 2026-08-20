@@ -8,6 +8,7 @@ import { useWebNotifications } from '../../hooks/useWebNotifications';
 import { useWebNotificationSetup } from '../../hooks/useWebNotificationSetup';
 import { setWebTitleBadge } from '../../lib/webNotifications';
 import { PressableScale } from '../../components/ui/PressableScale';
+import { Avatar } from '../../components/ui/Avatar';
 import GroupListScreen from '../GroupListScreen';
 import ChatScreen from '../ChatScreen';
 import AddGCScreen from '../AddGCScreen';
@@ -69,7 +70,7 @@ const TABS: { id: Tab; on: keyof typeof Ionicons.glyphMap; off: keyof typeof Ion
   { id: 'chats', on: 'chatbubble', off: 'chatbubble-outline', label: 'Chats' },
   { id: 'create', on: 'add-circle', off: 'add-circle-outline', label: 'Create' },
   { id: 'awards', on: 'trophy', off: 'trophy-outline', label: 'Awards' },
-  { id: 'profile', on: 'settings', off: 'settings-outline', label: 'Profile' },
+  { id: 'profile', on: 'person', off: 'person-outline', label: 'Profile' },
 ];
 
 /**
@@ -86,7 +87,7 @@ const TABS: { id: Tab; on: keyof typeof Ionicons.glyphMap; off: keyof typeof Ion
  * the panes are visible exactly when the shell is.
  */
 export default function WebShell({ navigation, route }: Props) {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const { groups } = useGroups();
   const [tab, setTab] = useState<Tab>('chats');
 
@@ -299,11 +300,21 @@ export default function WebShell({ navigation, route }: Props) {
               scaleTo={0.92}
               onPress={() => setTab(t.id)}
             >
-              <Ionicons
-                name={active ? t.on : t.off}
-                size={21}
-                color={active ? colors.primary : colors.onSurfaceVariant}
-              />
+              {t.id === 'profile' ? (
+                /* Your own picture instead of a cog — same as the mobile dock. */
+                <Avatar
+                  imageUrl={profile?.avatar_url}
+                  label={profile?.display_name ?? 'Me'}
+                  size={22}
+                  ring={active}
+                />
+              ) : (
+                <Ionicons
+                  name={active ? t.on : t.off}
+                  size={21}
+                  color={active ? colors.primary : colors.onSurfaceVariant}
+                />
+              )}
               <Text style={[styles.railLabel, active && { color: colors.primary }]}>{t.label}</Text>
               {t.id === 'chats' && totalUnread > 0 && (
                 <View style={styles.railBadge}>

@@ -12,13 +12,15 @@ import Animated, {
 import { useEffect } from 'react';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { PressableScale } from '../components/ui/PressableScale';
+import { Avatar } from '../components/ui/Avatar';
+import { useAuth } from '../context/AuthContext';
 import { selectFeedback } from '../utils/haptics';
 
 const ICONS: Record<string, { on: keyof typeof Ionicons.glyphMap; off: keyof typeof Ionicons.glyphMap; label: string }> = {
   GroupList: { on: 'chatbubble', off: 'chatbubble-outline', label: 'Chat' },
   AddGC: { on: 'add-circle', off: 'add-circle-outline', label: 'Create' },
   Explore: { on: 'trophy', off: 'trophy-outline', label: 'Awards' },
-  Profile: { on: 'settings', off: 'settings-outline', label: 'Profile' },
+  Profile: { on: 'person', off: 'person-outline', label: 'Profile' },
 };
 
 const ITEM_WIDTH = 76;
@@ -29,12 +31,15 @@ function SpotlightDockItem({
   onPress,
   activeIndex,
   position,
+  avatar,
 }: {
   routeName: string;
   focused: boolean;
   onPress: () => void;
   activeIndex: number;
   position: number;
+  /** Rendered in place of the icon — the Profile tab shows you, not a cog. */
+  avatar?: { imageUrl?: string | null; label?: string | null };
 }) {
   const icon = ICONS[routeName] ?? { on: 'ellipse', off: 'ellipse-outline', label: routeName };
   const distance = Math.abs(activeIndex - position);
@@ -74,12 +79,21 @@ function SpotlightDockItem({
         />
       </Animated.View>
 
-      <Animated.View style={iconStyle}>
-        <Ionicons
-          name={focused ? icon.on : icon.off}
-          size={28}
-          color={focused ? '#FFFFFF' : 'rgba(255, 255, 255, 0.45)'}
-        />
+      <Animated.View style={[iconStyle, !focused && avatar ? styles.avatarDimmed : null]}>
+        {avatar ? (
+          <Avatar
+            imageUrl={avatar.imageUrl}
+            label={avatar.label ?? 'Me'}
+            size={30}
+            ring={focused}
+          />
+        ) : (
+          <Ionicons
+            name={focused ? icon.on : icon.off}
+            size={28}
+            color={focused ? '#FFFFFF' : 'rgba(255, 255, 255, 0.45)'}
+          />
+        )}
       </Animated.View>
     </PressableScale>
   );
@@ -91,6 +105,7 @@ function SpotlightDockItem({
  */
 export default function Dock({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { profile } = useAuth();
   const activeIndex = state.index;
 
   const indicatorPos = useSharedValue(activeIndex * ITEM_WIDTH);
@@ -110,7 +125,7 @@ export default function Dock({ state, navigation }: BottomTabBarProps) {
     <View
       style={[
         styles.wrap,
-        { paddingBottom: Math.max(insets.bottom, 20) },
+        { paddingBottom: Math.max(insets.bottom, 12) },
       ]}
       pointerEvents="box-none"
     >
@@ -130,6 +145,11 @@ export default function Dock({ state, navigation }: BottomTabBarProps) {
               focused={focused}
               position={index}
               activeIndex={activeIndex}
+              avatar={
+                route.name === 'Profile'
+                  ? { imageUrl: profile?.avatar_url, label: profile?.display_name }
+                  : undefined
+              }
               onPress={() => {
                 const event = navigation.emit({
                   type: 'tabPress',
@@ -200,6 +220,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  avatarDimmed: { opacity: 0.55 },
   spotlightWrapper: {
     position: 'absolute',
     top: 0,
