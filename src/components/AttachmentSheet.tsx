@@ -33,8 +33,6 @@ export function AttachmentSheet({
   onWordle,
   onStartTea,
   teaActive,
-  onPasteImage,
-  hasClipboardImage,
   onClose,
   onClosed,
 }: {
@@ -50,8 +48,6 @@ export function AttachmentSheet({
   onStartTea?: () => void;
   /** A Tea is already live in this GC */
   teaActive?: boolean;
-  onPasteImage?: () => void;
-  hasClipboardImage?: boolean;
   onClose: () => void;
   onClosed?: () => void;
 }) {
@@ -162,26 +158,6 @@ export function AttachmentSheet({
       >
         {/* Top grabber */}
         <View style={styles.grabber} />
-
-        {hasClipboardImage && onPasteImage && (
-          <PressableScale
-            style={styles.pasteBanner}
-            scaleTo={0.97}
-            haptic="medium"
-            onPress={() => {
-              onClose();
-              onPasteImage();
-            }}
-          >
-            <View style={styles.pasteBannerLeft}>
-              <View style={styles.pasteIconOrb}>
-                <Ionicons name="clipboard" size={16} color="#818CF8" />
-              </View>
-              <Text style={styles.pasteBannerText}>Paste copied image</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
-          </PressableScale>
-        )}
 
         {/* 8 Action Boxes Grid (2 rows x 4 columns) */}
         <View style={styles.grid}>
@@ -351,35 +327,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.5,
-  },
-  pasteBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(99, 102, 241, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.35)',
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: spacing.md,
-  },
-  pasteBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pasteIconOrb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(99, 102, 241, 0.20)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pasteBannerText: {
-    fontFamily: fontFamily.bodySemi,
-    fontSize: 13.5,
-    color: '#FFFFFF',
   },
 });

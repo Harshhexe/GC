@@ -125,7 +125,6 @@ import {
 import { DropZoneOverlay } from '../components/DropZoneOverlay';
 import {
   downloadMediaToDevice,
-  fromClipboardImage,
   fromWebFile,
   pickDocument,
   pickFromCamera,
@@ -537,60 +536,6 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const dragCounter = useRef(0);
-  const [hasClipboardImage, setHasClipboardImage] = useState(false);
-  const clipboardVersion = useRef(0);
-  const dismissedVersion = useRef(-1);
-
-  const checkClipboardForImage = useCallback(async () => {
-    try {
-      const hasImg = await Clipboard.hasImageAsync();
-      if (hasImg && clipboardVersion.current > dismissedVersion.current) {
-        setHasClipboardImage(true);
-      } else {
-        setHasClipboardImage(false);
-      }
-    } catch {
-      setHasClipboardImage(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void checkClipboardForImage();
-    if (Platform.OS !== 'web') {
-      const sub = Clipboard.addClipboardListener(async () => {
-        clipboardVersion.current += 1;
-        await checkClipboardForImage();
-      });
-      return () => {
-        Clipboard.removeClipboardListener(sub);
-      };
-    }
-  }, [checkClipboardForImage]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void checkClipboardForImage();
-    }, [checkClipboardForImage])
-  );
-
-  const pasteImageFromClipboard = useCallback(async () => {
-    try {
-      const img = await Clipboard.getImageAsync({ format: 'png' });
-      if (!img?.data) return;
-      const res = await fromClipboardImage(img.data);
-      if (res.error) {
-        setAttachError(res.error);
-      } else if (res.attachment) {
-        setAttachError(null);
-        setPendingAttachment(res.attachment);
-        dismissedVersion.current = clipboardVersion.current;
-        setHasClipboardImage(false);
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }
-    } catch (err) {
-      console.warn('pasteImageFromClipboard failed:', err);
-    }
-  }, []);
 
   // Web Drag & Drop and Ctrl+V / Cmd+V
   useEffect(() => {
@@ -2165,35 +2110,6 @@ export default function ChatScreen({ route, navigation }: Props) {
               onSelectGC={selectMentionGC}
             />
 
-            {hasClipboardImage && !pendingAttachment && !editingMessage && (
-              <Animated.View
-                entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
-                exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
-                style={styles.clipboardPastePillWrap}
-              >
-                <PressableScale
-                  style={styles.clipboardPastePill}
-                  scaleTo={0.94}
-                  haptic="medium"
-                  onPress={pasteImageFromClipboard}
-                >
-                  <Ionicons name="clipboard" size={14} color={theme.accent} />
-                  <Text style={styles.clipboardPastePillText}>Paste copied photo</Text>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={(e: any) => {
-                      e?.stopPropagation?.();
-                      dismissedVersion.current = clipboardVersion.current;
-                      setHasClipboardImage(false);
-                    }}
-                    style={styles.clipboardPasteClose}
-                  >
-                    <Ionicons name="close-circle" size={15} color={colors.outline} />
-                  </Pressable>
-                </PressableScale>
-              </Animated.View>
-            )}
-
             <View style={styles.composer}>
               <PressableScale
                 style={styles.plusButton}
@@ -2430,8 +2346,6 @@ export default function ChatScreen({ route, navigation }: Props) {
         onWordy={() => navigation.navigate('Wordy', { groupId })}
         onStartTea={confirmStartTea}
         teaActive={tea.isActive}
-        hasClipboardImage={hasClipboardImage}
-        onPasteImage={pasteImageFromClipboard}
         onClose={() => setAttachmentSheetVisible(false)}
         onClosed={launchPendingPicker}
       />
@@ -2608,34 +2522,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Platform.OS === 'web' ? spacing.md : spacing.lg,
     paddingBottom: 0,
     paddingTop: spacing.xs,
-  },
-  clipboardPastePillWrap: {
-    alignSelf: 'flex-start',
-    marginBottom: spacing.xs,
-  },
-  clipboardPastePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(25, 25, 40, 0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.35)',
-    borderRadius: radius.pill,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    shadowColor: '#818CF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  clipboardPastePillText: {
-    ...typography.bodyMedium,
-    fontSize: 12.5,
-    color: colors.onSurface,
-  },
-  clipboardPasteClose: {
-    marginLeft: 2,
   },
   composerPreviewWrap: { marginBottom: spacing.xs },
   attachmentPreviewWrap: { marginBottom: spacing.xs },

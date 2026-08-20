@@ -11,9 +11,11 @@ import {
   type ChatAppearance,
   flattenTint,
   type GroupThemeKey,
+  themeFromColor,
 } from '../theme/groupThemes';
 import { PressableScale } from './ui/PressableScale';
 import { pickChatWallpaper, deleteChatWallpaper } from '../lib/wallpaper';
+import { extractWallpaperPalette } from '../lib/paletteExtract';
 import { selectFeedback } from '../utils/haptics';
 
 const BUBBLE_OPTIONS: { key: BubbleStyle; label: string; caption: string }[] = [
@@ -43,6 +45,7 @@ export function ChatThemeSheet({
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handlePickWallpaper() {
@@ -53,17 +56,30 @@ export function ChatThemeSheet({
     setBusy(false);
 
     if (!result) return; // dismissed
-    if (result.error) {
+    // Compared against null rather than checked for truthiness: the union is
+    // discriminated on `error`, and a truthiness test can't narrow a string.
+    if (result.error !== null) {
       setError(result.error);
       return;
     }
+
+    // Show the wallpaper immediately; the palette is a bonus that must never
+    // hold up the thing the user actually asked for.
     onChange({ wallpaperUri: result.uri });
+
+    setExtracting(true);
+    const palette = await extractWallpaperPalette(result.uri);
+    setExtracting(false);
+    // Colours from the *previous* wallpaper would be misleading next to a new
+    // one, so this replaces rather than merges — including with an empty list
+    // when a photo has no usable hue (a greyscale shot, say).
+    onChange({ wallpaperPalette: palette });
   }
 
   async function handleRemoveWallpaper() {
     selectFeedback();
     const previous = appearance.wallpaperUri;
-    onChange({ wallpaperUri: null });
+    onChange({ wallpaperUri: null, wallpaperPalette: [], customThemeColor: null });
     await deleteChatWallpaper(groupId, previous);
   }
 
@@ -96,7 +112,9 @@ export function ChatThemeSheet({
             <View style={styles.bubbleRow}>
               {BUBBLE_OPTIONS.map((option) => {
                 const active = appearance.bubbleStyle === option.key;
-                const theme = GROUP_THEMES.find((t) => t.key === appearance.themeKey);
+                const theme = appearance.customThemeColor
+                  ? themeFromColor(appearance.customThemeColor)
+                  : GROUP_THEMES.find((t) => t.key === appearance.themeKey);
                 return (
                   <PressableScale
                     key={option.key}
@@ -165,13 +183,15 @@ export function ChatThemeSheet({
             <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Theme colour</Text>
             <View style={styles.themeGrid}>
               {GROUP_THEMES.map((t) => {
-                const active = appearance.themeKey === t.key;
+                const active = !appearance.customThemeColor && appearance.themeKey === t.key;
                 return (
                   <PressableScale
                     key={t.key}
                     scaleTo={0.9}
                     haptic="medium"
-                    onPress={() => onChange({ themeKey: t.key as GroupThemeKey })}
+                    onPress={() =>
+                      onChange({ themeKey: t.key as GroupThemeKey, customThemeColor: null })
+                    }
                     style={[styles.themeChip, active && { borderColor: t.accent }]}
                   >
                     <LinearGradient
@@ -186,6 +206,45 @@ export function ChatThemeSheet({
                 );
               })}
             </View>
+
+            {(extracting || appearance.wallpaperPalette.length > 0) && (
+              <>
+                <Text style={[styles.sectionLabel, styles.sectionSpacing]}>
+                  From your wallpaper
+                </Text>
+                {extracting ? (
+                  <View style={styles.paletteLoading}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.bubbleCaption}>Picking out colours…</Text>
+                  </View>
+                ) : (
+                  <View style={styles.themeGrid}>
+                    {appearance.wallpaperPalette.map((hex) => {
+                      const custom = themeFromColor(hex);
+                      const active = appearance.customThemeColor === hex;
+                      return (
+                        <PressableScale
+                          key={hex}
+                          scaleTo={0.9}
+                          haptic="medium"
+                          onPress={() => onChange({ customThemeColor: hex })}
+                          style={[styles.themeChip, active && { borderColor: custom.accent }]}
+                        >
+                          <LinearGradient
+                            colors={custom.colors}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.themeSwatch}
+                          >
+                            {active && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                          </LinearGradient>
+                        </PressableScale>
+                      );
+                    })}
+                  </View>
+                )}
+              </>
+            )}
 
             <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Wallpaper</Text>
             {appearance.wallpaperUri ? (
@@ -326,6 +385,7 @@ const styles = StyleSheet.create({
   bubbleCheck: { position: 'absolute', top: 6, right: 6 },
 
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  paletteLoading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   themeChip: {
     padding: 3,
     borderRadius: radius.pill,

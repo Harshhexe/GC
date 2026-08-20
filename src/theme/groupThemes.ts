@@ -12,7 +12,8 @@ export type GroupThemeKey =
   | 'midnight';
 
 export type GroupTheme = {
-  key: GroupThemeKey;
+  /** 'custom' is a colour lifted from the wallpaper rather than a preset. */
+  key: GroupThemeKey | 'custom';
   name: string;
   /** Ring / button gradient. */
   colors: readonly [string, string];
@@ -20,7 +21,10 @@ export type GroupTheme = {
   accent: string;
 };
 
-export const GROUP_THEMES: GroupTheme[] = [
+/** The built-in presets. Narrower than GroupTheme: never a wallpaper colour. */
+export type GroupPresetTheme = GroupTheme & { key: GroupThemeKey };
+
+export const GROUP_THEMES: GroupPresetTheme[] = [
   { key: 'violet', name: 'Violet', colors: ['#8B5CF6', '#EC4899'], accent: '#d0bcff' },
   { key: 'bubblegum', name: 'Bubblegum', colors: ['#ffb0cd', '#d0bcff'], accent: '#ffb0cd' },
   { key: 'cyan', name: 'Cyan', colors: ['#4cd7f6', '#009eb9'], accent: '#4cd7f6' },
@@ -53,8 +57,35 @@ export const TEA_THEME: GroupTheme = {
 };
 
 
+/**
+ * Builds a full theme around a single colour taken from a wallpaper.
+ *
+ * Only the *hue* survives from the photo. Saturation and lightness are pinned
+ * to the range the presets occupy, because a theme colour has two jobs with
+ * opposite requirements: it is used as a ~35% tint over near-black (so it must
+ * be bright enough to register) and its accent is drawn as text on top of that
+ * tint (so the accent must be light enough to read). A muddy or near-black hue
+ * lifted verbatim fails both — the contrast work in MessageBubble is why these
+ * numbers are fixed rather than sampled.
+ */
+export function themeFromColor(hex: string): GroupTheme {
+  const clean = hex.replace('#', '');
+  const n = parseInt(clean.length === 3 ? clean.replace(/./g, '$&$&') : clean.slice(0, 6), 16);
+  const { h } = rgbToHsl({ r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 });
+
+  return {
+    key: 'custom',
+    name: 'From wallpaper',
+    // A second, slightly rotated stop so the bubble keeps the gradient the
+    // presets have rather than reading as one flat block.
+    colors: [hslToHex(h, 0.68, 0.62), hslToHex((h + 28) % 360, 0.7, 0.54)],
+    accent: hslToHex(h, 0.72, 0.8),
+  };
+}
+
 // ── Personal chat appearance ────────────────────────────────────────────
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hslToHex, rgbToHsl } from '../lib/palette';
 import { useState, useEffect, useCallback } from 'react';
 
 /**
@@ -75,6 +106,10 @@ export type BubbleStyle = 'translucent' | 'opaque';
  */
 export type ChatAppearance = {
   themeKey: GroupThemeKey;
+  /** Hex picked from the wallpaper's palette. Overrides themeKey when set. */
+  customThemeColor: string | null;
+  /** Colours pulled out of the current wallpaper, offered alongside the presets. */
+  wallpaperPalette: string[];
   bubbleStyle: BubbleStyle;
   /** Local URI (native) or data URL (web) of a custom background; null = none. */
   wallpaperUri: string | null;
@@ -83,6 +118,8 @@ export type ChatAppearance = {
 export const DEFAULT_APPEARANCE: Omit<ChatAppearance, 'themeKey'> = {
   bubbleStyle: 'translucent',
   wallpaperUri: null,
+  customThemeColor: null,
+  wallpaperPalette: [],
 };
 
 const appearanceKey = (groupId: string) => `@gc_chat_appearance_${groupId}`;
@@ -100,6 +137,11 @@ function normalize(raw: unknown, fallbackThemeKey?: string | null): ChatAppearan
     themeKey: byKey.has(key) ? key : 'violet',
     bubbleStyle: value.bubbleStyle === 'opaque' ? 'opaque' : 'translucent',
     wallpaperUri: typeof value.wallpaperUri === 'string' ? value.wallpaperUri : null,
+    customThemeColor:
+      typeof value.customThemeColor === 'string' ? value.customThemeColor : null,
+    wallpaperPalette: Array.isArray(value.wallpaperPalette)
+      ? value.wallpaperPalette.filter((c): c is string => typeof c === 'string')
+      : [],
   };
 }
 
@@ -174,7 +216,9 @@ export function useChatAppearance(groupId: string, fallbackThemeKey?: string | n
 
   return {
     appearance,
-    theme: groupTheme(appearance.themeKey),
+    theme: appearance.customThemeColor
+      ? themeFromColor(appearance.customThemeColor)
+      : groupTheme(appearance.themeKey),
     themeKey: appearance.themeKey,
     bubbleStyle: appearance.bubbleStyle,
     wallpaperUri: appearance.wallpaperUri,
