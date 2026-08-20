@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +29,8 @@ import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../hooks/useGroups';
 import { supabase } from '../lib/supabase';
 import { uploadUserAvatar } from '../lib/uploadAvatar';
+import { WebCameraModal } from '../components/WebCameraModal';
+import { supportsWebCamera } from '../lib/media';
 import { selectFeedback, successFeedback, warningFeedback } from '../utils/haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -164,12 +166,21 @@ export default function ProfileScreen({ navigation }: Props) {
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackPhoto, setFeedbackPhoto] = useState<{ uri: string; base64: string; ext: string } | null>(null);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [avatarChooserVisible, setAvatarChooserVisible] = useState(false);
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
 
   async function handleChangeAvatar() {
     selectFeedback();
     if (Platform.OS === 'web') {
-      choosePhotoFromLibrary();
+      // Alert.alert has no multi-button form on web, so the choice between the
+      // webcam and the file picker needs its own sheet. Without a webcam
+      // there's nothing to choose between and the library opens directly.
+      if (supportsWebCamera()) {
+        setAvatarChooserVisible(true);
+      } else {
+        choosePhotoFromLibrary();
+      }
       return;
     }
 
@@ -233,11 +244,19 @@ export default function ProfileScreen({ navigation }: Props) {
   }
 
   async function uploadAndSaveAvatar(asset: ImagePicker.ImagePickerAsset) {
-    if (!profile?.id || !asset.base64) return;
+    // A webcam capture arrives as a data: URL, whose "extension" is the tail of
+    // the base64 payload — so the extension is taken from the mime type there.
+    const ext = asset.uri.startsWith('data:')
+      ? (asset.mimeType?.split('/')[1] ?? 'jpg')
+      : asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+    await uploadAvatarBase64(asset.base64 ?? null, ext);
+  }
+
+  async function uploadAvatarBase64(base64: string | null, ext: string) {
+    if (!profile?.id || !base64) return;
     setUploadingAvatar(true);
     try {
-      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const { url, error } = await uploadUserAvatar(asset.base64, profile.id, ext);
+      const { url, error } = await uploadUserAvatar(base64, profile.id, ext);
       if (error || !url) {
         throw new Error(error || 'Failed to upload photo.');
       }
@@ -751,11 +770,118 @@ export default function ProfileScreen({ navigation }: Props) {
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Web-only avatar source chooser (see handleChangeAvatar). */}
+      <Modal
+        visible={avatarChooserVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvatarChooserVisible(false)}
+      >
+        <View style={styles.chooserBackdrop}>
+          <View style={styles.chooserCard}>
+            <Text style={styles.chooserTitle}>Profile picture</Text>
+
+            <PressableScale
+              style={styles.chooserRow}
+              onPress={() => {
+                setAvatarChooserVisible(false);
+                setTimeout(() => setWebCameraVisible(true), 50);
+              }}
+            >
+              <Ionicons name="camera-outline" size={18} color={colors.onSurface} />
+              <Text style={styles.chooserRowText}>Take photo</Text>
+            </PressableScale>
+
+            <PressableScale
+              style={styles.chooserRow}
+              onPress={() => {
+                setAvatarChooserVisible(false);
+                choosePhotoFromLibrary();
+              }}
+            >
+              <Ionicons name="images-outline" size={18} color={colors.onSurface} />
+              <Text style={styles.chooserRowText}>Choose from library</Text>
+            </PressableScale>
+
+            {!!profile?.avatar_url && (
+              <PressableScale
+                style={styles.chooserRow}
+                onPress={() => {
+                  setAvatarChooserVisible(false);
+                  removeAvatarPhoto();
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.error} />
+                <Text style={[styles.chooserRowText, { color: colors.error }]}>Remove photo</Text>
+              </PressableScale>
+            )}
+
+            <PressableScale
+              style={styles.chooserCancel}
+              onPress={() => setAvatarChooserVisible(false)}
+            >
+              <Text style={styles.chooserCancelText}>Cancel</Text>
+            </PressableScale>
+          </View>
+        </View>
+      </Modal>
+
+      <WebCameraModal
+        visible={webCameraVisible}
+        onClose={() => setWebCameraVisible(false)}
+        onCapture={(result) => {
+          if (result.error || !result.attachment) {
+            Alert.alert('Camera', result.error ?? 'Could not take photo.');
+            return;
+          }
+          uploadAvatarBase64(result.attachment.base64, 'jpg');
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  chooserBackdrop: {
+    flex: 1,
+    backgroundColor: colors.scrim,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  chooserCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  chooserTitle: {
+    ...typography.label,
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  chooserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
+  },
+  chooserRowText: { ...typography.label, color: colors.onSurface, fontSize: 14 },
+  chooserCancel: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  chooserCancelText: { ...typography.label, color: colors.onSurfaceVariant, fontSize: 13 },
   root: { flex: 1, backgroundColor: '#020204' },
   safe: { flex: 1 },
   scroll: {

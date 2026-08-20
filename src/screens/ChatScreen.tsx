@@ -48,6 +48,7 @@ import { MessageQuotePreview } from '../components/MessageQuotePreview';
 import { MentionSuggestions } from '../components/MentionSuggestions';
 import { MemberProfileSheet } from '../components/MemberProfileSheet';
 import { AttachmentSheet } from '../components/AttachmentSheet';
+import { WebCameraModal } from '../components/WebCameraModal';
 import { GifPicker } from '../components/GifPicker';
 import type { GifResult } from '../lib/giphy';
 import { StickerPicker } from '../components/StickerPicker';
@@ -125,6 +126,7 @@ import {
   downloadMediaToDevice,
   pickDocument,
   pickFromCamera,
+  supportsWebCamera,
   pickFromLibrary,
   type PendingAttachment,
   type PickResult,
@@ -519,6 +521,8 @@ export default function ChatScreen({ route, navigation }: Props) {
   const pendingPickerRef = useRef<(() => Promise<PickResult | null>) | null>(null);
   const pickerLaunchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  // Desktop web has no OS camera to hand off to; this is the in-app one.
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
 
   // Anything that changes the composer's height while the keyboard is up —
   // the reply quote, the edit row, an attachment chip — moves the text field
@@ -2222,7 +2226,14 @@ export default function ChatScreen({ route, navigation }: Props) {
 
       <AttachmentSheet
         visible={attachmentSheetVisible}
-        onCamera={() => choosePicker(pickFromCamera)}
+        onCamera={() => {
+          if (supportsWebCamera()) {
+            setAttachmentSheetVisible(false);
+            setTimeout(() => setWebCameraVisible(true), 50);
+            return;
+          }
+          choosePicker(pickFromCamera);
+        }}
         onLibrary={() => choosePicker(pickFromLibrary)}
         onDocument={() => choosePicker(pickDocument)}
         onGif={openGifPicker}
@@ -2233,6 +2244,20 @@ export default function ChatScreen({ route, navigation }: Props) {
         teaActive={tea.isActive}
         onClose={() => setAttachmentSheetVisible(false)}
         onClosed={launchPendingPicker}
+      />
+
+      <WebCameraModal
+        visible={webCameraVisible}
+        onClose={() => setWebCameraVisible(false)}
+        onCapture={(result) => {
+          if (result.error) {
+            setAttachError(result.error);
+            return;
+          }
+          setAttachError(null);
+          setPendingAttachment(result.attachment);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }}
       />
 
       <GifPicker

@@ -241,6 +241,60 @@ export async function pickFromCamera(): Promise<PickResult | null> {
   return fromImagePickerAsset(result.assets[0]);
 }
 
+/**
+ * Whether to use the in-app `getUserMedia` camera instead of the OS one.
+ *
+ * `ImagePicker.launchCameraAsync` on web is a file input carrying the
+ * `capture` attribute. A phone honours that and opens its camera app; a laptop
+ * ignores it entirely and opens a file chooser, so "Camera" there did nothing
+ * a laptop user would recognise as a camera. `getUserMedia` is the only way to
+ * reach a webcam — but only worth preferring where the OS picker fails, so
+ * touch devices keep their native camera app (better capture UI, and
+ * standalone iOS PWAs have a patchy `getUserMedia` history).
+ */
+export function supportsWebCamera(): boolean {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined') return false;
+  if (!navigator.mediaDevices?.getUserMedia) return false;
+  if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) return false;
+  return true;
+}
+
+/**
+ * Web-only: turn a still grabbed off a live camera stream into an attachment.
+ * The canvas already emits a sized, compressed JPEG, so this skips
+ * compressImage() and only has to re-check the size limit.
+ */
+export function fromWebCapture(dataUrl: string, width: number, height: number): PickResult {
+  const comma = dataUrl.indexOf(',');
+  const semi = dataUrl.indexOf(';');
+  if (comma < 0 || semi < 0) return { attachment: null, error: 'Couldn’t read that photo — try again.' };
+
+  const mime = dataUrl.slice(5, semi) || 'image/jpeg';
+  const base64 = dataUrl.slice(comma + 1);
+  // base64 carries 3 bytes per 4 characters, minus whatever the padding covers.
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  const size = Math.floor((base64.length * 3) / 4) - padding;
+
+  const sizeError = tooLarge('image', size);
+  if (sizeError) return { attachment: null, error: sizeError };
+
+  return {
+    attachment: {
+      uri: dataUrl,
+      base64,
+      mime,
+      type: 'image',
+      name: `photo-${Date.now()}.jpg`,
+      size,
+      width,
+      height,
+      durationMs: null,
+      thumbUri: null,
+    },
+    error: null,
+  };
+}
+
 export async function pickDocument(): Promise<PickResult | null> {
   const result = await DocumentPicker.getDocumentAsync({
     multiple: false,
