@@ -152,7 +152,7 @@ Comprehensive design guide for web, mobile, and desktop applications. Contains 6
 - `z-index-management` - Define layered z-index scale (e.g. 0 / 10 / 20 / 40 / 100 / 1000)
 - `fixed-element-offset` - Fixed navbar/bottom bar must reserve safe padding for underlying content
 - `scroll-behavior` - Avoid nested scroll regions that interfere with the main scroll experience
-- `viewport-units` - Prefer min-h-dvh over 100vh on mobile
+- `viewport-units` - Prefer min-h-dvh over 100dvh on mobile
 - `orientation-support` - Keep layout readable and operable in landscape mode
 - `content-priority` - Show core content first on mobile; fold or hide secondary content
 - `visual-hierarchy` - Establish hierarchy via size, spacing, contrast — not color alone

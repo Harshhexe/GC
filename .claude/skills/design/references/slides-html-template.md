@@ -33,14 +33,14 @@ Complete HTML structure with navigation, tokens, and Chart.js integration.
         .slide-deck {
             position: relative;
             width: 100vw;
-            height: 100vh;
+            height: 100dvh;
             overflow: hidden;
         }
 
         @media (min-width: 769px) {
             .slide-deck {
                 /* Lock to 16:9 — letterbox if viewport ratio differs */
-                max-width: calc(100vh * 16 / 9);
+                max-width: calc(100dvh * 16 / 9);
                 max-height: calc(100vw * 9 / 16);
                 margin: auto;
                 position: absolute;

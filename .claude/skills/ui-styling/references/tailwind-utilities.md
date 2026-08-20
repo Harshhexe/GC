@@ -377,12 +377,12 @@ Directions: `to-t | to-tr | to-r | to-br | to-b | to-bl | to-l | to-tl`
 
 ```html
 <div class="h-full">100%</div>
-<div class="h-screen">100vh</div>
+<div class="h-screen">100dvh</div>
 <div class="h-64">16rem</div>
 <div class="h-[500px]">500px</div>
 
 <!-- Min/Max height -->
-<div class="min-h-screen">min-height: 100vh</div>
+<div class="min-h-screen">min-height: 100dvh</div>
 <div class="max-h-96">max-height: 24rem</div>
 ```
 

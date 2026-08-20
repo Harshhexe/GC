@@ -538,11 +538,17 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const dragCounter = useRef(0);
   const [hasClipboardImage, setHasClipboardImage] = useState(false);
+  const clipboardVersion = useRef(0);
+  const dismissedVersion = useRef(-1);
 
   const checkClipboardForImage = useCallback(async () => {
     try {
       const hasImg = await Clipboard.hasImageAsync();
-      setHasClipboardImage(hasImg);
+      if (hasImg && clipboardVersion.current > dismissedVersion.current) {
+        setHasClipboardImage(true);
+      } else {
+        setHasClipboardImage(false);
+      }
     } catch {
       setHasClipboardImage(false);
     }
@@ -552,6 +558,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     void checkClipboardForImage();
     if (Platform.OS !== 'web') {
       const sub = Clipboard.addClipboardListener(async () => {
+        clipboardVersion.current += 1;
         await checkClipboardForImage();
       });
       return () => {
@@ -576,6 +583,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       } else if (res.attachment) {
         setAttachError(null);
         setPendingAttachment(res.attachment);
+        dismissedVersion.current = clipboardVersion.current;
         setHasClipboardImage(false);
         setTimeout(() => inputRef.current?.focus(), 50);
       }
@@ -2175,6 +2183,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                     hitSlop={8}
                     onPress={(e: any) => {
                       e?.stopPropagation?.();
+                      dismissedVersion.current = clipboardVersion.current;
                       setHasClipboardImage(false);
                     }}
                     style={styles.clipboardPasteClose}

@@ -10,9 +10,9 @@ interface NavItemProps {
   position: number;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ 
-  icon: Icon, 
-  isActive = false, 
+const NavItem: React.FC<NavItemProps> = ({
+  icon: Icon,
+  isActive = false,
   onClick,
   indicatorPosition,
   position
@@ -25,7 +25,7 @@ const NavItem: React.FC<NavItemProps> = ({
       className="relative flex items-center justify-center w-14 h-12 mx-1 transition-all duration-400 focus:outline-none"
       onClick={onClick}
     >
-      <div 
+      <div
         className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-24 bg-gradient-to-b from-white/40 to-transparent blur-lg rounded-full pointer-events-none transition-opacity duration-400"
         style={{
           opacity: spotlightOpacity,
@@ -33,9 +33,8 @@ const NavItem: React.FC<NavItemProps> = ({
         }}
       />
       <Icon
-        className={`w-6 h-6 transition-colors duration-200 ${
-          isActive ? 'text-white' : 'text-gray-400 hover:text-gray-200'
-        }`}
+        className={`w-6 h-6 transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-400 hover:text-gray-200'
+          }`}
         strokeWidth={isActive ? 2.5 : 2}
       />
     </button>
@@ -60,7 +59,7 @@ export const Component: React.FC<ComponentProps> = ({
   onSelectTab,
 }) => {
   const [internalActiveIndex, setInternalActiveIndex] = useState(0);
-  
+
   const activeIndex = externalActiveIndex !== undefined ? externalActiveIndex : internalActiveIndex;
 
   const defaultNavItems: SpotlightDockItem[] = [
@@ -83,7 +82,7 @@ export const Component: React.FC<ComponentProps> = ({
   return (
     <div className="container">
       <nav className="relative flex items-center px-4 py-2 bg-black/90 backdrop-blur-md rounded-full shadow-2xl border border-white/15">
-        <div 
+        <div
           className="absolute top-0 h-[2px] bg-white transition-all duration-400 ease-in-out shadow-[0_0_8px_#fff]"
           style={{
             left: `${activeIndex * 64 + 20}px`,
@@ -115,7 +114,7 @@ export const Component: React.FC<ComponentProps> = ({
 
         .container {
           width: 100vw;
-          height: 100vh;
+          height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;

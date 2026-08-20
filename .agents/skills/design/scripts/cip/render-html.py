@@ -160,7 +160,7 @@ def generate_html(brand_name, industry, images_dir, output_path=None, style=None
             line-height: 1.6;
         }}
         .hero {{
-            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             flex-direction: column;
             justify-content: center;
