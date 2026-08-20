@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,7 +15,11 @@ import {
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { GROUP_THEMES, GroupThemeKey, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
+import {
+  type ChatAppearance,
+  groupTheme,
+  useChatAppearance,
+} from '../theme/groupThemes';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
@@ -22,6 +27,7 @@ import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { MemberActionSheet, MemberActionTarget } from '../components/MemberActionSheet';
+import { ChatThemeSheet } from '../components/ChatThemeSheet';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { successFeedback } from '../utils/haptics';
@@ -62,7 +68,6 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
-  const [changingTheme, setChangingTheme] = useState(false);
   const [actionTarget, setActionTarget] = useState<Member | null>(null);
 
   const load = useCallback(async () => {
@@ -198,17 +203,15 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     ]);
   }
 
-  const { themeKey: personalThemeKey, updateTheme: updatePersonalTheme } = usePersonalGroupTheme(
-    groupId,
-    group?.theme
-  );
+  const { appearance, update: updateAppearance } = useChatAppearance(groupId, group?.theme);
+  const [themeSheetVisible, setThemeSheetVisible] = useState(false);
 
-  async function handleThemeChange(key: GroupThemeKey) {
-    if (personalThemeKey === key) return;
+  function handleAppearanceChange(patch: Partial<ChatAppearance>) {
     successFeedback();
-    await updatePersonalTheme(key);
-    setGroup((prev) => (prev ? { ...prev, theme: key } : prev));
-    await supabase.from('groups').update({ theme: key }).eq('id', groupId);
+    // Personal and device-local by design — the old swatch grid also wrote the
+    // key back to `groups`, which changed the colour for every member despite
+    // being labelled "Personal View".
+    updateAppearance(patch);
   }
 
   async function handleMakeAdmin(memberId: string) {
@@ -251,6 +254,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
 
   const shown = showAll ? members : members.slice(0, VISIBLE_MEMBERS);
   const activeTheme = groupTheme(group?.theme);
+  const activePersonalTheme = groupTheme(appearance.themeKey);
 
   const actionTargetView: MemberActionTarget | null = actionTarget
     ? {
@@ -369,29 +373,45 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               </View>
             </View>
             <Text style={styles.themeSub}>Only changes how this chat looks for you.</Text>
-            <View style={styles.themeGrid}>
-              {GROUP_THEMES.map((t) => {
-                const active = personalThemeKey === t.key;
-                return (
-                  <PressableScale
-                    key={t.key}
-                    scaleTo={0.9}
-                    haptic="medium"
-                    onPress={() => handleThemeChange(t.key)}
-                    style={[styles.themeChip, active && { borderColor: t.accent }]}
-                  >
-                    <LinearGradient
-                      colors={t.colors}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.themeSwatch}
-                    >
-                      {active && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-                    </LinearGradient>
-                  </PressableScale>
-                );
-              })}
-            </View>
+
+            <PressableScale
+              scaleTo={0.98}
+              haptic="light"
+              onPress={() => setThemeSheetVisible(true)}
+              style={styles.themeRow}
+            >
+              {/* The current look, previewed rather than named: swatch, bubble
+                  fill and wallpaper thumbnail if one is set. */}
+              <LinearGradient
+                colors={activePersonalTheme.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.themeRowSwatch}
+              >
+                {appearance.wallpaperUri ? (
+                  <Image
+                    source={appearance.wallpaperUri}
+                    style={styles.themeRowWallpaper}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                  />
+                ) : (
+                  <Ionicons name="color-palette-outline" size={17} color="#FFFFFF" />
+                )}
+              </LinearGradient>
+
+              <View style={styles.themeRowCopy}>
+                <Text style={styles.themeRowTitle}>Chat theme</Text>
+                <Text style={styles.themeRowSub}>
+                  {activePersonalTheme.name}
+                  {' · '}
+                  {appearance.bubbleStyle === 'opaque' ? 'Opaque' : 'Translucent'}
+                  {appearance.wallpaperUri ? ' · Wallpaper' : ''}
+                </Text>
+              </View>
+
+              <Ionicons name="chevron-forward" size={17} color={colors.textFaint} />
+            </PressableScale>
           </Animated.View>
 
           <Animated.View
@@ -501,6 +521,14 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
         </ScrollView>
       </SafeAreaView>
 
+      <ChatThemeSheet
+        visible={themeSheetVisible}
+        groupId={groupId}
+        appearance={appearance}
+        onChange={handleAppearanceChange}
+        onClose={() => setThemeSheetVisible(false)}
+      />
+
       <MemberActionSheet
         visible={actionTarget !== null}
         target={actionTargetView}
@@ -592,21 +620,28 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     marginBottom: spacing.xs,
   },
-  themeGrid: { flexDirection: 'row', gap: spacing.sm },
-  themeChip: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    padding: 3,
+  themeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceHigh,
   },
-  themeSwatch: {
-    flex: 1,
-    borderRadius: radius.pill,
+  themeRowSwatch: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  themeRowWallpaper: { width: '100%', height: '100%' },
+  themeRowCopy: { flex: 1, gap: 1 },
+  themeRowTitle: { ...typography.label, fontSize: 14, color: colors.onSurface },
+  themeRowSub: { ...typography.caption, fontSize: 11, color: colors.onSurfaceVariant },
   crewBlock: { gap: spacing.md },
   crewTitle: { ...typography.headline, fontSize: 24, color: colors.onSurface },
   memberRow: {

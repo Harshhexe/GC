@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, glass, radius, shadows, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
-import { GroupTheme, groupTheme } from '../theme/groupThemes';
+import { type BubbleStyle, GroupTheme, groupTheme } from '../theme/groupThemes';
 import { Message } from '../types';
 import { clockTime } from '../utils/time';
 import type { Reader } from '../hooks/useReadReceipts';
@@ -51,6 +51,7 @@ function MessageBubbleImpl({
   showTimestamp = true,
   readers,
   tint,
+  bubbleStyle = 'translucent',
   highlighted,
   selectMode,
   selected,
@@ -81,6 +82,8 @@ function MessageBubbleImpl({
   readers?: Reader[];
   /** The group's theme, so each GC tints its own transcript. */
   tint?: GroupTheme;
+  /** Glass or solid fill — a personal readability choice, set per group. */
+  bubbleStyle?: BubbleStyle;
   /** Briefly true right after a "jump to original" lands here. */
   highlighted?: boolean;
   selectMode?: boolean;
@@ -111,6 +114,7 @@ function MessageBubbleImpl({
   const [showSeenText, setShowSeenText] = useState(false);
   const mine = message.isMine;
   const theme = tint ?? groupTheme('violet');
+  const opaque = bubbleStyle === 'opaque';
   const hasCaption = message.text.trim().length > 0;
   const detectedUrl = useMemo(() => extractFirstUrl(message.text), [message.text]);
 
@@ -319,13 +323,17 @@ function MessageBubbleImpl({
               >
                 {mine && !deleted ? (
                   <LinearGradient
-                    colors={[`${theme.colors[0]}59`, `${theme.colors[1]}3D`]}
+                    colors={
+                      opaque
+                        ? [theme.colors[0], theme.colors[1]]
+                        : [`${theme.colors[0]}59`, `${theme.colors[1]}3D`]
+                    }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
                       styles.bubble,
                       styles.bubbleMine,
-                      { borderColor: `${theme.accent}8C` },
+                      { borderColor: opaque ? theme.colors[0] : `${theme.accent}8C` },
                       isMessageOfTheDay && styles.bubbleMotd,
                       !!message.media && styles.bubbleMedia,
                     ]}
@@ -375,6 +383,7 @@ function MessageBubbleImpl({
                     style={[
                       styles.bubble,
                       styles.bubbleTheirs,
+                      opaque && styles.bubbleTheirsOpaque,
                       isMessageOfTheDay && styles.bubbleMotd,
                       deleted && styles.bubbleDeleted,
                       !!message.media && !deleted && styles.bubbleMedia,
@@ -501,6 +510,7 @@ function arePropsEqual(prev: any, next: any) {
     prev.showTimestamp === next.showTimestamp &&
     prev.readers === next.readers &&
     prev.tint === next.tint &&
+    prev.bubbleStyle === next.bubbleStyle &&
     prev.highlighted === next.highlighted &&
     prev.selectMode === next.selectMode &&
     prev.selected === next.selected &&
@@ -596,6 +606,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderBottomLeftRadius: radius.sm,
+  },
+  bubbleTheirsOpaque: {
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.outlineVariant,
   },
   bubbleDeleted: {
     backgroundColor: 'transparent',

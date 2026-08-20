@@ -77,7 +77,7 @@ import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
-import { TEA_THEME, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
+import { TEA_THEME, groupTheme, useChatAppearance } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
 import { useGroupMembers } from '../hooks/useGroupMembers';
@@ -431,7 +431,11 @@ export default function ChatScreen({ route, navigation }: Props) {
   const weeklyAwards = useWeeklyAwards(groupId);
   const [awardsOpen, setAwardsOpen] = useState(false);
 
-  const { theme: personalTheme } = usePersonalGroupTheme(groupId, groupInfo?.theme);
+  const {
+    theme: personalTheme,
+    bubbleStyle,
+    wallpaperUri,
+  } = useChatAppearance(groupId, groupInfo?.theme);
 
   // Tea swaps the whole chat's accent by swapping this one object — every
   // themed component downstream already reads from it, so nothing else has to
@@ -1814,6 +1818,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             showTimestamp={showTimestamp}
             readers={readersByMessage.get(item.id)}
             tint={theme}
+            bubbleStyle={bubbleStyle}
             highlighted={item.id === highlightedId}
             selectMode={selectMode}
             selected={selectedIds.has(item.id)}
@@ -1839,6 +1844,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       firstUnreadId,
       unreadCount,
       theme,
+      bubbleStyle,
       motdId,
       pinnedIds,
       readersByMessage,
@@ -1867,12 +1873,16 @@ export default function ChatScreen({ route, navigation }: Props) {
   return (
     <View style={styles.root}>
       <DropZoneOverlay visible={isDraggingOver} />
+      {/* A custom wallpaper replaces the default doodle background outright
+          rather than stacking on it — two patterned layers fight each other,
+          and the point of choosing a photo is to see the photo. */}
       <Image
-        source={CHAT_BG}
+        source={wallpaperUri ?? CHAT_BG}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         cachePolicy="memory-disk"
       />
+      {wallpaperUri && <View style={[StyleSheet.absoluteFill, styles.wallpaperScrim]} />}
       {/* Edge glows off on web: in the installed PWA they land on the status
           bar and home-indicator strips and read as system chrome rather than
           part of the chat. Native keeps them — safe areas are padded there, so
@@ -2510,6 +2520,9 @@ export default function ChatScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // A custom photo can be any brightness; this keeps white text legible over
+  // it without dimming the picture into uselessness.
+  wallpaperScrim: { backgroundColor: 'rgba(5, 5, 10, 0.45)' },
   root: { flex: 1, backgroundColor: colors.bg },
   safe: { flex: 1, minHeight: 0 },
   flex: { flex: 1, minHeight: 0 },

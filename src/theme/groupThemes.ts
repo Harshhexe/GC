@@ -52,71 +52,139 @@ export const TEA_THEME: GroupTheme = {
   accent: '#FBBF24',
 };
 
-// ── Personal View Theme Storage ─────────────────────────────────────────
+
+// ── Personal chat appearance ────────────────────────────────────────────
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback } from 'react';
 
-const themeListeners = new Map<string, Set<(key: GroupThemeKey) => void>>();
+/**
+ * How message bubbles are filled.
+ *
+ * `translucent` is the original look — tinted glass letting the background
+ * through. `opaque` is for anyone who finds that hard to read, especially over
+ * a busy custom wallpaper, and is why the setting exists at all.
+ */
+export type BubbleStyle = 'translucent' | 'opaque';
 
-export async function getPersonalGroupTheme(groupId: string): Promise<GroupThemeKey | null> {
-  try {
-    const val = await AsyncStorage.getItem(`@gc_personal_theme_${groupId}`);
-    if (val && byKey.has(val as GroupThemeKey)) {
-      return val as GroupThemeKey;
-    }
-  } catch {}
-  return null;
+/**
+ * Everything the Chat Theme sheet controls, per group and per device.
+ *
+ * Deliberately local-only (AsyncStorage, never the server): this is "how *I*
+ * want to see this chat", so it must not change the look for anybody else in
+ * the GC — the same reason the theme picker was always labelled Personal View.
+ */
+export type ChatAppearance = {
+  themeKey: GroupThemeKey;
+  bubbleStyle: BubbleStyle;
+  /** Local URI (native) or data URL (web) of a custom background; null = none. */
+  wallpaperUri: string | null;
+};
+
+export const DEFAULT_APPEARANCE: Omit<ChatAppearance, 'themeKey'> = {
+  bubbleStyle: 'translucent',
+  wallpaperUri: null,
+};
+
+const appearanceKey = (groupId: string) => `@gc_chat_appearance_${groupId}`;
+/** Pre-appearance storage: a bare theme key. Read once, then folded in. */
+const legacyThemeKey = (groupId: string) => `@gc_personal_theme_${groupId}`;
+
+const appearanceListeners = new Map<string, Set<(a: ChatAppearance) => void>>();
+
+function normalize(raw: unknown, fallbackThemeKey?: string | null): ChatAppearance {
+  const value = (raw ?? {}) as Partial<ChatAppearance>;
+  const key = byKey.has(value.themeKey as GroupThemeKey)
+    ? (value.themeKey as GroupThemeKey)
+    : ((fallbackThemeKey as GroupThemeKey) ?? 'violet');
+  return {
+    themeKey: byKey.has(key) ? key : 'violet',
+    bubbleStyle: value.bubbleStyle === 'opaque' ? 'opaque' : 'translucent',
+    wallpaperUri: typeof value.wallpaperUri === 'string' ? value.wallpaperUri : null,
+  };
 }
 
-export async function setPersonalGroupTheme(groupId: string, key: GroupThemeKey): Promise<void> {
+export async function getChatAppearance(
+  groupId: string,
+  fallbackThemeKey?: string | null
+): Promise<ChatAppearance> {
   try {
-    await AsyncStorage.setItem(`@gc_personal_theme_${groupId}`, key);
-    // Notify any active listeners (e.g. ChatScreen, GroupInfoScreen)
-    const listeners = themeListeners.get(groupId);
-    if (listeners) {
-      listeners.forEach((fn) => fn(key));
-    }
+    const stored = await AsyncStorage.getItem(appearanceKey(groupId));
+    if (stored) return normalize(JSON.parse(stored), fallbackThemeKey);
+
+    // Carry over a theme chosen before this sheet existed, so upgrading
+    // doesn't silently reset someone's colour back to the group default.
+    const legacy = await AsyncStorage.getItem(legacyThemeKey(groupId));
+    if (legacy) return normalize({ themeKey: legacy as GroupThemeKey }, fallbackThemeKey);
   } catch {}
+  return normalize(null, fallbackThemeKey);
 }
 
-export function usePersonalGroupTheme(groupId: string, fallbackThemeKey?: string | null) {
-  const [personalKey, setPersonalKey] = useState<GroupThemeKey | null>(null);
+export async function setChatAppearance(
+  groupId: string,
+  appearance: ChatAppearance
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(appearanceKey(groupId), JSON.stringify(appearance));
+  } catch {}
+  // Notified regardless of whether the write succeeded: the in-memory state is
+  // already live, and a storage failure shouldn't leave open screens stale.
+  appearanceListeners.get(groupId)?.forEach((fn) => fn(appearance));
+}
+
+/**
+ * Subscribes to this group's personal appearance. Every screen that renders
+ * the chat's look uses this, so a change made in the sheet lands everywhere
+ * at once without a reload.
+ */
+export function useChatAppearance(groupId: string, fallbackThemeKey?: string | null) {
+  const [appearance, setAppearance] = useState<ChatAppearance>(() =>
+    normalize(null, fallbackThemeKey)
+  );
 
   useEffect(() => {
     let mounted = true;
-    getPersonalGroupTheme(groupId).then((key) => {
-      if (mounted && key) setPersonalKey(key);
+    getChatAppearance(groupId, fallbackThemeKey).then((a) => {
+      if (mounted) setAppearance(a);
     });
 
-    const listener = (newKey: GroupThemeKey) => {
-      if (mounted) setPersonalKey(newKey);
+    const listener = (next: ChatAppearance) => {
+      if (mounted) setAppearance(next);
     };
-
-    if (!themeListeners.has(groupId)) {
-      themeListeners.set(groupId, new Set());
-    }
-    themeListeners.get(groupId)!.add(listener);
+    if (!appearanceListeners.has(groupId)) appearanceListeners.set(groupId, new Set());
+    appearanceListeners.get(groupId)!.add(listener);
 
     return () => {
       mounted = false;
-      const set = themeListeners.get(groupId);
+      const set = appearanceListeners.get(groupId);
       if (set) {
         set.delete(listener);
-        if (set.size === 0) themeListeners.delete(groupId);
+        if (set.size === 0) appearanceListeners.delete(groupId);
       }
     };
-  }, [groupId]);
+  }, [groupId, fallbackThemeKey]);
 
-  const activeKey = personalKey || ((fallbackThemeKey as GroupThemeKey) ?? 'violet');
-  const theme = groupTheme(activeKey);
-
-  const updateTheme = useCallback(
-    async (newKey: GroupThemeKey) => {
-      setPersonalKey(newKey);
-      await setPersonalGroupTheme(groupId, newKey);
+  const update = useCallback(
+    async (patch: Partial<ChatAppearance>) => {
+      const next = { ...appearance, ...patch };
+      setAppearance(next);
+      await setChatAppearance(groupId, next);
     },
-    [groupId]
+    [appearance, groupId]
   );
 
-  return { theme, themeKey: activeKey, updateTheme };
+  return {
+    appearance,
+    theme: groupTheme(appearance.themeKey),
+    themeKey: appearance.themeKey,
+    bubbleStyle: appearance.bubbleStyle,
+    wallpaperUri: appearance.wallpaperUri,
+    update,
+  };
+}
+
+/** Theme-only view of the same state, for screens that render no bubbles. */
+export function usePersonalGroupTheme(groupId: string, fallbackThemeKey?: string | null) {
+  const { theme, themeKey, update } = useChatAppearance(groupId, fallbackThemeKey);
+  const updateTheme = useCallback((key: GroupThemeKey) => update({ themeKey: key }), [update]);
+  return { theme, themeKey, updateTheme };
 }
