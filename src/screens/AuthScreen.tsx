@@ -44,6 +44,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { isUsernameAvailable } from '../lib/username';
 import { successFeedback } from '../utils/haptics';
+import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
 
 const PASSWORD_MIN = 6;
 const APP_LOGO_TRANSPARENT = require('../../assets/gc_app_logo-transparent.png');
@@ -127,6 +128,7 @@ function AuthAtmosphericBackground() {
 }
 
 export default function AuthScreen() {
+  const webKeyboardInset = useWebKeyboardInset();
   const { signUp, signIn } = useAuth();
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
   const [step, setStep] = useState<SignUpStep>(0);
@@ -263,7 +265,11 @@ export default function AuthScreen() {
       <AuthAtmosphericBackground />
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
-          style={styles.flex}
+          // On web the app root is never resized by the keyboard, and
+          // KeyboardAvoidingView has no keyboard events to react to there, so
+          // the covered strip is added as padding by hand. 0 when closed, so
+          // the resting layout is untouched.
+          style={[styles.flex, Platform.OS === 'web' && { paddingBottom: webKeyboardInset }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <ScrollView

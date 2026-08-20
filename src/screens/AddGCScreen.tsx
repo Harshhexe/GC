@@ -42,6 +42,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
+import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, 'AddGC'>,
@@ -112,6 +113,7 @@ function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
 }
 
 export default function AddGCScreen({ navigation, route }: Props) {
+  const webKeyboardInset = useWebKeyboardInset();
   const { session, profile } = useAuth();
   const isDesktopWeb = useIsDesktopWeb();
   const [mode, setMode] = useState<'create' | 'join'>(route.params?.mode ?? 'create');
@@ -253,7 +255,11 @@ export default function AddGCScreen({ navigation, route }: Props) {
         />
 
         <KeyboardAvoidingView
-          style={styles.flex}
+          // On web the app root is never resized by the keyboard, and
+          // KeyboardAvoidingView has no keyboard events to react to there, so
+          // the covered strip is added as padding by hand. 0 when closed, so
+          // the resting layout is untouched.
+          style={[styles.flex, Platform.OS === 'web' && { paddingBottom: webKeyboardInset }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <ScrollView

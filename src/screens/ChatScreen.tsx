@@ -79,7 +79,7 @@ import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
 import { TEA_THEME, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
-import { useWebKeyboardOpen } from '../hooks/useWebKeyboardOpen';
+import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
 import { requestViewportSync } from '../hooks/useVisualViewportHeight';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
@@ -198,7 +198,8 @@ export default function ChatScreen({ route, navigation }: Props) {
   const keyboard = useAnimatedKeyboard();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   // The web half of the same signal — RN's Keyboard events never fire there.
-  const webKeyboardOpen = useWebKeyboardOpen();
+  const webKeyboardInset = useWebKeyboardInset();
+  const webKeyboardOpen = webKeyboardInset > 0;
   const keyboardOpen = isKeyboardOpen || webKeyboardOpen;
 
   useEffect(() => {
@@ -231,8 +232,12 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const animatedComposerStyle = useAnimatedStyle(() => {
     if (Platform.OS === 'web') {
+      // The app root stays a full screen tall on web, so nothing else moves
+      // when the keyboard opens — the composer lifts itself by exactly the
+      // strip the keyboard covers. Closed, this is the same 6px it has always
+      // been, so the resting design is unchanged.
       return {
-        paddingBottom: webKeyboardOpen ? 2 : 6,
+        paddingBottom: webKeyboardInset > 0 ? webKeyboardInset + 2 : 6,
       };
     }
     if (Platform.OS === 'android') {
@@ -242,15 +247,9 @@ export default function ChatScreen({ route, navigation }: Props) {
       };
     }
     return {
-      paddingBottom: keyboardOpen 
-        ? Platform.OS === 'web'
-          ? 'calc(var(--gc-keyboard-height, 0px) + 8px)' as any
-          : spacing.xs 
-        : Platform.OS === 'web' 
-          ? 'calc(env(safe-area-inset-bottom, 0px) + 8px)' as any
-          : Math.max(insets.bottom, spacing.xs),
+      paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
     };
-  }, [webKeyboardOpen, keyboardOpen, insets.bottom]);
+  }, [webKeyboardInset, keyboardOpen, insets.bottom]);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);

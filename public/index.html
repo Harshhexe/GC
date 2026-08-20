@@ -100,8 +100,14 @@
         height: 100%;
         height: 100dvh;
         max-height: 100dvh;
-        /* The visual viewport is now handled purely via CSS custom properties on
-           specific components (e.g. ChatScreen) instead of transforming the root */
+        /* The root is never resized by the keyboard — it stays a full screen
+           tall so the dock and every other surface hold still. The one thing
+           the keyboard is allowed to do here is shift the root back down by
+           however far WebKit scrolled the *visual* viewport to lift a focused
+           input; without that the whole fixed-position app slides off the top
+           of the visible area. The keyboard's own height is applied as an
+           inset by the surfaces that own an input (see useWebKeyboardInset). */
+        transform: translateY(var(--gc-keyboard-offset, 0px));
         flex: 1;
         background-color: #030206;
         overflow: hidden;

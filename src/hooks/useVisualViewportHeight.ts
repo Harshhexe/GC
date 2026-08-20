@@ -14,9 +14,19 @@ export function requestViewportSync() {
 }
 
 /**
- * Keeps the app exactly as tall as the *visible* area on web,
- * and prevents iOS Safari / iOS PWA from shifting the entire page upward
- * or creating dead gaps when the software keyboard opens.
+ * Publishes the on-screen keyboard's geometry to CSS, on web.
+ *
+ * Deliberately does *not* resize the app: `#root` stays a full screen tall in
+ * both states. Sizing the root to the visual viewport made the entire UI —
+ * dock included — resize and jump every time the keyboard opened, and left
+ * dead gaps when it closed.
+ *
+ * Two custom properties come out of it:
+ *   --gc-keyboard-height  how much of the screen the keyboard covers, applied
+ *                         as a bottom inset by input-owning surfaces
+ *   --gc-keyboard-offset  how far WebKit scrolled the visual viewport to lift
+ *                         a focused input, cancelled by #root's transform so
+ *                         the fixed-position app stays pinned to what's visible
  */
 export function useVisualViewportHeight() {
   useEffect(() => {
@@ -42,9 +52,15 @@ export function useVisualViewportHeight() {
         document.documentElement.style.setProperty('--gc-keyboard-height', `${keyboardHeight}px`);
         const offset = Math.max(0, Math.round(vv.offsetTop));
         document.documentElement.style.setProperty('--gc-keyboard-offset', `${offset}px`);
+        // Also set on the node itself: the service worker can still be serving
+        // a cached index.html whose #root rule predates the transform.
+        const root = document.getElementById('root');
+        if (root) root.style.transform = offset ? `translateY(${offset}px)` : '';
       } else {
         document.documentElement.style.removeProperty('--gc-keyboard-height');
         document.documentElement.style.removeProperty('--gc-keyboard-offset');
+        const root = document.getElementById('root');
+        if (root) root.style.transform = '';
       }
       resetWindowScroll();
     };
@@ -95,8 +111,8 @@ export function useVisualViewportHeight() {
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('visibilitychange', sync);
       window.removeEventListener(VIEWPORT_SYNC_EVENT, sync);
-      document.documentElement.style.removeProperty('--gc-app-height');
-      document.documentElement.style.removeProperty('--gc-app-offset');
+      document.documentElement.style.removeProperty('--gc-keyboard-height');
+      document.documentElement.style.removeProperty('--gc-keyboard-offset');
       const root = document.getElementById('root');
       if (root) root.style.transform = '';
     };
