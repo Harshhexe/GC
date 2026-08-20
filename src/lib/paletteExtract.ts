@@ -46,10 +46,24 @@ async function samplePixelsWeb(uri: string): Promise<Rgb[]> {
   return pixels;
 }
 
+/**
+ * expo-image-manipulator's shape differs between bundles — sometimes the
+ * namespace, sometimes under `.default`. compressImage() in lib/media.ts has
+ * always guarded for this; reaching for `manipulateAsync` directly is what
+ * would silently throw and leave the caller with nothing.
+ */
+async function loadManipulator() {
+  const mod: any = await import('expo-image-manipulator');
+  const manipulateAsync = mod.manipulateAsync ?? mod.default?.manipulateAsync;
+  const SaveFormat = mod.SaveFormat ?? mod.default?.SaveFormat;
+  if (!manipulateAsync) throw new Error('manipulateAsync unavailable');
+  return { manipulateAsync, SaveFormat };
+}
+
 async function samplePixelsNative(uri: string): Promise<Rgb[]> {
-  const manipulator = await import('expo-image-manipulator');
-  const output = await manipulator.manipulateAsync(uri, [{ resize: { width: SAMPLE_SIZE } }], {
-    format: manipulator.SaveFormat.PNG,
+  const { manipulateAsync, SaveFormat } = await loadManipulator();
+  const output = await manipulateAsync(uri, [{ resize: { width: SAMPLE_SIZE } }], {
+    format: SaveFormat?.PNG ?? 'png',
     base64: true,
   });
   if (!output.base64) return [];

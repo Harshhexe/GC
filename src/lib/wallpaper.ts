@@ -24,6 +24,20 @@ const WALLPAPER_DIR = `${FileSystem.documentDirectory ?? ''}wallpapers/`;
 const MAX_DIMENSION = 1080;
 const QUALITY = 0.6;
 
+/**
+ * expo-image-manipulator's shape differs between bundles — sometimes the
+ * namespace, sometimes under `.default`. compressImage() in lib/media.ts has
+ * always guarded for this; reaching for `manipulateAsync` directly is what
+ * would silently throw and leave the caller with nothing.
+ */
+async function loadManipulator() {
+  const mod: any = await import('expo-image-manipulator');
+  const manipulateAsync = mod.manipulateAsync ?? mod.default?.manipulateAsync;
+  const SaveFormat = mod.SaveFormat ?? mod.default?.SaveFormat;
+  if (!manipulateAsync) throw new Error('manipulateAsync unavailable');
+  return { manipulateAsync, SaveFormat };
+}
+
 export type WallpaperResult = { uri: string; error: null } | { uri: null; error: string };
 
 async function ensureDir() {
@@ -53,7 +67,7 @@ export async function pickChatWallpaper(groupId: string): Promise<WallpaperResul
   const asset = result.assets[0];
 
   try {
-    const manipulator = await import('expo-image-manipulator');
+    const { manipulateAsync, SaveFormat } = await loadManipulator();
     const longEdge = Math.max(asset.width ?? 0, asset.height ?? 0);
     const actions =
       longEdge > MAX_DIMENSION
@@ -67,9 +81,9 @@ export async function pickChatWallpaper(groupId: string): Promise<WallpaperResul
           ]
         : [];
 
-    const output = await manipulator.manipulateAsync(asset.uri, actions, {
+    const output = await manipulateAsync(asset.uri, actions, {
       compress: QUALITY,
-      format: manipulator.SaveFormat.JPEG,
+      format: SaveFormat?.JPEG ?? 'jpeg',
       base64: Platform.OS === 'web',
     });
 

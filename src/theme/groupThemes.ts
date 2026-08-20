@@ -86,7 +86,7 @@ export function themeFromColor(hex: string): GroupTheme {
 // ── Personal chat appearance ────────────────────────────────────────────
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hslToHex, rgbToHsl } from '../lib/palette';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * How message bubbles are filled.
@@ -182,15 +182,26 @@ export function useChatAppearance(groupId: string, fallbackThemeKey?: string | n
   const [appearance, setAppearance] = useState<ChatAppearance>(() =>
     normalize(null, fallbackThemeKey)
   );
+  /**
+   * Always the newest value, including writes not yet rendered. See update().
+   * Kept in step at every point that sets state — the initial load, the
+   * cross-screen listener and update() itself — rather than being reassigned
+   * during render, which could overwrite a newer value mid-render.
+   */
+  const latest = useRef(appearance);
 
   useEffect(() => {
     let mounted = true;
     getChatAppearance(groupId, fallbackThemeKey).then((a) => {
-      if (mounted) setAppearance(a);
+      if (!mounted) return;
+      latest.current = a;
+      setAppearance(a);
     });
 
     const listener = (next: ChatAppearance) => {
-      if (mounted) setAppearance(next);
+      if (!mounted) return;
+      latest.current = next;
+      setAppearance(next);
     };
     if (!appearanceListeners.has(groupId)) appearanceListeners.set(groupId, new Set());
     appearanceListeners.get(groupId)!.add(listener);
@@ -205,13 +216,24 @@ export function useChatAppearance(groupId: string, fallbackThemeKey?: string | n
     };
   }, [groupId, fallbackThemeKey]);
 
+  /*
+   * Merged against a ref rather than the rendered value.
+   *
+   * Two updates in a row from one handler — as picking a wallpaper does, first
+   * the image and then the palette extracted from it — would otherwise both
+   * merge into the state captured when that handler was created. The second
+   * write would spread a stale object and silently revert the first, so the
+   * new wallpaper appeared and then vanished. The ref also keeps this callback
+   * stable, which stops every consumer re-rendering on each change.
+   */
   const update = useCallback(
     async (patch: Partial<ChatAppearance>) => {
-      const next = { ...appearance, ...patch };
+      const next = { ...latest.current, ...patch };
+      latest.current = next;
       setAppearance(next);
       await setChatAppearance(groupId, next);
     },
-    [appearance, groupId]
+    [groupId]
   );
 
   return {
