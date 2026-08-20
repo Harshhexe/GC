@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -28,6 +29,8 @@ import {
 } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { GROUP_THEMES, GroupThemeKey, groupTheme, GroupTheme } from '../theme/groupThemes';
+import { useGCEntitlement } from '../hooks/useGCEntitlement';
+import { formatPaise, friendlyGroupCreateError, startGCPurchase } from '../lib/billing';
 import { GlassPanel } from '../components/ui/Glass';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { useIsDesktopWeb } from '../hooks/useResponsiveLayout';
@@ -137,6 +140,31 @@ export default function AddGCScreen({ navigation, route }: Props) {
 
   const activeTheme = groupTheme(theme);
 
+  // Slot availability comes from the server, which is also what enforces it.
+  const { entitlement, refresh: refreshEntitlement } = useGCEntitlement();
+  const [startingPurchase, setStartingPurchase] = useState(false);
+  const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
+
+  async function handleBuySlot() {
+    if (!session?.user || startingPurchase) return;
+    setStartingPurchase(true);
+    setPurchaseNote(null);
+
+    const { purchase, error } = await startGCPurchase(session.user.id);
+    setStartingPurchase(false);
+
+    if (error || !purchase) {
+      setPurchaseNote(error ?? 'Could not start the purchase. Try again.');
+      return;
+    }
+    // Where Razorpay checkout will be opened once keys exist. Until then the
+    // order is recorded and left unsettled — deliberately no client-side path
+    // to mark it paid, since that would hand out free slots.
+    setPurchaseNote(
+      `Order reserved (#${purchase.id.slice(0, 8)}). Razorpay checkout isn’t connected yet, so it stays pending.`
+    );
+  }
+
   function resetWizard() {
     setName('');
     setPhoto(null);
@@ -195,6 +223,13 @@ export default function AddGCScreen({ navigation, route }: Props) {
 
     if (error || !group) {
       setBusy(false);
+      // The limit is enforced by a trigger, so this can fire even though the
+      // paywall let us through — e.g. a slot was used on another device.
+      if (error?.message?.includes('GC_LIMIT_REACHED')) {
+        await refreshEntitlement();
+        setCreateError(friendlyGroupCreateError(error.message));
+        return;
+      }
       setCreateError(error?.message ?? 'Failed to create group. Please try again.');
       return;
     }
@@ -361,6 +396,95 @@ export default function AddGCScreen({ navigation, route }: Props) {
                       <Text style={styles.anotherLinkText}>Create another group</Text>
                     </PressableScale>
                   </View>
+                </GlassPanel>
+              </Animated.View>
+            ) : mode === 'create' && entitlement && !entitlement.canCreate ? (
+              /* ═══════════════════════════════════════════════════════════════
+                 MODE 2a: PAYWALL — every slot is in use
+                 The form is replaced rather than disabled: letting someone fill
+                 in a name and a photo only to be refused on submit wastes their
+                 effort, and the database would refuse it anyway.
+              ═══════════════════════════════════════════════════════════════ */
+              <Animated.View
+                entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+                style={styles.createContainer}
+              >
+                <GlassPanel borderRadius={radius.xl} style={styles.paywallCard}>
+                  <LinearGradient
+                    colors={['rgba(129,140,248,0.22)', 'rgba(244,114,182,0.08)', 'transparent']}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={styles.paywallBanner}
+                    pointerEvents="none"
+                  />
+
+                  <View style={styles.paywallIcon}>
+                    <Ionicons name="sparkles" size={26} color="#FFFFFF" />
+                  </View>
+
+                  <Text style={styles.paywallTitle} accessibilityRole="header">
+                    Add another GC
+                  </Text>
+                  <Text style={styles.paywallBody}>
+                    Your first GC is free — you're using {entitlement.owned} of{' '}
+                    {entitlement.allowance}. Unlock one more group for a one-time fee.
+                  </Text>
+
+                  <View style={styles.paywallPriceRow}>
+                    <Text style={styles.paywallPrice}>
+                      {formatPaise(entitlement.pricePaise)}
+                    </Text>
+                    <Text style={styles.paywallPriceMeta}>one-time · per GC</Text>
+                  </View>
+
+                  <View style={styles.paywallPerks}>
+                    {[
+                      'One extra GC you own and run',
+                      'Joining other GCs stays free, always',
+                      'Delete a GC and its slot frees up',
+                    ].map((perk) => (
+                      <View key={perk} style={styles.paywallPerkRow}>
+                        <Ionicons name="checkmark-circle" size={15} color={colors.lime} />
+                        <Text style={styles.paywallPerkText}>{perk}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {!!purchaseNote && <Text style={styles.paywallNote}>{purchaseNote}</Text>}
+
+                  <PressableScale
+                    style={styles.paywallCta}
+                    scaleTo={0.96}
+                    haptic="medium"
+                    disabled={startingPurchase}
+                    onPress={handleBuySlot}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: startingPurchase, busy: startingPurchase }}
+                    accessibilityLabel={`Pay ${formatPaise(entitlement.pricePaise)} for one more GC`}
+                  >
+                    <LinearGradient
+                      colors={gradients.brand}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.paywallCtaInner}
+                    >
+                      {startingPurchase ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="lock-open" size={16} color="#FFFFFF" />
+                          <Text style={styles.paywallCtaText}>
+                            Pay {formatPaise(entitlement.pricePaise)}
+                          </Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </PressableScale>
+
+                  <Text style={styles.paywallFinePrint}>
+                    Payments are handled by Razorpay. Checkout isn’t switched on yet —
+                    this reserves your order.
+                  </Text>
                 </GlassPanel>
               </Animated.View>
             ) : mode === 'create' ? (
@@ -660,6 +784,86 @@ export default function AddGCScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  paywallCard: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(129,140,248,0.28)',
+    overflow: 'hidden',
+  },
+  paywallBanner: { position: 'absolute', top: 0, left: 0, right: 0, height: 150 },
+  paywallIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryContainer,
+    marginBottom: spacing.xs,
+  },
+  paywallTitle: {
+    ...typography.headline,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  paywallBody: {
+    ...typography.body,
+    fontSize: 13.5,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  paywallPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  paywallPrice: {
+    ...typography.headline,
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  paywallPriceMeta: { ...typography.caption, fontSize: 12, color: colors.textMuted },
+  paywallPerks: {
+    width: '100%',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  paywallPerkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  paywallPerkText: { ...typography.body, fontSize: 13, color: colors.onSurfaceVariant, flex: 1 },
+  paywallNote: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.primary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  paywallCta: { width: '100%', marginTop: spacing.lg, borderRadius: radius.pill },
+  paywallCtaInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 52,
+    borderRadius: radius.pill,
+  },
+  paywallCtaText: { ...typography.label, fontSize: 16, color: '#FFFFFF', fontWeight: '800' },
+  paywallFinePrint: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.textFaint,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
   root: { flex: 1, backgroundColor: '#07060B' },
   safe: { flex: 1 },
   flex: { flex: 1 },
