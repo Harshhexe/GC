@@ -207,6 +207,8 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     if (personalThemeKey === key) return;
     successFeedback();
     await updatePersonalTheme(key);
+    setGroup((prev) => (prev ? { ...prev, theme: key } : prev));
+    await supabase.from('groups').update({ theme: key }).eq('id', groupId);
   }
 
   async function handleMakeAdmin(memberId: string) {

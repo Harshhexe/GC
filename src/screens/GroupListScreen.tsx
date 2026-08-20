@@ -18,7 +18,7 @@ import {
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { groupTheme, GroupTheme } from '../theme/groupThemes';
+import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { setBadgeCount } from '../lib/push';
 import { EmptyState } from '../components/EmptyState';
 import { PressableScale } from '../components/ui/PressableScale';
@@ -221,7 +221,7 @@ const GroupCard = memo(function GroupCardImpl({
   onCrew: (group: Group) => void;
 }) {
   const dead = isDeadChat(group);
-  const theme = groupTheme(group.theme);
+  const { theme } = usePersonalGroupTheme(group.id, group.theme);
   // These three handlers are passed the same stable reference for every row
   // (bound in the parent with useCallback), so this memo() actually holds —
   // wrapping them here per-group keeps getLiveBadgeConfig's zero-arg contract

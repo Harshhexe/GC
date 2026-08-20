@@ -469,7 +469,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   //
   // handleSend is reached through a ref so this binds once rather than
   // re-attaching on every keystroke (handleSend closes over `draft`).
-  const handleSendRef = useRef<() => void>(() => {});
+  const handleSendRef = useRef<() => void>(() => { });
   useEffect(() => {
     if (!isDesktopWeb || typeof document === 'undefined') return;
 
@@ -757,10 +757,10 @@ export default function ChatScreen({ route, navigation }: Props) {
       // of being dropped along with the unsent draft.
       const gcReplyTo = replyTo
         ? {
-            id: replyTo.id,
-            authorName: replyTo.authorName,
-            preview: replyTo.text || describeMedia(replyTo.media?.type ?? 'file').label,
-          }
+          id: replyTo.id,
+          authorName: replyTo.authorName,
+          preview: replyTo.text || describeMedia(replyTo.media?.type ?? 'file').label,
+        }
         : undefined;
 
       // A bare "@gc" on its own is nothing to ask — unless it's replying to
@@ -1461,7 +1461,7 @@ export default function ChatScreen({ route, navigation }: Props) {
         const doScroll = () => {
           try {
             flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
-          } catch {}
+          } catch { }
         };
         doScroll();
         setTimeout(doScroll, 120);
@@ -1684,34 +1684,34 @@ export default function ChatScreen({ route, navigation }: Props) {
         </View>
       );
     },
-  [
-    invertedMessages,
-    firstUnreadId,
-    unreadCount,
-    theme,
-    motdId,
-    pinnedIds,
-    readersByMessage,
-    downloadedIds,
-    polls,
-    myPollVotes,
-    votePoll,
-    highlightedId,
-    selectMode,
-    selectedIds,
-    handleLongPress,
-    handleBubblePress,
-    handleToggleReaction,
-    handleSwipeReply,
-    handleQuotePress,
-    handleMentionPress,
-    handleMediaPress,
-    handleViewGCSources,
-    gcCommands.retry,
-    jumpToMessage,
-    handleSendGCToChat,
-    sharedGCEntryIds,
-  ]
+    [
+      invertedMessages,
+      firstUnreadId,
+      unreadCount,
+      theme,
+      motdId,
+      pinnedIds,
+      readersByMessage,
+      downloadedIds,
+      polls,
+      myPollVotes,
+      votePoll,
+      highlightedId,
+      selectMode,
+      selectedIds,
+      handleLongPress,
+      handleBubblePress,
+      handleToggleReaction,
+      handleSwipeReply,
+      handleQuotePress,
+      handleMentionPress,
+      handleMediaPress,
+      handleViewGCSources,
+      gcCommands.retry,
+      jumpToMessage,
+      handleSendGCToChat,
+      sharedGCEntryIds,
+    ]
   );
 
   return (
@@ -2004,37 +2004,37 @@ export default function ChatScreen({ route, navigation }: Props) {
               </PressableScale>
 
               {!isRecordingVoice && (
-              <TextInput
-                ref={inputRef}
-                style={styles.input}
-                value={draft}
-                onChangeText={(t) => {
-                  setDraft(t);
-                  if (t.trim()) notifyTyping();
-                }}
-                onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
-                selection={selection}
-                onFocus={() => {
-                  if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-                  setComposerFocused(true);
-                }}
-                onBlur={() => {
-                  blurTimeoutRef.current = setTimeout(() => setComposerFocused(false), 150);
-                }}
-                placeholder={editingMessage ? 'Edit your message...' : 'Cook Something...'}
-                placeholderTextColor={colors.outline}
-                multiline
-                // Without these iOS runs its own heuristics on the field and
-                // decides it is a contact form — that is the "AutoFill Contact"
-                // bar and the phone-number suggestion above the keyboard. This
-                // is a chat composer; there is nothing here to autofill.
-                autoComplete="off"
-                textContentType="none"
-                importantForAutofill="no"
-                autoCorrect
-                spellCheck
-                {...(Platform.OS === 'web'
-                  ? ({
+                <TextInput
+                  ref={inputRef}
+                  style={styles.input}
+                  value={draft}
+                  onChangeText={(t) => {
+                    setDraft(t);
+                    if (t.trim()) notifyTyping();
+                  }}
+                  onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
+                  selection={selection}
+                  onFocus={() => {
+                    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+                    setComposerFocused(true);
+                  }}
+                  onBlur={() => {
+                    blurTimeoutRef.current = setTimeout(() => setComposerFocused(false), 150);
+                  }}
+                  placeholder={editingMessage ? 'Edit your message...' : 'Cook Something...'}
+                  placeholderTextColor={colors.outline}
+                  multiline
+                  // Without these iOS runs its own heuristics on the field and
+                  // decides it is a contact form — that is the "AutoFill Contact"
+                  // bar and the phone-number suggestion above the keyboard. This
+                  // is a chat composer; there is nothing here to autofill.
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
+                  autoCorrect
+                  spellCheck
+                  {...(Platform.OS === 'web'
+                    ? ({
                       // "search" in the name is load-bearing: Safari regex-matches
                       // the field name and skips AutoFill for anything it reads as
                       // a search box. `autocomplete="off"` alone does nothing —
@@ -2049,8 +2049,8 @@ export default function ChatScreen({ route, navigation }: Props) {
                       'aria-autocomplete': 'none',
                       dataSet: { gccomposer: '1' },
                     } as any)
-                  : {})}
-              />
+                    : {})}
+                />
               )}
               {isRecordingVoice && <View style={styles.input} />}
 
@@ -2450,7 +2450,7 @@ const styles = StyleSheet.create({
     maxHeight: 110,
     textAlignVertical: 'center',
     paddingVertical: 0,
-    paddingTop: 0,
+    paddingTop: 10,
     paddingBottom: 0,
     paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.xs,
     fontSize: Platform.OS === 'web' ? 14.5 : 15,
@@ -2458,16 +2458,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     ...(Platform.OS === 'web'
       ? ({
-          outlineStyle: 'none',
-          outlineWidth: 0,
-          outlineColor: 'transparent',
-          boxShadow: 'none',
-          resize: 'none',
-          boxSizing: 'border-box',
-          verticalAlign: 'middle',
-          display: 'flex',
-          justifyContent: 'center',
-        } as any)
+        outlineStyle: 'none',
+        outlineWidth: 0,
+        outlineColor: 'transparent',
+        boxShadow: 'none',
+        resize: 'none',
+        boxSizing: 'border-box',
+        verticalAlign: 'middle',
+        display: 'flex',
+        justifyContent: 'center',
+      } as any)
       : {}),
   },
   sendWrap: { borderRadius: radius.pill },

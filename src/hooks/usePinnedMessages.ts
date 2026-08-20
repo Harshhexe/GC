@@ -99,16 +99,37 @@ export function usePinnedMessages(groupId: string) {
 
   const pin = useCallback(
     async (messageId: string, userId: string) => {
+      setPins((prev) => [
+        {
+          messageId,
+          pinnedBy: userId,
+          pinnedByName: 'You',
+          pinnedAt: new Date().toISOString(),
+          exists: true,
+          authorName: 'someone',
+          text: '',
+          mediaType: null,
+          mediaName: null,
+          messageCreatedAt: new Date().toISOString(),
+        },
+        ...prev.filter((p) => p.messageId !== messageId),
+      ]);
       await supabase
         .from('pinned_messages')
         .insert({ message_id: messageId, group_id: groupId, pinned_by: userId });
+      void load();
     },
-    [groupId]
+    [groupId, load]
   );
 
-  const unpin = useCallback(async (messageId: string) => {
-    await supabase.from('pinned_messages').delete().eq('message_id', messageId);
-  }, []);
+  const unpin = useCallback(
+    async (messageId: string) => {
+      setPins((prev) => prev.filter((p) => p.messageId !== messageId));
+      await supabase.from('pinned_messages').delete().eq('message_id', messageId);
+      void load();
+    },
+    [load]
+  );
 
   const isPinned = useCallback((messageId: string) => pins.some((p) => p.messageId === messageId), [pins]);
 
