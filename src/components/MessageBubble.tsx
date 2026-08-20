@@ -93,7 +93,7 @@ function MessageBubbleImpl({
   myPollVotes?: string[];
   onPollVote?: (pollId: string, optionIds: string[]) => void;
   /** Screen-space Y of the touch is passed along so the caller can anchor a menu there. */
-  onLongPress: (message: Message, pageY: number) => void;
+  onLongPress: (message: Message, pageY: number, pageX: number) => void;
   onPress?: (message: Message) => void;
   onToggleReaction: (message: Message, emoji: string) => void;
   onSwipeReply?: (message: Message) => void;
@@ -301,7 +301,7 @@ function MessageBubbleImpl({
             )}
 
             <PressableScale
-              onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY)}
+              onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
               onPress={selectMode ? () => onPress?.(message) : undefined}
               scaleTo={0.98}
               haptic="medium"
@@ -338,7 +338,7 @@ function MessageBubbleImpl({
                         isDeleted={message.replyPreview.isDeleted}
                         isMine={message.replyPreview.authorId === message.authorId}
                         onPress={onQuotePress ? () => onQuotePress(message) : undefined}
-                        onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY)}
+                        onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                       />
                     )}
                     {poll && (
@@ -347,7 +347,7 @@ function MessageBubbleImpl({
                         myVotes={myPollVotes ?? []}
                         tint={theme.accent}
                         onVote={(ids) => onPollVote?.(poll.id, ids)}
-                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
+                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                       />
                     )}
                     {message.media && (
@@ -358,7 +358,7 @@ function MessageBubbleImpl({
                         isVisible={isVisible}
                         downloaded={downloaded}
                         onPress={() => onMediaPress?.(message)}
-                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
+                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                       />
                     )}
                     {hasCaption && (
@@ -388,7 +388,7 @@ function MessageBubbleImpl({
                         isDeleted={message.replyPreview.isDeleted}
                         isMine={message.replyPreview.authorId === message.authorId}
                         onPress={onQuotePress ? () => onQuotePress(message) : undefined}
-                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
+                        onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                       />
                     )}
                     {deleted ? (
@@ -410,7 +410,7 @@ function MessageBubbleImpl({
                             myVotes={myPollVotes ?? []}
                             tint={theme.accent}
                             onVote={(ids) => onPollVote?.(poll.id, ids)}
-                            onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
+                            onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                           />
                         )}
                         {message.media && (
@@ -421,7 +421,7 @@ function MessageBubbleImpl({
                             isVisible={isVisible}
                             downloaded={downloaded}
                             onPress={() => onMediaPress?.(message)}
-                            onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY)}
+                            onLongPress={(e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
                           />
                         )}
                         {hasCaption && (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import type { PinnedMessage } from '../types';
@@ -15,6 +16,7 @@ export function usePinnedMessages(groupId: string) {
   const [pins, setPins] = useState<PinnedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const channelId = useRef(Math.random().toString(36).slice(2, 10));
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -79,6 +81,16 @@ export function usePinnedMessages(groupId: string) {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && appStateRef.current !== 'active') {
+        load();
+      }
+      appStateRef.current = next;
+    });
+    return () => sub.remove();
   }, [load]);
 
   useEffect(() => {

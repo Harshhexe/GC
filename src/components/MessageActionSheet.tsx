@@ -1,5 +1,5 @@
 import { Fragment, type ReactElement } from 'react';
-import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
@@ -35,6 +35,8 @@ export type MessageActionTarget = {
 export type MessageActionAnchor = {
   /** Screen-space Y of the touch that triggered the long-press. */
   y: number;
+  /** Screen-space X of that same touch. */
+  x: number;
   /** Which side the bubble sits on — the menu hugs the same side. */
   mine: boolean;
 };
@@ -89,6 +91,28 @@ export function MessageActionSheet({
 }) {
   const alignItems: 'flex-end' | 'flex-start' = anchor?.mine ? 'flex-end' : 'flex-start';
 
+  // The menu is a full-window Modal, so hugging a side means hugging the side
+  // of the *window*. On a phone the window is the chat and that's right; in
+  // the desktop web shell the chat is only the right-hand pane, so a message
+  // from someone else pinned the menu to the far left — on top of the group
+  // list. Anchoring to the pointer's X instead keeps it over the message it
+  // belongs to, which is also what a desktop context menu should do.
+  const { width: windowWidth } = useWindowDimensions();
+  const pointerStyle =
+    Platform.OS === 'web' && anchor && Number.isFinite(anchor.x)
+      ? {
+          alignItems: 'flex-start' as const,
+          // Clamped against the reaction bar, which is the wider of the two
+          // cards — clamping to the menu alone would let the bar overhang the
+          // right edge. No width is set here: both cards size themselves, and
+          // constraining the stack would squash the emoji row.
+          marginLeft: Math.max(
+            0,
+            Math.min(anchor.x - POPOVER_WIDTH / 2, windowWidth - POPOVER_WIDTH - EDGE_GAP * 2)
+          ),
+        }
+      : { alignItems };
+
   if (!target) return null;
 
   // Anyone can drop a message from their own view; taking it down for the
@@ -127,7 +151,7 @@ export function MessageActionSheet({
           </Pressable>
         </Animated.View>
 
-        <View style={[styles.stack, { alignItems }]} pointerEvents="box-none">
+        <View style={[styles.stack, pointerStyle]} pointerEvents="box-none">
           <Animated.View
             entering={ZoomIn.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
             exiting={ZoomOut.duration(duration.fast).reduceMotion(reduceMotion)}
@@ -359,6 +383,10 @@ function MenuRow({
 }
 
 const MENU_WIDTH = 232;
+/** Widest card in the stack: the quick-reaction bar (6 × 36 + more + padding). */
+const POPOVER_WIDTH = 288;
+/** Matches styles.root's horizontal padding — the clamp has to allow for it. */
+const EDGE_GAP = spacing.lg;
 
 const styles = StyleSheet.create({
   root: {

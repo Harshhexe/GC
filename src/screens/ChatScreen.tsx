@@ -242,7 +242,11 @@ export default function ChatScreen({ route, navigation }: Props) {
       };
     }
     return {
-      paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
+      paddingBottom: keyboardOpen 
+        ? spacing.xs 
+        : Platform.OS === 'web' 
+          ? 'calc(env(safe-area-inset-bottom, 0px) + 8px)' as any
+          : Math.max(insets.bottom, spacing.xs),
     };
   }, [webKeyboardOpen, keyboardOpen, insets.bottom]);
 
@@ -1330,6 +1334,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   );
 
   const showEveryoneOption = !!(
+    canModerate &&
     activeMentionQuery &&
     EVERYONE_TOKEN.startsWith(activeMentionQuery.query.toLowerCase())
   );
@@ -1642,9 +1647,9 @@ export default function ChatScreen({ route, navigation }: Props) {
   }, [route.params.jumpToMessageId, loading, jumpToMessage, navigation]);
 
   // ── Stable per-row callbacks handed to every MessageBubble ───────────────
-  const handleLongPress = useCallback((message: Message, pageY: number) => {
+  const handleLongPress = useCallback((message: Message, pageY: number, pageX: number) => {
     setActionTarget(message);
-    setActionAnchor({ y: pageY, mine: message.isMine });
+    setActionAnchor({ y: pageY, x: pageX, mine: message.isMine });
   }, []);
 
   const handleBubblePress = useCallback(
@@ -2684,10 +2689,8 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.onSurface,
     maxHeight: 110,
+    paddingVertical: 10,
     textAlignVertical: 'center',
-    paddingVertical: 0,
-    paddingTop: 10,
-    paddingBottom: 0,
     paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.xs,
     fontSize: Platform.OS === 'web' ? 14.5 : 15,
     lineHeight: Platform.OS === 'web' ? 20 : undefined,
