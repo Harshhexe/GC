@@ -16,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, glass, radius, spacing, typography } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { groupTheme, GroupTheme } from '../theme/groupThemes';
+import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
 import { PressableScale } from '../components/ui/PressableScale';
 import { AIThinking } from '../components/ui/AIState';
@@ -202,7 +202,7 @@ export default function GCDNAScreen({ route, navigation }: Props) {
       });
   }, [groupId]);
 
-  const theme: GroupTheme = groupTheme(themeKey);
+  const { theme } = usePersonalGroupTheme(groupId, themeKey);
   const dna = snapshot?.dna;
   const hasDNA = !!dna && dna.enoughData && !!dna.archetype;
 

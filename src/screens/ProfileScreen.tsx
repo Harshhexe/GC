@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -184,7 +196,8 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const cooldown = usernameCooldown(profile?.username_changed_at);
 
-  function openIdentityEditor() {
+  /** One entry point for the whole profile: picture, display name, username. */
+  function openEditProfile() {
     selectFeedback();
     setDraftDisplayName(profile?.display_name ?? '');
     setDraftUsername(profile?.username ?? '');
@@ -556,19 +569,32 @@ export default function ProfileScreen({ navigation }: Props) {
               .reduceMotion(reduceMotion)}
           >
             <GlassPanel borderRadius={radius.xl} style={styles.profileCard}>
+              {/* Identity banner: the avatar's own colours bled upward, so the
+                  card reads as *this* person rather than a generic panel. */}
+              <LinearGradient
+                colors={['rgba(129,140,248,0.20)', 'rgba(192,132,252,0.08)', 'transparent']}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.profileBanner}
+                pointerEvents="none"
+              />
+
               <PressableScale
                 style={styles.avatarTouchWrap}
                 scaleTo={0.94}
                 haptic="medium"
-                onPress={handleChangeAvatar}
+                onPress={openEditProfile}
                 disabled={uploadingAvatar}
+                accessibilityRole="button"
+                accessibilityLabel="Edit profile"
               >
                 <Avatar
                   emoji={profile?.avatar_emoji ?? undefined}
                   imageUrl={profile?.avatar_url}
                   label={profile?.display_name ?? 'You'}
-                  size={88}
+                  size={96}
                   ring={true}
+                  glow
                   ringColors={['#818CF8', '#C084FC', '#F472B6']}
                 />
                 <View style={styles.editAvatarBadge}>
@@ -580,33 +606,36 @@ export default function ProfileScreen({ navigation }: Props) {
                 </View>
               </PressableScale>
 
-              <PressableScale
-                scaleTo={0.96}
-                haptic="light"
-                onPress={handleChangeAvatar}
-                disabled={uploadingAvatar}
-                style={styles.changePhotoBtn}
-              >
-                <Ionicons name="image-outline" size={13} color="#818CF8" />
-                <Text style={styles.changePhotoText}>
-                  {uploadingAvatar ? 'Uploading Photo...' : 'Edit Profile Picture'}
-                </Text>
-              </PressableScale>
-
               <View style={styles.profileInfo}>
                 <Text style={styles.displayName}>{profile?.display_name ?? 'Anonymous'}</Text>
                 <Text style={styles.handle}>@{profile?.username ?? 'user'}</Text>
-
-                <PressableScale
-                  scaleTo={0.96}
-                  haptic="light"
-                  onPress={openIdentityEditor}
-                  style={styles.editIdentityBtn}
-                >
-                  <Ionicons name="create-outline" size={13} color="#818CF8" />
-                  <Text style={styles.editIdentityText}>Edit Name & Username</Text>
-                </PressableScale>
               </View>
+
+              {/* One control for the whole identity. Picture, display name and
+                  username used to be three separate affordances on this card —
+                  two buttons plus the avatar — all opening different flows for
+                  what a person thinks of as one thing: their profile. */}
+              <PressableScale
+                scaleTo={0.96}
+                haptic="light"
+                onPress={openEditProfile}
+                disabled={uploadingAvatar}
+                style={styles.editProfileBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Edit profile: picture, display name and username"
+              >
+                <LinearGradient
+                  colors={gradients.brand}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.editProfileGradient}
+                >
+                  <Ionicons name="create-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.editProfileText}>
+                    {uploadingAvatar ? 'Uploading…' : 'Edit Profile'}
+                  </Text>
+                </LinearGradient>
+              </PressableScale>
 
               <View style={styles.statsRow}>
                 <StatTile
@@ -851,9 +880,83 @@ export default function ProfileScreen({ navigation }: Props) {
         animationType="fade"
         onRequestClose={() => setIdentityVisible(false)}
       >
-        <View style={styles.chooserBackdrop}>
+        {/* The sheet now carries an avatar row on top of two labelled fields,
+            which on a 375×667 phone with the keyboard up is taller than the
+            screen — hence the avoider plus an inner scroll. */}
+        <KeyboardAvoidingView
+          style={styles.chooserBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            style={styles.identityScroll}
+            contentContainerStyle={styles.identityScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.identityCard}>
-            <Text style={styles.identityTitle}>Edit profile</Text>
+            <Text style={styles.identityTitle} accessibilityRole="header">
+              Edit profile
+            </Text>
+
+            {/* Picture lives in the same dialog as the names: changing "my
+                profile" is one intent, and splitting it across two flows meant
+                two round trips to change two things about yourself. */}
+            <View style={styles.editAvatarRow}>
+              <PressableScale
+                scaleTo={0.94}
+                haptic="medium"
+                onPress={handleChangeAvatar}
+                disabled={uploadingAvatar || savingIdentity}
+                accessibilityRole="button"
+                accessibilityLabel="Change profile picture"
+              >
+                <Avatar
+                  emoji={profile?.avatar_emoji ?? undefined}
+                  imageUrl={profile?.avatar_url}
+                  label={profile?.display_name ?? 'You'}
+                  size={68}
+                  ring
+                  ringColors={['#818CF8', '#C084FC', '#F472B6']}
+                />
+                <View style={styles.editAvatarBadgeSm}>
+                  {uploadingAvatar ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="camera" size={12} color="#FFFFFF" />
+                  )}
+                </View>
+              </PressableScale>
+
+              <View style={styles.editAvatarActions}>
+                <PressableScale
+                  style={styles.editAvatarBtn}
+                  disabled={uploadingAvatar || savingIdentity}
+                  onPress={handleChangeAvatar}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="image-outline" size={14} color={colors.onSurface} />
+                  <Text style={styles.editAvatarBtnText}>
+                    {profile?.avatar_url ? 'Change photo' : 'Add photo'}
+                  </Text>
+                </PressableScale>
+
+                {!!profile?.avatar_url && (
+                  <PressableScale
+                    style={styles.editAvatarBtn}
+                    disabled={uploadingAvatar || savingIdentity}
+                    onPress={removeAvatarPhoto}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="trash-outline" size={14} color={colors.error} />
+                    <Text style={[styles.editAvatarBtnText, { color: colors.error }]}>
+                      Remove
+                    </Text>
+                  </PressableScale>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.identityDivider} />
 
             <Text style={styles.identityLabel}>Display name</Text>
             <TextInput
@@ -915,7 +1018,8 @@ export default function ProfileScreen({ navigation }: Props) {
               </PressableScale>
             </View>
           </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Web-only avatar source chooser (see handleChangeAvatar). */}
@@ -990,22 +1094,63 @@ export default function ProfileScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  editIdentityBtn: {
+  profileBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 130,
+  },
+  editProfileBtn: { marginTop: spacing.md, borderRadius: radius.pill },
+  editProfileGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    gap: spacing.xs + 2,
+    // 44pt minimum for the card's primary action.
+    minHeight: 44,
+    paddingHorizontal: spacing.xl,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
   },
-  editIdentityText: {
-    ...typography.caption,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#818CF8',
+  editProfileText: { ...typography.label, fontSize: 14, color: '#FFFFFF', fontWeight: '700' },
+
+  editAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    marginBottom: spacing.md,
   },
+  editAvatarActions: { flex: 1, gap: spacing.sm },
+  editAvatarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs + 2,
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
+  },
+  editAvatarBtnText: { ...typography.label, fontSize: 13, color: colors.onSurface },
+  editAvatarBadgeSm: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 24,
+    height: 24,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  identityDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  identityScroll: { flexGrow: 0, width: '100%' },
+  identityScrollContent: { alignItems: 'center', justifyContent: 'center' },
   identityCard: {
     width: '100%',
     maxWidth: 380,
@@ -1144,11 +1289,14 @@ const styles = StyleSheet.create({
   // Profile Card
   profileCard: {
     padding: spacing.xl,
+    paddingTop: spacing.xxl,
     alignItems: 'center',
     gap: spacing.sm + 2,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    // Clips the identity banner to the card's rounded corners.
+    overflow: 'hidden',
   },
   avatarTouchWrap: {
     position: 'relative',
@@ -1171,35 +1319,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  changePhotoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.3)',
-    marginTop: -2,
-    marginBottom: 2,
-  },
-  changePhotoText: {
-    ...typography.caption,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#818CF8',
-  },
   profileInfo: {
     alignItems: 'center',
     gap: 3,
   },
   displayName: {
     ...typography.headline,
-    fontSize: 22,
+    fontSize: 25,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
   handle: {
     ...typography.caption,

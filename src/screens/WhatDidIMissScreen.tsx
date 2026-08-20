@@ -14,7 +14,7 @@ import {
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { groupTheme, GroupTheme } from '../theme/groupThemes';
+import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
@@ -435,7 +435,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
       });
   }, [groupId]);
 
-  const activeTheme = groupTheme(groupThemeKey);
+  const { theme: activeTheme } = usePersonalGroupTheme(groupId, groupThemeKey);
 
   const [activeTab, setActiveTab] = useState<MissedTab>(
     focusSection === 'missedElevenEleven' ? 'pulse' : 'missed'

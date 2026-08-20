@@ -203,7 +203,11 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     ]);
   }
 
-  const { appearance, update: updateAppearance } = useChatAppearance(groupId, group?.theme);
+  const {
+    appearance,
+    update: updateAppearance,
+    theme: activePersonalTheme,
+  } = useChatAppearance(groupId, group?.theme);
   const [themeSheetVisible, setThemeSheetVisible] = useState(false);
 
   function handleAppearanceChange(patch: Partial<ChatAppearance>) {
@@ -253,8 +257,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   }
 
   const shown = showAll ? members : members.slice(0, VISIBLE_MEMBERS);
-  const activeTheme = groupTheme(group?.theme);
-  const activePersonalTheme = groupTheme(appearance.themeKey);
+  const activeTheme = activePersonalTheme;
 
   const actionTargetView: MemberActionTarget | null = actionTarget
     ? {

@@ -15,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, radius, spacing, typography } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { groupTheme, GroupTheme } from '../theme/groupThemes';
+import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
 import { Avatar } from '../components/ui/Avatar';
 import { GCButton } from '../components/ui/Buttons';
@@ -251,7 +251,7 @@ export default function WordyScreen({ route, navigation }: Props) {
       });
   }, [groupId]);
 
-  const activeTheme: GroupTheme = groupTheme(themeKey);
+  const { theme: activeTheme } = usePersonalGroupTheme(groupId ?? '', themeKey);
   const finished = state?.finished ?? false;
   const attempts = useMemo(() => state?.attempts ?? [], [state]);
   const keyboard = useMemo(() => keyboardStateFrom(attempts), [attempts]);
