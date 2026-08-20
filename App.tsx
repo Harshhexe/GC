@@ -18,7 +18,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from './src/context/AuthContext';
-import { useVisualViewportHeight } from './src/hooks/useVisualViewportHeight';
 import RootNavigator from './src/navigation/RootNavigator';
 import { colors } from './src/theme/theme';
 
@@ -64,8 +63,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 export default function App() {
-  useVisualViewportHeight();
-
   const [fontsLoaded, fontError] = useFonts({
     BricolageGrotesque_700Bold,
     BricolageGrotesque_800ExtraBold,

@@ -13,6 +13,10 @@ export type Profile = {
   avatar_emoji: string;
   avatar_color: string;
   avatar_url: string | null;
+  /** ISO timestamp of the last username change; null means never changed.
+   *  What the Profile screen reads to work out when the next one is allowed —
+   *  the 30-day rule itself is enforced by a trigger on the table. */
+  username_changed_at: string | null;
 };
 
 /** What the sign-up screen collects for the new profile's look. */
@@ -71,7 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_emoji, avatar_color, avatar_url')
+      .select(
+        'id, username, display_name, avatar_emoji, avatar_color, avatar_url, username_changed_at'
+      )
       .eq('id', userId)
       .single();
     setProfile(data);

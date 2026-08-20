@@ -79,7 +79,7 @@ import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
 import { TEA_THEME, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
-import { useWebKeyboardOpen } from '../hooks/useWebKeyboardOpen';
+import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
 import { usePinnedMessages } from '../hooks/usePinnedMessages';
@@ -197,8 +197,8 @@ export default function ChatScreen({ route, navigation }: Props) {
   const keyboard = useAnimatedKeyboard();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   // The web half of the same signal — RN's Keyboard events never fire there.
-  const webKeyboardOpen = useWebKeyboardOpen();
-  const keyboardOpen = isKeyboardOpen || webKeyboardOpen;
+  const webKeyboardInset = useWebKeyboardInset();
+  const keyboardOpen = isKeyboardOpen || webKeyboardInset > 0;
 
   useEffect(() => {
     const onShow = () => {
@@ -230,10 +230,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const animatedComposerStyle = useAnimatedStyle(() => {
     if (Platform.OS === 'web') {
-      // The app root is the visible area, so the composer is already sitting on
-      // the keyboard's top edge; this is only the resting gap beneath it.
+      // iOS PWAs do not give React Native Web a keyboard event, so the normal
+      // KeyboardAvoidingView below is intentionally a no-op here. Keep the
+      // app shell fixed and make only this flow item's bottom padding reserve
+      // the portion of it covered by the keyboard. That reduces the list's
+      // available flex height and keeps the textarea flush above the keyboard.
       return {
-        paddingBottom: webKeyboardOpen ? 2 : 6,
+        paddingBottom: webKeyboardInset > 0 ? webKeyboardInset + 2 : 6,
       };
     }
     if (Platform.OS === 'android') {
@@ -245,7 +248,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     return {
       paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
     };
-  }, [webKeyboardOpen, keyboardOpen, insets.bottom]);
+  }, [webKeyboardInset, keyboardOpen, insets.bottom]);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);

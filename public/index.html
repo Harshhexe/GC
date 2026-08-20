@@ -96,32 +96,17 @@
       #root {
         display: flex;
         flex-direction: column;
-        /* The app is exactly the visible area, never the layout viewport.
-           iOS does not shrink the layout viewport when the keyboard opens, so
-           a fixed, 100dvh-tall root keeps its bottom (composer, dock) behind
-           the keyboard; WebKit then scrolls the *visual* viewport to reveal
-           the focused input, dragging this fixed element up and exposing a
-           blank strip beneath it. Sizing and positioning the root from
-           visualViewport instead means the app always covers precisely what
-           the user can see: full screen with the keyboard closed, and the
-           area above the keyboard when it is open — no gap, and the resize is
-           the only thing that moves.
-
-           The 100dvh/0px fallbacks are what render before the first sync (and
-           on browsers without visualViewport), which is the correct
-           full-screen result on its own. */
+        /* The app shell is fixed to the complete installed-PWA screen in both
+           keyboard states.  Do not tie this box to visualViewport: on iOS the
+           visual viewport changes while the keyboard animates and resizing the
+           root makes the whole navigator (including the dock) jump.  Chat
+           alone reads visualViewport and adds its keyboard inset below its
+           composer; the rest of the interface keeps this stable geometry. */
         position: fixed;
-        top: var(--gc-viewport-top, 0px);
-        left: 0;
-        right: 0;
-        bottom: auto;
-        width: 100%;
-        height: var(--gc-viewport-height, 100dvh);
+        inset: 0;
         overflow: hidden;
         background-color: #030206;
       }
-
-
     </style>
   </head>
   <body>

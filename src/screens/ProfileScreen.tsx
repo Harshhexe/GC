@@ -31,6 +31,11 @@ import { supabase } from '../lib/supabase';
 import { uploadUserAvatar } from '../lib/uploadAvatar';
 import { WebCameraModal } from '../components/WebCameraModal';
 import { supportsWebCamera } from '../lib/media';
+import {
+  USERNAME_COOLDOWN_DAYS,
+  updateProfileIdentity,
+  usernameCooldown,
+} from '../lib/username';
 import { selectFeedback, successFeedback, warningFeedback } from '../utils/haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -169,6 +174,65 @@ export default function ProfileScreen({ navigation }: Props) {
   const [avatarChooserVisible, setAvatarChooserVisible] = useState(false);
   const [webCameraVisible, setWebCameraVisible] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
+
+  // Display name / username editor
+  const [identityVisible, setIdentityVisible] = useState(false);
+  const [draftDisplayName, setDraftDisplayName] = useState('');
+  const [draftUsername, setDraftUsername] = useState('');
+  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [savingIdentity, setSavingIdentity] = useState(false);
+
+  const cooldown = usernameCooldown(profile?.username_changed_at);
+
+  function openIdentityEditor() {
+    selectFeedback();
+    setDraftDisplayName(profile?.display_name ?? '');
+    setDraftUsername(profile?.username ?? '');
+    setIdentityError(null);
+    setIdentityVisible(true);
+  }
+
+  async function handleSaveIdentity() {
+    if (!profile?.id) return;
+
+    const nextDisplayName = draftDisplayName.trim();
+    const nextUsername = draftUsername.trim();
+    if (!nextDisplayName) {
+      setIdentityError('Your display name can’t be empty.');
+      return;
+    }
+
+    // Only send what actually changed — an unchanged username must never be
+    // included, or a display-name edit would burn the 30-day allowance.
+    const changes: { displayName?: string; username?: string } = {};
+    if (nextDisplayName !== profile.display_name) changes.displayName = nextDisplayName;
+    if (nextUsername !== profile.username) changes.username = nextUsername;
+
+    if (!changes.displayName && !changes.username) {
+      setIdentityVisible(false);
+      return;
+    }
+    if (changes.username && !cooldown.canChange) {
+      setIdentityError(
+        `You can change your username again on ${cooldown.nextAllowedAt?.toLocaleDateString()}.`
+      );
+      return;
+    }
+
+    setSavingIdentity(true);
+    setIdentityError(null);
+    const message = await updateProfileIdentity(profile.id, changes);
+    setSavingIdentity(false);
+
+    if (message) {
+      setIdentityError(message);
+      return;
+    }
+
+    await refreshProfile();
+    successFeedback();
+    setIdentityVisible(false);
+  }
 
   async function handleChangeAvatar() {
     selectFeedback();
@@ -532,6 +596,16 @@ export default function ProfileScreen({ navigation }: Props) {
               <View style={styles.profileInfo}>
                 <Text style={styles.displayName}>{profile?.display_name ?? 'Anonymous'}</Text>
                 <Text style={styles.handle}>@{profile?.username ?? 'user'}</Text>
+
+                <PressableScale
+                  scaleTo={0.96}
+                  haptic="light"
+                  onPress={openIdentityEditor}
+                  style={styles.editIdentityBtn}
+                >
+                  <Ionicons name="create-outline" size={13} color="#818CF8" />
+                  <Text style={styles.editIdentityText}>Edit Name & Username</Text>
+                </PressableScale>
               </View>
 
               <View style={styles.statsRow}>
@@ -771,6 +845,79 @@ export default function ProfileScreen({ navigation }: Props) {
         </ScrollView>
       </SafeAreaView>
 
+      <Modal
+        visible={identityVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIdentityVisible(false)}
+      >
+        <View style={styles.chooserBackdrop}>
+          <View style={styles.identityCard}>
+            <Text style={styles.identityTitle}>Edit profile</Text>
+
+            <Text style={styles.identityLabel}>Display name</Text>
+            <TextInput
+              style={styles.identityInput}
+              value={draftDisplayName}
+              onChangeText={setDraftDisplayName}
+              placeholder="Your name"
+              placeholderTextColor={colors.textFaint}
+              maxLength={40}
+              autoCapitalize="words"
+              editable={!savingIdentity}
+            />
+            <Text style={styles.identityHint}>Change this as often as you like.</Text>
+
+            <Text style={[styles.identityLabel, { marginTop: spacing.md }]}>Username</Text>
+            <View style={styles.identityInputRow}>
+              <Text style={styles.identityPrefix}>@</Text>
+              <TextInput
+                style={[styles.identityInput, styles.identityInputFlex]}
+                value={draftUsername}
+                onChangeText={setDraftUsername}
+                placeholder="username"
+                placeholderTextColor={colors.textFaint}
+                maxLength={20}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!savingIdentity && cooldown.canChange}
+              />
+            </View>
+            <Text style={styles.identityHint}>
+              {cooldown.canChange
+                ? `You can only change your username once every ${USERNAME_COOLDOWN_DAYS} days.`
+                : `Locked for ${cooldown.daysRemaining} more ${
+                    cooldown.daysRemaining === 1 ? 'day' : 'days'
+                  } — next change on ${cooldown.nextAllowedAt?.toLocaleDateString()}.`}
+            </Text>
+
+            {!!identityError && <Text style={styles.identityError}>{identityError}</Text>}
+
+            <View style={styles.identityActions}>
+              <PressableScale
+                style={styles.identityCancel}
+                disabled={savingIdentity}
+                onPress={() => setIdentityVisible(false)}
+              >
+                <Text style={styles.chooserCancelText}>Cancel</Text>
+              </PressableScale>
+              <PressableScale
+                style={[styles.identitySave, savingIdentity && { opacity: 0.6 }]}
+                haptic="medium"
+                disabled={savingIdentity}
+                onPress={handleSaveIdentity}
+              >
+                {savingIdentity ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.identitySaveText}>Save</Text>
+                )}
+              </PressableScale>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Web-only avatar source chooser (see handleChangeAvatar). */}
       <Modal
         visible={avatarChooserVisible}
@@ -843,6 +990,100 @@ export default function ProfileScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  editIdentityBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+  },
+  editIdentityText: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#818CF8',
+  },
+  identityCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+  },
+  identityTitle: {
+    ...typography.headline,
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.onSurface,
+    marginBottom: spacing.lg,
+  },
+  identityLabel: {
+    ...typography.label,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    marginBottom: spacing.xs + 2,
+  },
+  identityInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  identityPrefix: {
+    ...typography.label,
+    fontSize: 16,
+    color: colors.onSurfaceVariant,
+  },
+  identityInputFlex: { flex: 1 },
+  identityInput: {
+    ...typography.body,
+    fontSize: 15,
+    color: colors.onSurface,
+    backgroundColor: glass.inputFill,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  identityHint: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.textFaint,
+    marginTop: spacing.xs + 2,
+  },
+  identityError: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.error,
+    marginTop: spacing.md,
+  },
+  identityActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  identityCancel: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill,
+  },
+  identitySave: {
+    minWidth: 92,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryContainer,
+  },
+  identitySaveText: { ...typography.label, color: '#FFFFFF', fontSize: 14 },
   chooserBackdrop: {
     flex: 1,
     backgroundColor: colors.scrim,
