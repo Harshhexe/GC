@@ -8,7 +8,10 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0B12",
     "updates": {
-      "url": "https://u.expo.dev/eda4be96-0e54-4b02-88a8-d7a456652f83"
+      "url": "https://u.expo.dev/eda4be96-0e54-4b02-88a8-d7a456652f83",
+      "requestHeaders": {
+        "expo-channel-name": "preview"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"
