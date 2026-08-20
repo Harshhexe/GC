@@ -101,11 +101,16 @@
            visual viewport changes while the keyboard animates and resizing the
            root makes the whole navigator (including the dock) jump.  Chat
            alone reads visualViewport and adds its keyboard inset below its
-           composer; the rest of the interface keeps this stable geometry. */
+           composer; the rest of the interface keeps this stable geometry.
+
+           100dvh / 100vw (not inset:0 or height:100%) — on iOS standalone
+           PWA, fixed+inset:0 clips to the safe area and leaves a black gap
+           at the home indicator.  dvh spans the full physical screen. */
         position: fixed;
-        inset: 0;
-        height: 100%;
-        width: 100%;
+        top: 0;
+        left: 0;
+        height: 100dvh;
+        width: 100vw;
         overflow: hidden;
         background-color: #030206;
       }
