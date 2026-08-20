@@ -78,6 +78,7 @@ import { HeaderIconButton } from '../components/ui/AppHeader';
 import { TEA_THEME, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useWebKeyboardOpen } from '../hooks/useWebKeyboardOpen';
+import { requestViewportSync } from '../hooks/useVisualViewportHeight';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
 import { usePinnedMessages } from '../hooks/usePinnedMessages';
@@ -518,6 +519,19 @@ export default function ChatScreen({ route, navigation }: Props) {
   const pendingPickerRef = useRef<(() => Promise<PickResult | null>) | null>(null);
   const pickerLaunchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+
+  // Anything that changes the composer's height while the keyboard is up —
+  // the reply quote, the edit row, an attachment chip — moves the text field
+  // without the browser firing a viewport event. On an iOS PWA that left the
+  // field under the keyboard until you dismissed and reopened it. Re-running
+  // the sync picks up the visual-viewport scroll WebKit applied in response.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    requestViewportSync();
+    const timers = [80, 220, 420].map((ms) => setTimeout(requestViewportSync, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [replyTo, editingMessage, pendingAttachment]);
+
   const [pendingViewOnce, setPendingViewOnce] = useState(false);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);

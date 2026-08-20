@@ -80,6 +80,9 @@
         height: 100%;
         height: var(--gc-app-height, 100dvh);
         max-height: var(--gc-app-height, 100dvh);
+        /* Cancels the visual-viewport scroll iOS applies when the keyboard
+           lifts a focused input; see useVisualViewportHeight. */
+        transform: translateY(var(--gc-app-offset, 0px));
         flex: 1;
         background-color: #030206;
         overflow: hidden;
