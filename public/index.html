@@ -96,26 +96,29 @@
       #root {
         display: flex;
         flex-direction: column;
-        width: 100%;
-        height: 100%;
-        height: 100dvh;
-        max-height: 100dvh;
-        /* The root is never resized by the keyboard — it stays a full screen
-           tall so the dock and every other surface hold still. The one thing
-           the keyboard is allowed to do here is shift the root back down by
-           however far WebKit scrolled the *visual* viewport to lift a focused
-           input; without that the whole fixed-position app slides off the top
-           of the visible area. The keyboard's own height is applied as an
-           inset by the surfaces that own an input (see useWebKeyboardInset). */
-        transform: translateY(var(--gc-keyboard-offset, 0px));
-        flex: 1;
-        background-color: #030206;
-        overflow: hidden;
+        /* The app is exactly the visible area, never the layout viewport.
+           iOS does not shrink the layout viewport when the keyboard opens, so
+           a fixed, 100dvh-tall root keeps its bottom (composer, dock) behind
+           the keyboard; WebKit then scrolls the *visual* viewport to reveal
+           the focused input, dragging this fixed element up and exposing a
+           blank strip beneath it. Sizing and positioning the root from
+           visualViewport instead means the app always covers precisely what
+           the user can see: full screen with the keyboard closed, and the
+           area above the keyboard when it is open — no gap, and the resize is
+           the only thing that moves.
+
+           The 100dvh/0px fallbacks are what render before the first sync (and
+           on browsers without visualViewport), which is the correct
+           full-screen result on its own. */
         position: fixed;
-        top: 0;
+        top: var(--gc-viewport-top, 0px);
         left: 0;
         right: 0;
-        bottom: 0;
+        bottom: auto;
+        width: 100%;
+        height: var(--gc-viewport-height, 100dvh);
+        overflow: hidden;
+        background-color: #030206;
       }
 
 

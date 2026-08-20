@@ -79,8 +79,7 @@ import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
 import { TEA_THEME, groupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
-import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
-import { requestViewportSync } from '../hooks/useVisualViewportHeight';
+import { useWebKeyboardOpen } from '../hooks/useWebKeyboardOpen';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
 import { usePinnedMessages } from '../hooks/usePinnedMessages';
@@ -198,8 +197,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const keyboard = useAnimatedKeyboard();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   // The web half of the same signal — RN's Keyboard events never fire there.
-  const webKeyboardInset = useWebKeyboardInset();
-  const webKeyboardOpen = webKeyboardInset > 0;
+  const webKeyboardOpen = useWebKeyboardOpen();
   const keyboardOpen = isKeyboardOpen || webKeyboardOpen;
 
   useEffect(() => {
@@ -232,12 +230,10 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const animatedComposerStyle = useAnimatedStyle(() => {
     if (Platform.OS === 'web') {
-      // The app root stays a full screen tall on web, so nothing else moves
-      // when the keyboard opens — the composer lifts itself by exactly the
-      // strip the keyboard covers. Closed, this is the same 6px it has always
-      // been, so the resting design is unchanged.
+      // The app root is the visible area, so the composer is already sitting on
+      // the keyboard's top edge; this is only the resting gap beneath it.
       return {
-        paddingBottom: webKeyboardInset > 0 ? webKeyboardInset + 2 : 6,
+        paddingBottom: webKeyboardOpen ? 2 : 6,
       };
     }
     if (Platform.OS === 'android') {
@@ -249,7 +245,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     return {
       paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
     };
-  }, [webKeyboardInset, keyboardOpen, insets.bottom]);
+  }, [webKeyboardOpen, keyboardOpen, insets.bottom]);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);
@@ -666,18 +662,6 @@ export default function ChatScreen({ route, navigation }: Props) {
       window.removeEventListener('paste', onPaste);
     };
   }, []);
-
-  // Anything that changes the composer's height while the keyboard is up —
-  // the reply quote, the edit row, an attachment chip — moves the text field
-  // without the browser firing a viewport event. On an iOS PWA that left the
-  // field under the keyboard until you dismissed and reopened it. Re-running
-  // the sync picks up the visual-viewport scroll WebKit applied in response.
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    requestViewportSync();
-    const timers = [80, 220, 420].map((ms) => setTimeout(requestViewportSync, ms));
-    return () => timers.forEach(clearTimeout);
-  }, [replyTo, editingMessage, pendingAttachment]);
 
   const [pendingViewOnce, setPendingViewOnce] = useState(false);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
