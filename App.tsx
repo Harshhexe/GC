@@ -88,8 +88,8 @@ export default function App() {
   }, [fontsLoaded, fontError]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#07060B' }}>
-      <SafeAreaProvider style={{ flex: 1, backgroundColor: '#07060B' }}>
+    <GestureHandlerRootView style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#030206' }}>
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: '#030206' }}>
         <StatusBar style="light" backgroundColor="#07060B" />
         {/* SDK 54 forces edge-to-edge on Android — the status/nav bars are
             always transparent and `androidNavigationBar` in app.json is
