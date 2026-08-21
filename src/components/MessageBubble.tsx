@@ -323,33 +323,9 @@ function MessageBubbleImpl({
                   ringColors={[message.authorColor, theme.accent]}
                 />
               )}
-              {(() => {
-                const otherReaders = readers?.filter((r) => r.id !== message.authorId);
-                if (!otherReaders?.length) return null;
-                return (
-                  <Pressable onPress={() => setShowSeenText((prev) => !prev)} hitSlop={6}>
-                    <Animated.View
-                      entering={FadeInDown.duration(duration.fast).reduceMotion(reduceMotion)}
-                      style={styles.avatarSeenCluster}
-                    >
-                      {otherReaders.slice(0, 5).map((r, i) => (
-                        <View key={r.id} style={[styles.seenAvatar, i > 0 && styles.seenOverlap]}>
-                          <Avatar
-                            emoji={r.avatarEmoji}
-                            imageUrl={r.avatarUrl}
-                            label={r.displayName}
-                            size={16}
-                            ringColors={[r.avatarColor, r.avatarColor]}
-                          />
-                        </View>
-                      ))}
-                      {otherReaders.length > 5 && (
-                        <Text style={styles.seenMore}>+{otherReaders.length - 5}</Text>
-                      )}
-                    </Animated.View>
-                  </Pressable>
-                );
-              })()}
+              {/* The seen cluster used to be duplicated here in the avatar
+                  column. There is now one stack under the message itself (see
+                  the seen row below), so this slot only holds the avatar. */}
             </View>
           )}
 
@@ -547,33 +523,19 @@ function MessageBubbleImpl({
               </View>
             )}
 
-            {/* Seen-by row for mine messages or expanded seen text */}
+            {/* The seen stack. Only the newest message is given `readers`, so
+                this renders once, under the last bubble — and it follows that
+                bubble's side: right when it's mine, left when it's theirs. */}
             {(() => {
               const otherReaders = readers?.filter((r) => r.id !== message.authorId);
               if (!otherReaders?.length) return null;
               const names = otherReaders.map((r) => r.displayName).join(', ');
 
-              if (!mine) {
-                if (!showSeenText) return null;
-                return (
-                  <Pressable onPress={() => setShowSeenText(false)} hitSlop={6}>
-                    <Animated.View
-                      entering={FadeInDown.duration(duration.fast).reduceMotion(reduceMotion)}
-                      style={styles.seenRow}
-                    >
-                      <Text style={[styles.seenText, onWallpaper && styles.metaOnWallpaper]}>
-                        Seen by {names}
-                      </Text>
-                    </Animated.View>
-                  </Pressable>
-                );
-              }
-
               return (
                 <Pressable onPress={() => setShowSeenText((prev) => !prev)} hitSlop={6}>
                   <Animated.View
                     entering={FadeInDown.duration(duration.fast).reduceMotion(reduceMotion)}
-                    style={[styles.seenRow, styles.seenRowMine]}
+                    style={[styles.seenRow, mine && styles.seenRowMine]}
                   >
                     {showSeenText ? (
                       <Text style={[styles.seenText, onWallpaper && styles.metaOnWallpaper]}>
@@ -680,12 +642,6 @@ const styles = StyleSheet.create({
   rowMine: { justifyContent: 'flex-end' },
   selectDot: { width: 26, alignItems: 'center', justifyContent: 'center', marginRight: -2 },
   avatarSlot: { width: 28, alignItems: 'center', justifyContent: 'flex-end' },
-  avatarSeenCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 5,
-  },
   column: { maxWidth: '76%', alignItems: 'flex-start' },
   columnMine: { alignItems: 'flex-end' },
 

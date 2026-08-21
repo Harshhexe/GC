@@ -1216,9 +1216,27 @@ export default function ChatScreen({ route, navigation }: Props) {
   }, []);
 
   // The @query currently under the cursor, if any — null closes the picker.
+  /**
+   * Where the caret actually is in the composer.
+   *
+   * `selection` state is unreliable on web: react-native-web only raises
+   * onSelectionChange for explicit selection changes, not for typing, so after
+   * clicking into an empty composer it stays pinned at 0 while the text grows.
+   * A cursor of 0 makes findActiveMentionQuery bail immediately, which is why
+   * the @ and / pickers never appeared on web at all. The DOM node knows the
+   * truth, so ask it there and keep the state path for native.
+   */
+  const composerCursor = useMemo(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const el = document.querySelector('[data-gccomposer]') as HTMLTextAreaElement | null;
+      if (el && typeof el.selectionStart === 'number') return el.selectionStart;
+    }
+    return selection?.start ?? draft.length;
+  }, [draft, selection]);
+
   const activeMentionQuery = useMemo(
-    () => (composerFocused ? findActiveMentionQuery(draft, selection?.start ?? draft.length) : null),
-    [composerFocused, draft, selection]
+    () => (composerFocused ? findActiveMentionQuery(draft, composerCursor) : null),
+    [composerFocused, draft, composerCursor]
   );
 
   const mentionMatches = useMemo(
@@ -1231,8 +1249,8 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   // The /slash command query currently under cursor, if any
   const activeSlashQuery = useMemo(
-    () => (composerFocused ? findActiveSlashQuery(draft, selection?.start ?? draft.length) : null),
-    [composerFocused, draft, selection]
+    () => (composerFocused ? findActiveSlashQuery(draft, composerCursor) : null),
+    [composerFocused, draft, composerCursor]
   );
 
   const slashMatches = useMemo(
@@ -1278,8 +1296,12 @@ export default function ChatScreen({ route, navigation }: Props) {
     [groupId, groupInfo?.name, navigation, confirmStartTea, confirmClearChat]
   );
 
+  // Every member, not just owners/admins. The database already treats
+  // @everyone as open to all — prepare_message_mentions() forces
+  // mention_everyone true for any message whose text contains the token, with
+  // no role check — so gating it here only hid a row that would have worked,
+  // which is why typing "@" as a normal member never offered everyone.
   const showEveryoneOption = !!(
-    canModerate &&
     activeMentionQuery &&
     EVERYONE_TOKEN.startsWith(activeMentionQuery.query.toLowerCase())
   );
@@ -1775,7 +1797,11 @@ export default function ChatScreen({ route, navigation }: Props) {
             showAuthor={showAuthor}
             showAvatar={showAvatar}
             showTimestamp={showTimestamp}
-            readers={readersByMessage.get(item.id)}
+            // Only the newest message carries the seen row. The list is
+            // inverted, so index 0 is the bottom of the transcript — one stack
+            // sitting under the last message, the way a chat app shows it,
+            // instead of a receipt scattered on every bubble.
+            readers={index === 0 ? readersByMessage.get(item.id) : undefined}
             tint={theme}
             bubbleStyle={bubbleStyle}
             onWallpaper={!!wallpaperUri}
