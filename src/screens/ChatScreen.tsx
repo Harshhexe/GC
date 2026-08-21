@@ -1797,11 +1797,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             showAuthor={showAuthor}
             showAvatar={showAvatar}
             showTimestamp={showTimestamp}
-            // Only the newest message carries the seen row. The list is
-            // inverted, so index 0 is the bottom of the transcript — one stack
-            // sitting under the last message, the way a chat app shows it,
-            // instead of a receipt scattered on every bubble.
-            readers={index === 0 ? readersByMessage.get(item.id) : undefined}
+            readers={readersByMessage.get(item.id)}
             tint={theme}
             bubbleStyle={bubbleStyle}
             onWallpaper={!!wallpaperUri}
@@ -1968,6 +1964,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                 ref={flatListRef}
                 inverted
                 data={invertedMessages}
+                extraData={readersByMessage}
                 keyExtractor={(m) => m.id}
                 contentContainerStyle={styles.list}
                 showsVerticalScrollIndicator={false}

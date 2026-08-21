@@ -565,6 +565,16 @@ function MessageBubbleImpl({
   );
 }
 
+function areReadersEqual(prev?: any[], next?: any[]) {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    if (prev[i].id !== next[i].id) return false;
+  }
+  return true;
+}
+
 function arePropsEqual(prev: any, next: any) {
   return (
     prev.message === next.message &&
@@ -573,7 +583,7 @@ function arePropsEqual(prev: any, next: any) {
     prev.showAuthor === next.showAuthor &&
     prev.showAvatar === next.showAvatar &&
     prev.showTimestamp === next.showTimestamp &&
-    prev.readers === next.readers &&
+    areReadersEqual(prev.readers, next.readers) &&
     prev.tint === next.tint &&
     prev.bubbleStyle === next.bubbleStyle &&
     prev.onWallpaper === next.onWallpaper &&
