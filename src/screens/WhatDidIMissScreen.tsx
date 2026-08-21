@@ -1212,9 +1212,9 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#07060B' },
+  root: { flex: 1, backgroundColor: colors.appRoot },
   glowBgRoot: {
-    backgroundColor: '#07060B',
+    backgroundColor: colors.appRoot,
     overflow: 'hidden',
   },
   topSpotlight: {

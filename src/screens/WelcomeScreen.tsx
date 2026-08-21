@@ -240,7 +240,7 @@ function WelcomeAtmosphericBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
       <LinearGradient
-        colors={['#0C0A14', '#06050A', '#030206']}
+        colors={['#0C0A14', '#06050A', colors.appChrome]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -556,11 +556,11 @@ export default function WelcomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#07060B' },
+  root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1 },
 
   // Glow Background
-  glowBgRoot: { backgroundColor: '#07060B', overflow: 'hidden' },
+  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
   topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
 
   // Header Bar

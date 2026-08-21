@@ -442,18 +442,30 @@ Deno.serve(async (req) => {
     // only ever registered a web push subscription still needs a decision
     // made for them, or they'd never be notified on any channel at all.
     const coalesceByUser = new Map<string, number>();
+    // A mention always breaks through — being tagged is the case where a
+    // delayed or suppressed notification is genuinely costly — so those never
+    // consult the window at all.
+    const windowed: string[] = [];
     for (const userId of new Set(recipientIds)) {
-      // A mention always breaks through — being tagged is the case where a
-      // delayed or suppressed notification is genuinely costly.
-      if (mentionedIds.has(userId)) {
-        coalesceByUser.set(userId, 1);
-        continue;
-      }
-      const { data: count } = await db.rpc('push_should_notify', {
-        p_user_id: userId,
+      if (mentionedIds.has(userId)) coalesceByUser.set(userId, 1);
+      else windowed.push(userId);
+    }
+
+    // One round trip for every remaining recipient rather than one each: a
+    // 50-member group used to mean 50 sequential RPCs per message.
+    if (windowed.length > 0) {
+      const { data: decisions } = await db.rpc('push_should_notify_batch', {
+        p_user_ids: windowed,
         p_group_id: message.group_id,
       });
-      coalesceByUser.set(userId, typeof count === 'number' ? count : 1);
+      const seen = new Set<string>();
+      for (const row of (decisions ?? []) as { user_id: string; pending: number }[]) {
+        coalesceByUser.set(row.user_id, typeof row.pending === 'number' ? row.pending : 1);
+        seen.add(row.user_id);
+      }
+      // Fail open: if the batch call errored or skipped someone, notify rather
+      // than silently swallowing their message.
+      for (const userId of windowed) if (!seen.has(userId)) coalesceByUser.set(userId, 1);
     }
 
     const messages = tokenRows

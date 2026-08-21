@@ -1310,7 +1310,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#6366F1',
     borderWidth: 2,
-    borderColor: '#0B0B12',
+    borderColor: colors.appChrome,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

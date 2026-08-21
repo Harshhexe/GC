@@ -7,6 +7,7 @@ import { GestureResponderEvent, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useSignedMediaUrl } from '../lib/mediaUrl';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration } from '../theme/motion';
 import { formatFileSize } from '../lib/media';
@@ -68,6 +69,19 @@ export function MessageMediaView({
    *  "Saved" pill. Local-only state, so it only reflects this device. */
   downloaded?: boolean;
 }) {
+  const [imgError, setImgError] = useState(false);
+  // Signed above the early returns, because hooks cannot live behind a branch.
+  // Both are pass-throughs for anything outside the private bucket, so the
+  // sticker and remote-GIF cases below are unaffected.
+  const signedUrl = useSignedMediaUrl(media.url);
+  const signedThumb = useSignedMediaUrl(media.thumbUrl);
+  // A video URL is not something an <Image> can draw — it needs a poster
+  // frame. New videos carry one captured at send time; anything sent before
+  // that existed gets one derived on the device instead, so old bubbles
+  // aren't stuck blank forever.
+  const isVideo = media.type === 'video';
+  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? signedUrl : null);
+
   // Checked before anything that could draw the media: a view-once attachment
   // must never render a thumbnail in the transcript, since that would already
   // be the look it's supposed to cost.
@@ -94,7 +108,7 @@ export function MessageMediaView({
     return (
       <PressableScale onPress={onPress} onLongPress={onLongPress} scaleTo={0.96} haptic="light" style={styles.stickerBox}>
         <Image
-          source={media.url}
+          source={signedUrl ?? undefined}
           style={StyleSheet.absoluteFill}
           contentFit="contain"
           cachePolicy="memory-disk"
@@ -128,15 +142,7 @@ export function MessageMediaView({
   }
 
   const box = boxFor(media);
-  const [imgError, setImgError] = useState(false);
-
-  // A video URL is not something an <Image> can draw — it needs a poster
-  // frame. New videos carry one captured at send time; anything sent before
-  // that existed gets one derived on the device instead, so old bubbles
-  // aren't stuck blank forever.
-  const isVideo = media.type === 'video';
-  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? media.url : null);
-  const previewUri = isVideo ? media.thumbUrl ?? derivedPoster : media.url;
+  const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
 
   return (
     <PressableScale

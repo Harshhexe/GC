@@ -7,6 +7,20 @@
  */
 
 export const colors = {
+  /**
+   * The two app-chrome blacks, named because they were previously spelled out
+   * as literals in ~20 files, drifted apart, and produced a visible seam in
+   * the iOS PWA where the safe-area strips are painted by the page rather than
+   * by React.
+   *
+   * `appRoot` is what a full screen sits on. `appChrome` is the darker value
+   * behind everything — the web shell, the PWA safe areas, the manifest and
+   * splash background, and the far end of the screen gradients. Any surface
+   * the OS paints for us has to use `appChrome`, or the seam comes back.
+   */
+  appRoot: '#07060B',
+  appChrome: '#030206',
+
   // Surface ramp, lowest → highest elevation
   bg: '#0A0A0F',
   surfaceLowest: '#050508',

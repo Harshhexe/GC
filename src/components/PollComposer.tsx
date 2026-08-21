@@ -451,11 +451,11 @@ export function PollComposer({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#07060B' },
+  root: { flex: 1, backgroundColor: colors.appRoot },
   flex: { flex: 1 },
 
   // Glowing Ambient Mesh Background
-  glowBgRoot: { backgroundColor: '#07060B', overflow: 'hidden' },
+  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
   topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
   cornerBlob: { position: 'absolute', borderRadius: 999 },
   blobFill: { flex: 1, borderRadius: 999 },

@@ -51,6 +51,7 @@ import { MemberProfileSheet } from '../components/MemberProfileSheet';
 import { AttachmentSheet } from '../components/AttachmentSheet';
 import { WebCameraModal } from '../components/WebCameraModal';
 import { GifPicker } from '../components/GifPicker';
+import { signedUrlFor } from '../lib/mediaUrl';
 import type { GifResult } from '../lib/giphy';
 import { StickerPicker } from '../components/StickerPicker';
 import { StickerCreator } from '../components/StickerCreator';
@@ -1241,7 +1242,10 @@ export default function ChatScreen({ route, navigation }: Props) {
   const handleMediaPress = useCallback((message: Message) => {
     if (!message.media) return;
     if (message.media.type === 'file') {
-      Linking.openURL(message.media.url).catch(() => { });
+      // Private bucket — the stored URL is not fetchable on its own.
+      signedUrlFor(message.media.url).then((u) => {
+        if (u) Linking.openURL(u).catch(() => { });
+      });
       return;
     }
     if (Platform.OS === 'web' && message.media.viewOnce) {
@@ -1440,7 +1444,12 @@ export default function ChatScreen({ route, navigation }: Props) {
     setActionTarget(null);
     setActionAnchor(null);
     if (!message.media?.url) return;
-    const { error } = await downloadMediaToDevice(message.media.url);
+    const signed = await signedUrlFor(message.media.url);
+    if (!signed) {
+      Alert.alert("Couldn't save", 'That attachment is no longer available.');
+      return;
+    }
+    const { error } = await downloadMediaToDevice(signed);
     if (error) {
       Alert.alert("Couldn't save", error);
       return;

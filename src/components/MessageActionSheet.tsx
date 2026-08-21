@@ -9,6 +9,7 @@ import { duration, easing, reduceMotion } from '../theme/motion';
 import { reactionCatalog } from '../data/reactions';
 import { PressableScale } from './ui/PressableScale';
 import { selectFeedback } from '../utils/haptics';
+import { useSignedMediaUrl } from '../lib/mediaUrl';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import type { MessageMedia } from '../types';
 
@@ -362,8 +363,10 @@ export function MessageActionSheet({
  *  derived on the device for ones sent before posters existed. */
 function MediaThumb({ media }: { media: MessageMedia }) {
   const isVideo = media.type === 'video';
-  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? media.url : null);
-  const previewUri = isVideo ? media.thumbUrl ?? derivedPoster : media.url;
+  const signedUrl = useSignedMediaUrl(media.url);
+  const signedThumb = useSignedMediaUrl(media.thumbUrl);
+  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? signedUrl : null);
+  const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
 
   if (!previewUri) return <View style={styles.previewImage} />;
   return (

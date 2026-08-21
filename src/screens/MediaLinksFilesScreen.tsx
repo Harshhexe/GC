@@ -13,6 +13,7 @@ import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { EmptyState } from '../components/EmptyState';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { useGroupMembers } from '../hooks/useGroupMembers';
+import { signedUrlFor, useSignedMediaUrl } from '../lib/mediaUrl';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import { supabase } from '../lib/supabase';
 import { formatFileSize } from '../lib/media';
@@ -55,8 +56,10 @@ function domainFor(url: string) {
  *  older videos can be a hook rather than work repeated per render. */
 function GridTile({ item, onPress }: { item: MediaRow; onPress: () => void }) {
   const isVideo = item.media.type === 'video';
-  const derivedPoster = useVideoPoster(isVideo && !item.media.thumbUrl ? item.media.url : null);
-  const previewUri = isVideo ? item.media.thumbUrl ?? derivedPoster : item.media.url;
+  const signedUrl = useSignedMediaUrl(item.media.url);
+  const signedThumb = useSignedMediaUrl(item.media.thumbUrl);
+  const derivedPoster = useVideoPoster(isVideo && !item.media.thumbUrl ? signedUrl : null);
+  const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
 
   return (
     <PressableScale scaleTo={0.95} style={styles.gridItem} onPress={onPress}>
@@ -297,7 +300,13 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
                 <PressableScale
                   style={styles.rowCardTap}
                   scaleTo={0.98}
-                  onPress={() => Linking.openURL(item.media.url).catch(() => {})}
+                  onPress={() => {
+                    // Handing the raw URL to the browser 400s now that the
+                    // bucket is private — sign it first, then open.
+                    signedUrlFor(item.media.url).then((u) => {
+                      if (u) Linking.openURL(u).catch(() => {});
+                    });
+                  }}
                 >
                   <View style={styles.linkIcon}>
                     <Ionicons name="document-text" size={18} color={colors.secondary} />
