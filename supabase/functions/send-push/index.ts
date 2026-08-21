@@ -407,24 +407,31 @@ Deno.serve(async (req) => {
       };
     });
 
-    const webItems: WebPushItem[] = Array.from(coalesceByUser.entries())
-      .filter(([, pending]) => pending > 0)
-      .map(([userId]) => {
-        const mentioned = mentionedIds.has(userId);
-        const bodyText = `${authorName}: ${preview}`;
-        return {
-          userId,
-          title: mentioned ? `${authorName} mentioned you in ${groupName}` : groupName,
-          body: bodyText,
-          tag: message.group_id,
-          icon: group?.avatar_url ?? null,
-          data: {
-            type: 'message',
-            groupId: message.group_id,
-            messageId: message.id,
-          },
-        };
-      });
+    // Web push deliberately skips the coalescing window — every message goes
+    // out the moment it lands.
+    //
+    // The window exists because Expo's push API has no way to group or replace
+    // an Android notification, so the only way to avoid a wall of cards is to
+    // send fewer of them — at the cost of the recipient waiting. Web Push has
+    // no such limitation: the service worker sets `tag` to the group id, and a
+    // notification with an existing tag *replaces* the one already showing for
+    // that conversation. That is the same "one card per chat" outcome the
+    // window is buying on native, except immediate, so paying the delay here
+    // would be cost without benefit.
+    const webItems: WebPushItem[] = recipientIds.map((userId) => ({
+      userId,
+      title: mentionedIds.has(userId)
+        ? `${authorName} mentioned you in ${groupName}`
+        : groupName,
+      body: `${authorName}: ${preview}`,
+      tag: message.group_id,
+      icon: group?.avatar_url ?? null,
+      data: {
+        type: 'message',
+        groupId: message.group_id,
+        messageId: message.id,
+      },
+    }));
 
     const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
     return json({ ok: true, sent: sent + webSent });

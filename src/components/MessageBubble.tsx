@@ -323,9 +323,6 @@ function MessageBubbleImpl({
                   ringColors={[message.authorColor, theme.accent]}
                 />
               )}
-              {/* The seen cluster used to be duplicated here in the avatar
-                  column. There is now one stack under the message itself (see
-                  the seen row below), so this slot only holds the avatar. */}
             </View>
           )}
 
@@ -523,12 +520,10 @@ function MessageBubbleImpl({
               </View>
             )}
 
-            {/* The seen stack. Only the newest message is given `readers`, so
-                this renders once, under the last bubble — and it follows that
-                bubble's side: right when it's mine, left when it's theirs. */}
+            {/* Seen-by row: filter out message author's own avatar */}
             {(() => {
-              const otherReaders = readers?.filter((r) => r.id !== message.authorId);
-              if (!otherReaders?.length) return null;
+              const otherReaders = readers ?? [];
+              if (!otherReaders.length) return null;
               const names = otherReaders.map((r) => r.displayName).join(', ');
 
               return (
@@ -549,7 +544,7 @@ function MessageBubbleImpl({
                               emoji={r.avatarEmoji}
                               imageUrl={r.avatarUrl}
                               label={r.displayName}
-                              size={18}
+                              size={20}
                               ringColors={[r.avatarColor, r.avatarColor]}
                             />
                           </View>
@@ -641,7 +636,7 @@ const styles = StyleSheet.create({
   },
   rowMine: { justifyContent: 'flex-end' },
   selectDot: { width: 26, alignItems: 'center', justifyContent: 'center', marginRight: -2 },
-  avatarSlot: { width: 28, alignItems: 'center', justifyContent: 'flex-end' },
+  avatarSlot: { width: 28, alignItems: 'center' },
   column: { maxWidth: '76%', alignItems: 'flex-start' },
   columnMine: { alignItems: 'flex-end' },
 
