@@ -20,6 +20,8 @@ export type MessageActionTarget = {
   authorName: string;
   text: string;
   isMine: boolean;
+  /** A tombstoned message — no private comment can be started on it. */
+  isDeleted?: boolean;
   /** Owner/admin moderation rights, independent of authorship. */
   canModerate: boolean;
   isPinned: boolean;
@@ -54,6 +56,7 @@ export function MessageActionSheet({
   onQuickReact,
   onMoreReactions,
   onReply,
+  onComment,
   onCopy,
   onShare,
   onEdit,
@@ -72,6 +75,9 @@ export function MessageActionSheet({
   onQuickReact: (emoji: string, label: string) => void;
   onMoreReactions: () => void;
   onReply: () => void;
+  /** Opens the private side-conversation on this message. Omitted where a
+   *  private comment makes no sense (your own message, a tombstone). */
+  onComment?: () => void;
   onCopy: () => void;
   onShare: () => void;
   onEdit: () => void;
@@ -291,6 +297,18 @@ export function MessageActionSheet({
               <Divider />
 
               {[
+                // Private comment. Distinct from Reply on purpose: Reply is
+                // public to the GC, this is only ever seen by the two people.
+                // Not offered on your own message — there is nobody to whisper
+                // to — nor on a tombstone.
+                !!onComment && !target.isMine && !target.isDeleted && (
+                  <MenuRow
+                    key="comment"
+                    icon="lock-closed-outline"
+                    label="Comment privately"
+                    onPress={onComment}
+                  />
+                ),
                 !hideCopyShare && <MenuRow key="copy" icon="copy-outline" label="Copy" onPress={onCopy} />,
                 !!target.stickerId && (
                   <MenuRow

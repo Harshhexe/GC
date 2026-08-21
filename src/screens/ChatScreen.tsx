@@ -81,6 +81,8 @@ import { TEA_THEME, groupTheme, useChatAppearance } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
 import { useGroupMembers } from '../hooks/useGroupMembers';
+import { usePrivateCommentCounts } from '../hooks/usePrivateComments';
+import { PrivateCommentThread } from '../components/PrivateCommentThread';
 import { useReadReceipts, useReadersByMessage } from '../hooks/useReadReceipts';
 import { usePinnedMessages } from '../hooks/usePinnedMessages';
 import { useTyping } from '../hooks/useTyping';
@@ -516,6 +518,43 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [composerFocused, setComposerFocused] = useState(false);
   const [mentionCandidates, setMentionCandidates] = useState<Map<string, Mention>>(new Map());
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+
+  /**
+   * The private comment thread, when open. Holds the message it hangs off so
+   * the sheet can quote it without re-fetching, and an optional thread to
+   * preselect when arriving from a notification.
+   */
+  const [commentTarget, setCommentTarget] = useState<{
+    messageId: string;
+    text: string;
+    authorId: string | null;
+    authorName: string;
+    threadUserId?: string | null;
+  } | null>(null);
+
+  // messageId -> count, already scoped to what this viewer may see by RLS.
+  const privateCommentCounts = usePrivateCommentCounts(groupId);
+
+  /**
+   * Landing straight in a private thread — from a notification tap or from
+   * What Did I Miss. Waits for the message so the sheet can quote it; if the
+   * message never loads (deleted, or outside the loaded page) the thread still
+   * opens, just without the quote.
+   */
+  const openedPrivateRef = useRef<string | null>(null);
+  useEffect(() => {
+    const target = route.params.openPrivateCommentMessageId;
+    if (!target || openedPrivateRef.current === target) return;
+    openedPrivateRef.current = target;
+    const m = messages.find((x) => x.id === target);
+    setCommentTarget({
+      messageId: target,
+      text: m?.text ?? '',
+      authorId: m?.authorId ?? null,
+      authorName: m?.authorName ?? 'them',
+      threadUserId: route.params.privateThreadUserId ?? null,
+    });
+  }, [route.params.openPrivateCommentMessageId, route.params.privateThreadUserId, messages]);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [attachmentSheetVisible, setAttachmentSheetVisible] = useState(false);
@@ -1640,6 +1679,31 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const handleMentionPress = useCallback((userId: string) => setViewingProfileId(userId), []);
 
+  /** Opens the private side-conversation on a message and closes the menu. */
+  const openPrivateComments = useCallback(
+    (m: { id: string; text: string; authorId: string | null; authorName: string }) => {
+      setActionTarget(null);
+      setActionAnchor(null);
+      setCommentTarget({
+        messageId: m.id,
+        text: m.text,
+        authorId: m.authorId,
+        authorName: m.authorName,
+      });
+    },
+    []
+  );
+
+  /** Tapping the lock indicator under a bubble opens the same sheet. */
+  const handlePrivateCommentPress = useCallback((m: Message) => {
+    setCommentTarget({
+      messageId: m.id,
+      text: m.text,
+      authorId: m.authorId,
+      authorName: m.authorName,
+    });
+  }, []);
+
   // Which source message each @gc answer is currently pointing at. Tapping
   // "View N messages" walks through them one per tap and wraps — the same
   // advance-on-tap pattern PinnedBanner already uses for multiple pins,
@@ -1798,6 +1862,8 @@ export default function ChatScreen({ route, navigation }: Props) {
             showAvatar={showAvatar}
             showTimestamp={showTimestamp}
             readers={readersByMessage.get(item.id)}
+            privateCommentCount={privateCommentCounts.get(item.id) ?? 0}
+            onPrivateCommentsPress={handlePrivateCommentPress}
             tint={theme}
             bubbleStyle={bubbleStyle}
             onWallpaper={!!wallpaperUri}
@@ -2306,6 +2372,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             authorName: actionTarget.authorName,
             text: actionTarget.text,
             isMine: actionTarget.isMine,
+            isDeleted: actionTarget.isDeleted,
             canModerate,
             isPinned: pinnedIds.has(actionTarget.id),
             media: actionTarget.media,
@@ -2325,6 +2392,7 @@ export default function ChatScreen({ route, navigation }: Props) {
           setActionAnchor(null);
         }}
         onReply={() => actionTarget && startReply(actionTarget)}
+        onComment={() => actionTarget && openPrivateComments(actionTarget)}
         onCopy={() => actionTarget && copyMessage(actionTarget)}
         onShare={() => actionTarget && shareMessage(actionTarget)}
         onEdit={() => actionTarget && startEdit(actionTarget)}
@@ -2343,6 +2411,20 @@ export default function ChatScreen({ route, navigation }: Props) {
           setActionTarget(null);
           setActionAnchor(null);
         }}
+      />
+
+      <PrivateCommentThread
+        visible={!!commentTarget}
+        onClose={() => setCommentTarget(null)}
+        groupId={groupId}
+        messageId={commentTarget?.messageId ?? null}
+        messageText={commentTarget?.text ?? ''}
+        messageAuthorId={commentTarget?.authorId ?? null}
+        messageAuthorName={commentTarget?.authorName ?? 'them'}
+        members={groupMembers}
+        myId={session?.user.id ?? ''}
+        tint={theme}
+        initialThreadUserId={commentTarget?.threadUserId ?? null}
       />
 
       <MemberProfileSheet

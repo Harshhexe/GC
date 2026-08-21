@@ -53,7 +53,8 @@ Deno.serve(async (req) => {
 
     let body: {
       messageId?: string;
-      eventType?: 'message' | '11_11' | 'tea_started' | 'awards';
+      eventType?: 'message' | '11_11' | 'tea_started' | 'awards' | 'private_comment';
+      commentId?: string;
       groupId?: string;
       userId?: string;
       customTitle?: string;
@@ -102,6 +103,85 @@ Deno.serve(async (req) => {
         body,
         data: { type: '11_11' },
       }));
+
+      const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
+      return json({ ok: true, sent: sent + webSent });
+    }
+
+    // ==========================================
+    // CASE 1.5: Private comment — one recipient, never the group
+    // ==========================================
+    if (eventType === 'private_comment' && body.commentId) {
+      // Service role reads the comment; the database only ever sent us an id,
+      // so no comment text crossed the wire from Postgres.
+      const { data: comment } = await db
+        .from('private_comments')
+        .select('id, group_id, message_id, author_id, recipient_id, text, deleted_at')
+        .eq('id', body.commentId)
+        .maybeSingle();
+
+      if (!comment || comment.deleted_at) return json({ ok: true, sent: 0, skipped: 'gone' });
+
+      const [{ data: author }, { data: group }, { data: origin }] = await Promise.all([
+        db.from('profiles').select('display_name, avatar_url').eq('id', comment.author_id).maybeSingle(),
+        db.from('groups').select('name, avatar_url').eq('id', comment.group_id).maybeSingle(),
+        db.from('messages').select('author_id').eq('id', comment.message_id).maybeSingle(),
+      ]);
+
+      // Muting the GC mutes its private comments too.
+      const { data: membership } = await db
+        .from('group_members')
+        .select('muted')
+        .eq('group_id', comment.group_id)
+        .eq('user_id', comment.recipient_id)
+        .maybeSingle();
+      if (membership?.muted) return json({ ok: true, sent: 0, skipped: 'muted' });
+
+      const who = author?.display_name ?? 'Someone';
+      // The message's own author being the commenter means this is a reply
+      // inside a thread the recipient started.
+      const isReply = origin?.author_id === comment.author_id;
+      const title = isReply
+        ? `${who} replied to your private comment`
+        : `${who} commented on your message`;
+      const preview = previewFor(comment.text, null);
+
+      const eventData = {
+        type: 'private_comment',
+        commentId: comment.id,
+        groupId: comment.group_id,
+        messageId: comment.message_id,
+        threadUserId: isReply ? comment.recipient_id : comment.author_id,
+      };
+
+      const { data: tokens } = await db
+        .from('device_push_tokens')
+        .select('token, user_id')
+        .eq('user_id', comment.recipient_id);
+
+      const messages = ((tokens ?? []) as TokenRow[]).map((row) => ({
+        to: row.token,
+        title,
+        body: preview,
+        sound: 'default',
+        categoryId: 'gc_private_comment',
+        threadId: `pc-${comment.message_id}`,
+        data: eventData,
+        priority: 'high',
+      }));
+
+      const webItems: WebPushItem[] = [
+        {
+          userId: comment.recipient_id,
+          title,
+          body: preview,
+          // Its own tag so a private comment never replaces (or is replaced by)
+          // the group's ordinary message notification.
+          tag: `pc-${comment.message_id}`,
+          icon: group?.avatar_url ?? null,
+          data: eventData,
+        },
+      ];
 
       const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
       return json({ ok: true, sent: sent + webSent });

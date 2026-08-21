@@ -23,9 +23,11 @@ export default function NotificationsScreen({ navigation }: Props) {
   const { session } = useAuth();
   const { items, loading, markRead } = useNotifications(session?.user.id);
 
-  // Filter strictly to mentions
+  // Mentions plus private comments — both are "someone addressed you
+  // directly", which is what this screen is for.
   const mentions = items.filter(
-    (n) => n.kind === 'mention' || n.kind === 'mention_everyone'
+    (n) =>
+      n.kind === 'mention' || n.kind === 'mention_everyone' || n.kind === 'private_comment'
   );
 
   function openNotification(n: NotificationItem) {
@@ -97,7 +99,9 @@ export default function NotificationsScreen({ navigation }: Props) {
 
                     {!item.readAt && <View style={styles.unreadDot} />}
 
-                    {item.kind === 'mention_everyone' ? (
+                    {item.kind === 'private_comment' ? (
+                      <Ionicons name="lock-closed" size={14} color={colors.primary} />
+                    ) : item.kind === 'mention_everyone' ? (
                       <View style={styles.everyoneIcon}>
                         <Ionicons name="megaphone" size={18} color="#818CF8" />
                       </View>
@@ -114,7 +118,11 @@ export default function NotificationsScreen({ navigation }: Props) {
                     <View style={styles.copy}>
                       <View style={styles.headerRow}>
                         <Text style={styles.actorName} numberOfLines={1}>
-                          {item.kind === 'mention_everyone' ? 'Everyone' : item.actorName}
+                          {item.kind === 'private_comment'
+                            ? item.actorName
+                            : item.kind === 'mention_everyone'
+                              ? 'Everyone'
+                              : item.actorName}
                         </Text>
                         <View style={styles.groupBadge}>
                           <Text style={styles.groupBadgeText} numberOfLines={1}>
@@ -124,7 +132,9 @@ export default function NotificationsScreen({ navigation }: Props) {
                       </View>
 
                       <Text style={styles.label}>
-                        {item.kind === 'mention_everyone'
+                        {item.kind === 'private_comment'
+                          ? ' commented privately on your message'
+                          : item.kind === 'mention_everyone'
                           ? 'notified everyone in the group'
                           : 'mentioned you in a message'}
                       </Text>

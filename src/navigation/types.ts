@@ -14,7 +14,16 @@ export type RootStackParamList = {
   MainTabs: undefined;
   /** `unreadCount` comes from the chat list so the transcript can place its
    *  "unread" divider without re-reading a stamp it is about to overwrite. */
-  Chat: { groupId: string; unreadCount?: number; jumpToMessageId?: string };
+  Chat: {
+    groupId: string;
+    unreadCount?: number;
+    jumpToMessageId?: string;
+    /** Arrive with a private comment thread already open — used by the
+     *  notification tap and by What Did I Miss, which should land the user in
+     *  the private context rather than the public transcript. */
+    openPrivateCommentMessageId?: string;
+    privateThreadUserId?: string;
+  };
   GroupInfo: { groupId: string };
   PinnedMessages: { groupId: string };
   GroupSearch: { groupId: string };

@@ -22,6 +22,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { useMessages } from '../hooks/useMessages';
 import { useGroupMembers } from '../hooks/useGroupMembers';
+import { usePrivateCommentsForMe } from '../hooks/usePrivateComments';
 import { useGroupRecap } from '../hooks/useGroupRecap';
 import { useWhatDidIMiss } from '../hooks/useWhatDidIMiss';
 import { useMissedRecapHistory, type MissedRecapEntry } from '../hooks/useMissedRecapHistory';
@@ -405,6 +406,9 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   const { profile } = useAuth();
   const { messages, loading } = useMessages(groupId);
   const { members } = useGroupMembers(groupId);
+  // Private comments addressed to me. RLS means this can only ever return
+  // threads I'm part of, so nothing here can surface someone else's.
+  const privateForMe = usePrivateCommentsForMe(groupId);
   const recap = useGroupRecap(
     messages,
     {
@@ -812,14 +816,58 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 title="Mentioned You Today"
                 delay={STAGGER_MS * 3}
                 trailing={
-                  recap.mentions.length > 0 ? (
+                  recap.mentions.length + privateForMe.length > 0 ? (
                     <View style={styles.countBadge}>
-                      <Text style={styles.countBadgeText}>{recap.mentions.length}</Text>
+                      <Text style={styles.countBadgeText}>
+                        {recap.mentions.length + privateForMe.length}
+                      </Text>
                     </View>
                   ) : undefined
                 }
               >
-                {recap.mentions.length === 0 ? (
+                {/* Private comments on your messages. Visually separated by a
+                    lock so it is obvious these were never in the GC. */}
+                {privateForMe.map((c) => {
+                  const author = members.find((m) => m.id === c.authorId);
+                  return (
+                    <PressableScale
+                      key={c.id}
+                      style={styles.mention}
+                      scaleTo={0.98}
+                      haptic="light"
+                      onPress={() =>
+                        navigation.navigate('Chat', {
+                          groupId,
+                          openPrivateCommentMessageId: c.messageId,
+                          privateThreadUserId: c.authorId,
+                        })
+                      }
+                      accessibilityLabel={`Private comment from ${author?.displayName ?? 'someone'}. Open thread.`}
+                    >
+                      <View style={styles.mentionHead}>
+                        <Avatar
+                          emoji={author?.avatarEmoji}
+                          imageUrl={author?.avatarUrl}
+                          label={author?.displayName ?? 'Someone'}
+                          size={26}
+                          ring={false}
+                        />
+                        <Text style={[styles.mentionName, { color: colors.primary }]}>
+                          {author?.displayName ?? 'Someone'}
+                        </Text>
+                        <View style={styles.privateTag}>
+                          <Ionicons name="lock-closed" size={9} color={colors.onSurfaceVariant} />
+                          <Text style={styles.privateTagText}>Private</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.mentionText} numberOfLines={3}>
+                        commented on your message: "{c.text}"
+                      </Text>
+                    </PressableScale>
+                  );
+                })}
+
+                {recap.mentions.length === 0 && privateForMe.length === 0 ? (
                   <Text style={styles.emptyMentions}>
                     Nobody @'d you today. Free of obligations, free of relevance.
                   </Text>
@@ -1441,6 +1489,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   countBadgeText: { ...typography.label, color: colors.onSecondary },
+  privateTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginLeft: 'auto',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  privateTagText: { ...typography.micro, fontSize: 9.5, color: colors.onSurfaceVariant },
   emptyMentions: { ...typography.body, color: colors.textMuted },
   // Sits above the recap stack, so it needs its own edges rather than relying
   // on the empty state's padding.

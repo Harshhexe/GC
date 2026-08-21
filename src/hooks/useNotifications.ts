@@ -4,7 +4,7 @@ import { onChannelStatus } from '../lib/realtime';
 
 export type NotificationItem = {
   id: string;
-  kind: 'mention' | 'mention_everyone';
+  kind: 'mention' | 'mention_everyone' | 'private_comment';
   groupId: string;
   groupName: string;
   messageId: string;

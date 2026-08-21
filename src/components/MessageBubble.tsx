@@ -56,6 +56,8 @@ function MessageBubbleImpl({
   showAvatar = true,
   showTimestamp = true,
   readers,
+  privateCommentCount = 0,
+  onPrivateCommentsPress,
   tint,
   bubbleStyle = 'translucent',
   onWallpaper = false,
@@ -87,6 +89,11 @@ function MessageBubbleImpl({
   showTimestamp?: boolean;
   /** Members whose "read up to" mark lands on this message. */
   readers?: Reader[];
+  /** How many private comments *this viewer* may see on this message. Already
+   *  scoped by RLS, so it differs per person and is 0 for non-participants —
+   *  which is what keeps the indicator itself from leaking anything. */
+  privateCommentCount?: number;
+  onPrivateCommentsPress?: (message: Message) => void;
   /** The group's theme, so each GC tints its own transcript. */
   tint?: GroupTheme;
   /** Glass or solid fill — a personal readability choice, set per group. */
@@ -520,10 +527,36 @@ function MessageBubbleImpl({
               </View>
             )}
 
-            {/* Seen-by row: filter out message author's own avatar */}
+            {/* Private comments. Rendered only when this viewer is one of the
+                two participants — for everyone else the count arrives as 0,
+                so there is nothing here to hint that a thread even exists. */}
+            {privateCommentCount > 0 && (
+              <Pressable
+                onPress={() => onPrivateCommentsPress?.(message)}
+                hitSlop={8}
+                accessibilityLabel={`${privateCommentCount} private ${
+                  privateCommentCount === 1 ? 'comment' : 'comments'
+                }. Open private thread.`}
+              >
+                <Animated.View
+                  entering={FadeInDown.duration(duration.fast).reduceMotion(reduceMotion)}
+                  style={[styles.privateRow, mine && styles.privateRowMine]}
+                >
+                  <Ionicons name="lock-closed" size={10} color={theme.accent} />
+                  <Text style={[styles.privateText, { color: theme.accent }]}>
+                    {privateCommentCount} private{' '}
+                    {privateCommentCount === 1 ? 'comment' : 'comments'}
+                  </Text>
+                </Animated.View>
+              </Pressable>
+            )}
+
+            {/* Seen-by row: filter out message author's own avatar and current user */}
             {(() => {
-              const otherReaders = readers ?? [];
-              if (!otherReaders.length) return null;
+              const otherReaders = readers?.filter(
+                (r) => r.id !== message.authorId && (!myId || r.id !== myId)
+              );
+              if (!otherReaders?.length) return null;
               const names = otherReaders.map((r) => r.displayName).join(', ');
 
               return (
@@ -580,6 +613,8 @@ function arePropsEqual(prev: any, next: any) {
     prev.message === next.message &&
     prev.isMessageOfTheDay === next.isMessageOfTheDay &&
     prev.isPinned === next.isPinned &&
+    prev.privateCommentCount === next.privateCommentCount &&
+    prev.onPrivateCommentsPress === next.onPrivateCommentsPress &&
     prev.showAuthor === next.showAuthor &&
     prev.showAvatar === next.showAvatar &&
     prev.showTimestamp === next.showTimestamp &&
@@ -771,6 +806,15 @@ const styles = StyleSheet.create({
   },
   editedTag: { ...typography.micro, fontSize: 11, color: colors.outline, fontStyle: 'italic' },
 
+  privateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+    marginHorizontal: spacing.xs,
+  },
+  privateRowMine: { justifyContent: 'flex-end' },
+  privateText: { ...typography.micro, fontSize: 10.5, fontWeight: '600' },
   seenRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3, marginHorizontal: spacing.xs },
   seenRowMine: { justifyContent: 'flex-end' },
   // A ring around each keeps overlapping avatars from bleeding together.
