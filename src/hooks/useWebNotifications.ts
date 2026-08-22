@@ -32,14 +32,28 @@ export function useWebNotifications(
 
   const channelId = useRef(Math.random().toString(36).slice(2, 10));
 
+  // A value rather than the array itself, so opening a chat (which rebuilds
+  // groupIds) doesn't resubscribe and drop notifications in the gap. Only an
+  // actual change of membership rebuilds the channel.
+  const groupIdsKey = [...groupIds].sort().join(',');
+
   useEffect(() => {
     if (Platform.OS !== 'web' || !userId) return;
+    if (!groupIdsKey) return;
 
     const channel = supabase
       .channel(`web-notify-${channelId.current}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          // Narrowed server-side as well as in the handler below: the check
+          // there stays as the honest guard, this just stops the Realtime
+          // server evaluating RLS for rooms this tab has no interest in.
+          filter: `group_id=in.(${groupIdsKey})`,
+        },
         async (payload) => {
           const row = payload.new as {
             id: string;
@@ -94,5 +108,5 @@ export function useWebNotifications(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, groupIdsKey]);
 }

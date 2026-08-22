@@ -557,10 +557,10 @@ export function DailyRecapModal({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#07060B' },
+  root: { flex: 1, backgroundColor: colors.appRoot },
 
   // Glowing Ambient Background
-  glowBgRoot: { backgroundColor: '#07060B', overflow: 'hidden' },
+  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
   topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 440 },
 
   // Web Modal Layer
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     maxHeight: 820,
     borderRadius: radius.xxl,
     overflow: 'hidden',
-    backgroundColor: '#07060B',
+    backgroundColor: colors.appRoot,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000000',

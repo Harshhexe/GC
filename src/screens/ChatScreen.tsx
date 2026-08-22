@@ -51,6 +51,7 @@ import { MemberProfileSheet } from '../components/MemberProfileSheet';
 import { AttachmentSheet } from '../components/AttachmentSheet';
 import { WebCameraModal } from '../components/WebCameraModal';
 import { GifPicker } from '../components/GifPicker';
+import { signedUrlFor } from '../lib/mediaUrl';
 import type { GifResult } from '../lib/giphy';
 import { StickerPicker } from '../components/StickerPicker';
 import { StickerCreator } from '../components/StickerCreator';
@@ -1241,7 +1242,10 @@ export default function ChatScreen({ route, navigation }: Props) {
   const handleMediaPress = useCallback((message: Message) => {
     if (!message.media) return;
     if (message.media.type === 'file') {
-      Linking.openURL(message.media.url).catch(() => { });
+      // Private bucket — the stored URL is not fetchable on its own.
+      signedUrlFor(message.media.url).then((u) => {
+        if (u) Linking.openURL(u).catch(() => { });
+      });
       return;
     }
     if (Platform.OS === 'web' && message.media.viewOnce) {
@@ -1440,7 +1444,12 @@ export default function ChatScreen({ route, navigation }: Props) {
     setActionTarget(null);
     setActionAnchor(null);
     if (!message.media?.url) return;
-    const { error } = await downloadMediaToDevice(message.media.url);
+    const signed = await signedUrlFor(message.media.url);
+    if (!signed) {
+      Alert.alert("Couldn't save", 'That attachment is no longer available.');
+      return;
+    }
+    const { error } = await downloadMediaToDevice(signed);
     if (error) {
       Alert.alert("Couldn't save", error);
       return;
@@ -1679,19 +1688,51 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const handleMentionPress = useCallback((userId: string) => setViewingProfileId(userId), []);
 
+  const pendingModalActionRef = useRef<(() => void) | null>(null);
+
+  const handleActionSheetDismiss = useCallback(() => {
+    const action = pendingModalActionRef.current;
+    pendingModalActionRef.current = null;
+    if (action) {
+      action();
+    }
+  }, []);
+
   /** Opens the private side-conversation on a message and closes the menu. */
   const openPrivateComments = useCallback(
-    (m: { id: string; text: string; authorId: string | null; authorName: string }) => {
-      setActionTarget(null);
-      setActionAnchor(null);
-      setCommentTarget({
-        messageId: m.id,
-        text: m.text,
-        authorId: m.authorId,
-        authorName: m.authorName,
-      });
+    (m: { id: string; text: string; authorId: string | null; authorName: string; threadUserId?: string | null }) => {
+      const open = () => {
+        setCommentTarget({
+          messageId: m.id,
+          text: m.text,
+          authorId: m.authorId,
+          authorName: m.authorName,
+          threadUserId: m.threadUserId ?? null,
+        });
+      };
+
+      if (actionTarget) {
+        if (Platform.OS === 'ios') {
+          pendingModalActionRef.current = open;
+          setActionTarget(null);
+          setActionAnchor(null);
+          // Fallback in case onDismiss doesn't fire
+          setTimeout(() => {
+            if (pendingModalActionRef.current === open) {
+              pendingModalActionRef.current = null;
+              open();
+            }
+          }, 350);
+        } else {
+          setActionTarget(null);
+          setActionAnchor(null);
+          setTimeout(open, 60);
+        }
+      } else {
+        open();
+      }
     },
-    []
+    [actionTarget]
   );
 
   /** Tapping the lock indicator under a bubble opens the same sheet. */
@@ -2387,9 +2428,28 @@ export default function ChatScreen({ route, navigation }: Props) {
           setActionAnchor(null);
         }}
         onMoreReactions={() => {
-          if (actionTarget) setPickerForMessage(actionTarget.id);
-          setActionTarget(null);
-          setActionAnchor(null);
+          const targetId = actionTarget?.id;
+          if (targetId) {
+            const open = () => setPickerForMessage(targetId);
+            if (Platform.OS === 'ios') {
+              pendingModalActionRef.current = open;
+              setActionTarget(null);
+              setActionAnchor(null);
+              setTimeout(() => {
+                if (pendingModalActionRef.current === open) {
+                  pendingModalActionRef.current = null;
+                  open();
+                }
+              }, 350);
+            } else {
+              setActionTarget(null);
+              setActionAnchor(null);
+              setTimeout(open, 60);
+            }
+          } else {
+            setActionTarget(null);
+            setActionAnchor(null);
+          }
         }}
         onReply={() => actionTarget && startReply(actionTarget)}
         onComment={() => actionTarget && openPrivateComments(actionTarget)}
@@ -2407,6 +2467,7 @@ export default function ChatScreen({ route, navigation }: Props) {
           setActionTarget(null);
           setActionAnchor(null);
         }}
+        onDismiss={handleActionSheetDismiss}
         onClose={() => {
           setActionTarget(null);
           setActionAnchor(null);

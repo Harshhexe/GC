@@ -151,6 +151,8 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
   // background → active transition from the transient 'inactive' events that
   // fire without the app ever actually leaving.
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // Debounces reaction refetches so a burst collapses into one query.
+  const reactionRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The realtime subscription is set up once per group, so any `messages` it
   // closed over would be frozen at []. Keep a ref the handlers can read live.
   const messagesRef = useRef<Message[]>([]);
@@ -717,14 +719,33 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
           );
         }
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, () => {
-        refreshReactions();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, (payload) => {
+        // message_reactions carries no group_id, so this subscription cannot be
+        // narrowed server-side — it receives every reaction in the entire
+        // database. Dropping events for messages this chat has not loaded turns
+        // a global fan-out into a local one; without it, one busy group made
+        // every other open chat refetch all of its reactions and re-render.
+        const row = (payload.new ?? payload.old) as { message_id?: string } | null;
+        const changedId = row?.message_id;
+        if (!changedId || !messagesRef.current.some((m) => m.id === changedId)) return;
+
+        // A burst (several people reacting at once) collapses into one refetch.
+        if (reactionRefreshTimer.current) clearTimeout(reactionRefreshTimer.current);
+        reactionRefreshTimer.current = setTimeout(() => {
+          reactionRefreshTimer.current = null;
+          refreshReactions();
+        }, 150);
       })
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'media_views' },
         async (payload) => {
           const row = payload.new as { message_id: string; user_id: string };
+          // media_views has no group_id, so like message_reactions this cannot
+          // be narrowed server-side. Discarding views on messages this chat
+          // hasn't loaded stops the handler doing a profile lookup and a full
+          // setMessages pass for a view that could never be drawn here.
+          if (!messagesRef.current.some((m) => m.id === row.message_id)) return;
           const viewers = viewsRef.current.get(row.message_id) ?? new Set<string>();
           if (!viewers.has(row.user_id)) {
             viewers.add(row.user_id);
@@ -780,6 +801,11 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
       .subscribe(onChannelStatus('chat'));
 
     return () => {
+      // Without this a queued refetch can fire after the screen is gone.
+      if (reactionRefreshTimer.current) {
+        clearTimeout(reactionRefreshTimer.current);
+        reactionRefreshTimer.current = null;
+      }
       supabase.removeChannel(channel);
     };
   }, [groupId, myId, buildMessages, refreshReactions, resolveReplyPreview, authorNameFor, getViewerProfiles]);

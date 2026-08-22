@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { uploadUserAvatar } from '../lib/uploadAvatar';
 import { friendlySignUpError } from '../lib/username';
 import { unregisterPush } from '../lib/push';
+import { clearSignedUrlCache } from '../lib/mediaUrl';
 import { unsubscribeWebPush } from '../lib/webPush';
 
 export type Profile = {
@@ -154,6 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // device receiving the previous account's messages.
     await unregisterPush();
     await unsubscribeWebPush();
+    // Signatures outlive the session otherwise — the next account on this
+    // device would inherit working links to the previous one's media.
+    clearSignedUrlCache();
     await supabase.auth.signOut();
   }
 

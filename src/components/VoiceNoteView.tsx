@@ -15,6 +15,7 @@ import { colors, radius, typography } from '../theme/theme';
 import { easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { formatDuration, releaseRecordingSession, waveformFor } from '../lib/voice';
+import { useSignedMediaUrl } from '../lib/mediaUrl';
 import { tapFeedback } from '../utils/haptics';
 import type { MessageMedia } from '../types';
 
@@ -32,9 +33,18 @@ export function VoiceNoteView({
   tint: string;
   onLongPress?: (e: GestureResponderEvent) => void;
 }) {
-  const player = useAudioPlayer(media.url);
+  // The stored URL is not fetchable on its own any more — the message-media
+  // bucket is private — so playback waits on a signed one. Null until it
+  // lands, which is useAudioPlayer's own default for "no source yet"; it keys
+  // the underlying player on the source, so the real player is created as
+  // soon as the signature arrives.
+  const signedUrl = useSignedMediaUrl(media.url);
+  const source = useMemo(() => (signedUrl ? { uri: signedUrl } : null), [signedUrl]);
+  const player = useAudioPlayer(source);
   const status = useAudioPlayerStatus(player);
 
+  // Seeded from the stored URL, not the signed one: signatures rotate, and the
+  // waveform must stay the same shape every time this note is drawn.
   const bars = useMemo(() => waveformFor(media.url, BAR_COUNT), [media.url]);
 
   const totalMs = status.duration > 0 ? status.duration * 1000 : media.durationMs ?? 0;

@@ -1,0 +1,1350 @@
+2026-08-21 20:28:06.706 INFO    gc_7045 - strix.core.runner: Starting Strix scan gc_7045 (image=ghcr.io/usestrix/strix-sandbox:1.3.0, max_turns=500, interactive=True, run_dir=/Users/harsh/Desktop/GC/strix_runs/gc_7045)
+2026-08-21 20:28:06.707 INFO    gc_7045 - strix.core.runner: LLM model resolved: gemini/gemini-3.6-flash
+2026-08-21 20:28:06.707 INFO    gc_7045 - strix.core.runner: Bringing up sandbox session for scan gc_7045
+2026-08-21 20:28:06.707 DEBUG   gc_7045 - strix.runtime.backends: Selected sandbox backend: docker
+2026-08-21 20:28:06.708 INFO    gc_7045 - strix.runtime.session_manager: Creating sandbox session for scan gc_7045 (backend=docker, image=ghcr.io/usestrix/strix-sandbox:1.3.0)
+2026-08-21 20:28:06.847 DEBUG   gc_7045 - strix.runtime.docker_client: Creating sandbox container: image=ghcr.io/usestrix/strix-sandbox:1.3.0 caps=['NET_ADMIN', 'NET_RAW'] exposed_ports=[48080]
+2026-08-21 20:28:09.229 INFO    gc_7045 - strix.runtime.docker_client: Sandbox container created: id=a1a2175e0aa5 image=ghcr.io/usestrix/strix-sandbox:1.3.0
+2026-08-21 20:28:09.573 DEBUG   gc_7045 - strix.runtime.session_manager: Caido host endpoint resolved: http://127.0.0.1:52473
+2026-08-21 20:28:09.574 INFO    gc_7045 - strix.runtime.caido_bootstrap: Bootstrapping Caido client (host=http://127.0.0.1:52473, container=http://127.0.0.1:48080)
+2026-08-21 20:28:09.722 INFO    gc_7045 - strix.runtime.caido_bootstrap: Caido project selected: f24023c4-d6ac-4d02-bb71-1d82dab65259
+2026-08-21 20:28:09.723 INFO    gc_7045 - strix.runtime.session_manager: Sandbox session for scan gc_7045 ready and cached
+2026-08-21 20:28:09.723 INFO    gc_7045 - strix.core.runner: Sandbox ready for scan gc_7045
+2026-08-21 20:28:09.731 DEBUG   gc_7045 - strix.skills: Loaded skill: scan_modes/deep -> deep
+2026-08-21 20:28:09.735 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/agent_browser -> agent_browser
+2026-08-21 20:28:09.739 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/python -> python
+2026-08-21 20:28:09.745 DEBUG   gc_7045 - strix.skills: Loaded skill: coordination/root_agent -> root_agent
+2026-08-21 20:28:09.747 DEBUG   gc_7045 - strix.skills: Loaded skill: coordination/source_aware_whitebox -> source_aware_whitebox
+2026-08-21 20:28:09.749 DEBUG   gc_7045 - strix.skills: Loaded skill: custom/source_aware_sast -> source_aware_sast
+2026-08-21 20:28:09.749 DEBUG   gc_7045 - strix.skills: load_skills: 6 skill(s) resolved
+2026-08-21 20:28:09.774 DEBUG   gc_7045 - strix.agents.prompt: render_system_prompt: scan_mode=deep root=True whitebox=True skills=6 prompt_len=86379
+2026-08-21 20:28:09.774 INFO    gc_7045 - strix.agents.factory: Built root agent 'Root Agent' (skills=0, tools=31, scan_mode=deep, whitebox=True)
+2026-08-21 20:28:09.775 INFO    gc_7045 - strix.core.agents: agent.register a818faca (Root Agent) parent=-
+2026-08-21 20:28:09.784 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating trace
+2026-08-21 20:28:09.785 DEBUG   gc_7045 - openai.agents: Setting current trace: no-op
+2026-08-21 20:28:09.785 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:28:09.800 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:28:09.800 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Root Agent
+2026-08-21 20:28:09.800 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:28:09.801 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:28:09.801 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:28:09.802 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:28:10.808 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:28:10.811 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:28:10.814 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:28:10.816 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:28:10.818 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:28:11.614 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:28:11.676 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:28:11.684 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:28:12.420 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:28:12.722 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:28:12.727 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:28:13.713 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:28:36.406 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:28:36.407 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:28:36.407 DEBUG   gc_7045 - openai.agents: Processing output item type=reasoning class=ResponseReasoningItem
+2026-08-21 20:28:36.407 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:28:36.407 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:28:36.407 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:28:36.506 DEBUG   gc_7045 - openai.agents: Turn 1 complete, next_step type=NextStepRunAgain
+2026-08-21 20:28:36.512 DEBUG   gc_7045 - openai.agents: Starting turn 2, current_agent=Root Agent
+2026-08-21 20:28:36.512 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:28:36.513 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:28:36.513 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:28:36.514 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:29:00.774 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:29:00.775 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:29:00.775 DEBUG   gc_7045 - openai.agents: Processing output item type=reasoning class=ResponseReasoningItem
+2026-08-21 20:29:00.775 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:29:00.776 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:00.777 DEBUG   gc_7045 - openai.agents: Invoking tool create_todo
+2026-08-21 20:29:00.777 DEBUG   gc_7045 - openai.agents: Tool create_todo completed.
+2026-08-21 20:29:00.778 DEBUG   gc_7045 - openai.agents: Turn 2 complete, next_step type=NextStepRunAgain
+2026-08-21 20:29:00.792 DEBUG   gc_7045 - openai.agents: Starting turn 3, current_agent=Root Agent
+2026-08-21 20:29:00.792 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:00.793 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:29:00.794 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:00.795 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:29:26.876 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:29:26.877 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:29:26.877 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:29:26.878 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:26.969 DEBUG   gc_7045 - openai.agents: Turn 3 complete, next_step type=NextStepRunAgain
+2026-08-21 20:29:26.978 DEBUG   gc_7045 - openai.agents: Starting turn 4, current_agent=Root Agent
+2026-08-21 20:29:26.978 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:26.980 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:29:26.980 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:26.982 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:29:53.457 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:29:53.458 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:29:53.459 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:29:53.459 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:53.556 DEBUG   gc_7045 - openai.agents: Turn 4 complete, next_step type=NextStepRunAgain
+2026-08-21 20:29:53.564 DEBUG   gc_7045 - openai.agents: Starting turn 5, current_agent=Root Agent
+2026-08-21 20:29:53.564 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:53.565 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:29:53.566 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:29:53.567 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:30:23.728 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:30:23.730 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:30:23.730 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:30:23.731 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:30:23.817 DEBUG   gc_7045 - openai.agents: Turn 5 complete, next_step type=NextStepRunAgain
+2026-08-21 20:30:23.831 DEBUG   gc_7045 - openai.agents: Starting turn 6, current_agent=Root Agent
+2026-08-21 20:30:23.831 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:30:23.834 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:30:23.834 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:30:23.835 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:30:54.806 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:30:54.807 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:30:54.808 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:30:54.808 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:30:54.907 DEBUG   gc_7045 - openai.agents: Turn 6 complete, next_step type=NextStepRunAgain
+2026-08-21 20:30:54.917 DEBUG   gc_7045 - openai.agents: Starting turn 7, current_agent=Root Agent
+2026-08-21 20:30:54.917 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:30:54.920 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:30:54.920 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:30:54.922 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:31:25.816 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:31:25.817 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:31:25.818 DEBUG   gc_7045 - openai.agents: Processing output item type=reasoning class=ResponseReasoningItem
+2026-08-21 20:31:25.818 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:31:25.819 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:31:25.915 DEBUG   gc_7045 - openai.agents: Turn 7 complete, next_step type=NextStepRunAgain
+2026-08-21 20:31:25.925 DEBUG   gc_7045 - openai.agents: Starting turn 8, current_agent=Root Agent
+2026-08-21 20:31:25.925 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:31:25.927 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:31:25.928 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:31:25.930 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:32:40.210 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:32:40.212 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:32:40.212 DEBUG   gc_7045 - openai.agents: Processing output item type=reasoning class=ResponseReasoningItem
+2026-08-21 20:32:40.212 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:32:40.213 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:32:40.214 DEBUG   gc_7045 - openai.agents: Invoking tool view_agent_graph
+2026-08-21 20:32:40.214 DEBUG   gc_7045 - openai.agents: Tool view_agent_graph completed.
+2026-08-21 20:32:40.215 DEBUG   gc_7045 - openai.agents: Turn 8 complete, next_step type=NextStepRunAgain
+2026-08-21 20:32:40.231 DEBUG   gc_7045 - openai.agents: Starting turn 9, current_agent=Root Agent
+2026-08-21 20:32:40.231 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:32:40.232 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:32:40.233 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:32:40.234 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:33:12.533 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:33:12.535 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:33:12.535 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:33:12.535 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:33:12.538 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:12.539 DEBUG   gc_7045 - openai.agents: Invoking tool create_agent
+2026-08-21 20:33:12.546 DEBUG   gc_7045 - strix.skills: Loaded skill: source_aware_sast -> source_aware_sast
+2026-08-21 20:33:12.549 DEBUG   gc_7045 - strix.skills: Loaded skill: custom/dependency_cve_scanning -> dependency_cve_scanning
+2026-08-21 20:33:12.550 DEBUG   gc_7045 - strix.skills: Loaded skill: scan_modes/deep -> deep
+2026-08-21 20:33:12.552 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/agent_browser -> agent_browser
+2026-08-21 20:33:12.553 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/python -> python
+2026-08-21 20:33:12.555 DEBUG   gc_7045 - strix.skills: Loaded skill: coordination/source_aware_whitebox -> source_aware_whitebox
+2026-08-21 20:33:12.556 DEBUG   gc_7045 - strix.skills: Loaded skill: custom/source_aware_sast -> source_aware_sast
+2026-08-21 20:33:12.556 DEBUG   gc_7045 - strix.skills: load_skills: 6 skill(s) resolved
+2026-08-21 20:33:12.565 DEBUG   gc_7045 - strix.agents.prompt: render_system_prompt: scan_mode=deep root=False whitebox=True skills=6 prompt_len=95033
+2026-08-21 20:33:12.565 INFO    gc_7045 - strix.agents.factory: Built child agent 'SAST & Secret Specialist' (skills=2, tools=31, scan_mode=deep, whitebox=True)
+2026-08-21 20:33:12.566 INFO    gc_7045 - strix.core.agents: agent.register 7a0c9ab4 (SAST & Secret Specialist) parent=a818faca
+2026-08-21 20:33:12.567 INFO    gc_7045 - strix.tools.agents_graph.tools: create_agent: spawned 7a0c9ab4 (SAST & Secret Specialist) parent=a818faca skills=2 task_len=376
+2026-08-21 20:33:12.567 DEBUG   gc_7045 - openai.agents: Tool create_agent completed.
+2026-08-21 20:33:12.567 DEBUG   gc_7045 - openai.agents: Turn 9 complete, next_step type=NextStepRunAgain
+2026-08-21 20:33:12.579 DEBUG   gc_7045 - openai.agents: Starting turn 10, current_agent=Root Agent
+2026-08-21 20:33:12.579 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:12.580 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:33:12.581 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:12.582 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:33:12.592 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:12.602 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:12.602 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=SAST & Secret Specialist
+2026-08-21 20:33:12.602 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:12.603 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:33:12.603 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:12.603 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:33:13.455 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:13.456 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:13.459 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:13.461 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:14.398 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:14.402 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:14.414 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:14.415 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:14.417 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:14.419 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:15.249 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:15.259 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:15.358 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:16.239 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:52.781 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:33:52.783 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:33:52.783 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:33:52.784 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:52.784 DEBUG   gc_7045 - openai.agents: Invoking tool create_agent
+2026-08-21 20:33:52.790 DEBUG   gc_7045 - strix.skills: Loaded skill: vulnerabilities/idor -> idor
+2026-08-21 20:33:52.791 DEBUG   gc_7045 - strix.skills: Loaded skill: vulnerabilities/broken_function_level_authorization -> broken_function_level_authorization
+2026-08-21 20:33:52.793 DEBUG   gc_7045 - strix.skills: Loaded skill: vulnerabilities/sql_injection -> sql_injection
+2026-08-21 20:33:52.795 DEBUG   gc_7045 - strix.skills: Loaded skill: scan_modes/deep -> deep
+2026-08-21 20:33:52.797 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/agent_browser -> agent_browser
+2026-08-21 20:33:52.798 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/python -> python
+2026-08-21 20:33:52.799 DEBUG   gc_7045 - strix.skills: Loaded skill: coordination/source_aware_whitebox -> source_aware_whitebox
+2026-08-21 20:33:52.800 DEBUG   gc_7045 - strix.skills: Loaded skill: custom/source_aware_sast -> source_aware_sast
+2026-08-21 20:33:52.801 DEBUG   gc_7045 - strix.skills: load_skills: 8 skill(s) resolved
+2026-08-21 20:33:52.810 DEBUG   gc_7045 - strix.agents.prompt: render_system_prompt: scan_mode=deep root=False whitebox=True skills=8 prompt_len=106884
+2026-08-21 20:33:52.810 INFO    gc_7045 - strix.agents.factory: Built child agent 'Supabase Backend & RLS Specialist' (skills=3, tools=31, scan_mode=deep, whitebox=True)
+2026-08-21 20:33:52.810 INFO    gc_7045 - strix.core.agents: agent.register c9f5507b (Supabase Backend & RLS Specialist) parent=a818faca
+2026-08-21 20:33:52.811 INFO    gc_7045 - strix.tools.agents_graph.tools: create_agent: spawned c9f5507b (Supabase Backend & RLS Specialist) parent=a818faca skills=3 task_len=524
+2026-08-21 20:33:52.811 DEBUG   gc_7045 - openai.agents: Tool create_agent completed.
+2026-08-21 20:33:52.812 DEBUG   gc_7045 - openai.agents: Turn 10 complete, next_step type=NextStepRunAgain
+2026-08-21 20:33:52.824 DEBUG   gc_7045 - openai.agents: Starting turn 11, current_agent=Root Agent
+2026-08-21 20:33:52.824 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:52.824 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:33:52.825 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:52.825 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:33:52.835 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:52.847 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:52.847 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Supabase Backend & RLS Specialist
+2026-08-21 20:33:52.847 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:52.848 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:33:52.848 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:52.849 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:33:53.690 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:53.691 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:53.692 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:53.699 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:54.559 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:54.562 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:54.576 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:54.599 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:54.602 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:54.855 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:33:54.856 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:33:54.857 DEBUG   gc_7045 - openai.agents: Processing output item type=reasoning class=ResponseReasoningItem
+2026-08-21 20:33:54.857 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:33:54.857 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:33:54.857 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:33:55.389 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:55.393 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:55.577 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:55.590 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:55.615 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:33:56.388 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:33:56.393 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:34:04.886 DEBUG   gc_7045 - openai.agents: Turn 1 complete, next_step type=NextStepRunAgain
+2026-08-21 20:34:04.901 DEBUG   gc_7045 - openai.agents: Starting turn 2, current_agent=SAST & Secret Specialist
+2026-08-21 20:34:04.901 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:04.904 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:34:04.905 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:04.907 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:34:31.228 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:34:31.231 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:34:31.232 DEBUG   gc_7045 - openai.agents: Processing output item type=reasoning class=ResponseReasoningItem
+2026-08-21 20:34:31.232 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:34:31.232 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:34:31.233 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:31.237 DEBUG   gc_7045 - openai.agents: Invoking tool load_skill
+2026-08-21 20:34:31.244 DEBUG   gc_7045 - strix.skills: Loaded skill: technologies/supabase -> supabase
+2026-08-21 20:34:31.245 DEBUG   gc_7045 - strix.skills: load_skills: 1 skill(s) resolved
+2026-08-21 20:34:31.245 DEBUG   gc_7045 - openai.agents: Tool load_skill completed.
+2026-08-21 20:34:31.250 DEBUG   gc_7045 - openai.agents: Turn 1 complete, next_step type=NextStepRunAgain
+2026-08-21 20:34:31.268 DEBUG   gc_7045 - openai.agents: Starting turn 2, current_agent=Supabase Backend & RLS Specialist
+2026-08-21 20:34:31.268 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:31.269 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:34:31.270 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:31.273 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:34:32.248 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:34:33.103 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:34:39.097 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:34:39.098 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:34:39.099 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:34:39.099 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:34:39.100 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:49.107 DEBUG   gc_7045 - openai.agents: Turn 2 complete, next_step type=NextStepRunAgain
+2026-08-21 20:34:49.122 DEBUG   gc_7045 - openai.agents: Starting turn 3, current_agent=SAST & Secret Specialist
+2026-08-21 20:34:49.122 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:49.125 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:34:49.126 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:34:49.127 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:09.179 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:35:09.181 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:35:09.182 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:35:09.182 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:09.184 DEBUG   gc_7045 - openai.agents: Invoking tool create_agent
+2026-08-21 20:35:09.190 DEBUG   gc_7045 - strix.skills: Loaded skill: vulnerabilities/business_logic -> business_logic
+2026-08-21 20:35:09.192 DEBUG   gc_7045 - strix.skills: Loaded skill: vulnerabilities/information_disclosure -> information_disclosure
+2026-08-21 20:35:09.195 DEBUG   gc_7045 - strix.skills: Loaded skill: vulnerabilities/authentication_jwt -> authentication_jwt
+2026-08-21 20:35:09.197 DEBUG   gc_7045 - strix.skills: Loaded skill: scan_modes/deep -> deep
+2026-08-21 20:35:09.199 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/agent_browser -> agent_browser
+2026-08-21 20:35:09.200 DEBUG   gc_7045 - strix.skills: Loaded skill: tooling/python -> python
+2026-08-21 20:35:09.204 DEBUG   gc_7045 - strix.skills: Loaded skill: coordination/source_aware_whitebox -> source_aware_whitebox
+2026-08-21 20:35:09.205 DEBUG   gc_7045 - strix.skills: Loaded skill: custom/source_aware_sast -> source_aware_sast
+2026-08-21 20:35:09.206 DEBUG   gc_7045 - strix.skills: load_skills: 8 skill(s) resolved
+2026-08-21 20:35:09.222 DEBUG   gc_7045 - strix.agents.prompt: render_system_prompt: scan_mode=deep root=False whitebox=True skills=8 prompt_len=108316
+2026-08-21 20:35:09.222 INFO    gc_7045 - strix.agents.factory: Built child agent 'Client & API Security Auditor' (skills=3, tools=31, scan_mode=deep, whitebox=True)
+2026-08-21 20:35:09.223 INFO    gc_7045 - strix.core.agents: agent.register 81ab09e8 (Client & API Security Auditor) parent=a818faca
+2026-08-21 20:35:09.229 INFO    gc_7045 - strix.tools.agents_graph.tools: create_agent: spawned 81ab09e8 (Client & API Security Auditor) parent=a818faca skills=3 task_len=507
+2026-08-21 20:35:09.229 DEBUG   gc_7045 - openai.agents: Tool create_agent completed.
+2026-08-21 20:35:09.234 DEBUG   gc_7045 - openai.agents: Turn 11 complete, next_step type=NextStepRunAgain
+2026-08-21 20:35:09.247 DEBUG   gc_7045 - openai.agents: Starting turn 12, current_agent=Root Agent
+2026-08-21 20:35:09.247 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:09.249 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:35:09.249 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:09.250 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:09.265 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:09.277 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:09.277 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Client & API Security Auditor
+2026-08-21 20:35:09.277 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:09.278 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:35:09.278 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:09.279 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:10.073 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:10.077 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:10.083 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:10.914 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:10.929 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:10.962 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:11.083 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:35:11.085 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:35:11.085 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:35:11.085 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:35:11.087 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:11.173 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:11.229 DEBUG   gc_7045 - openai.agents: Turn 2 complete, next_step type=NextStepRunAgain
+2026-08-21 20:35:11.246 DEBUG   gc_7045 - openai.agents: Starting turn 3, current_agent=Supabase Backend & RLS Specialist
+2026-08-21 20:35:11.246 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:11.247 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:35:11.248 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:11.249 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:11.673 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:12.202 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:12.205 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:12.360 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:12.500 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:13.156 DEBUG   - - strix.telemetry.posthog: posthog event sent: skill_loaded
+2026-08-21 20:35:13.159 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:13.171 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:13.992 DEBUG   - - strix.telemetry.scarf: scarf event sent: skill_loaded
+2026-08-21 20:35:22.121 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:35:22.125 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:35:22.126 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:35:22.126 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:35:22.126 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:32.137 DEBUG   gc_7045 - openai.agents: Turn 3 complete, next_step type=NextStepRunAgain
+2026-08-21 20:35:32.153 DEBUG   gc_7045 - openai.agents: Starting turn 4, current_agent=SAST & Secret Specialist
+2026-08-21 20:35:32.153 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:32.155 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:35:32.155 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:32.156 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:44.774 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:35:44.776 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:35:44.783 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:35:44.784 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:35:44.785 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:35:44.785 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:35:44.785 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:35:44.786 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:44.786 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:44.787 DEBUG   gc_7045 - openai.agents: Invoking tool view_agent_graph
+2026-08-21 20:35:44.787 DEBUG   gc_7045 - openai.agents: Tool view_agent_graph completed.
+2026-08-21 20:35:44.791 DEBUG   gc_7045 - openai.agents: Turn 12 complete, next_step type=NextStepRunAgain
+2026-08-21 20:35:44.806 DEBUG   gc_7045 - openai.agents: Starting turn 13, current_agent=Root Agent
+2026-08-21 20:35:44.806 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:44.809 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:35:44.809 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:44.812 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:44.958 DEBUG   gc_7045 - openai.agents: Turn 3 complete, next_step type=NextStepRunAgain
+2026-08-21 20:35:44.967 DEBUG   gc_7045 - openai.agents: Starting turn 4, current_agent=Supabase Backend & RLS Specialist
+2026-08-21 20:35:44.967 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:44.969 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:35:44.969 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:44.972 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:45.321 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:35:45.325 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:35:47.322 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:47.323 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:47.334 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:47.335 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:47.684 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:35:47.756 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:35:51.687 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:51.691 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:51.759 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:51.762 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:52.065 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:35:52.137 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:35:55.835 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:35:55.837 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:35:55.840 DEBUG   gc_7045 - openai.agents: Processing output item type=reasoning class=ResponseReasoningItem
+2026-08-21 20:35:55.840 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:35:55.841 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:55.841 DEBUG   gc_7045 - openai.agents: Invoking tool think
+2026-08-21 20:35:55.842 DEBUG   gc_7045 - openai.agents: Tool think completed.
+2026-08-21 20:35:55.842 DEBUG   gc_7045 - openai.agents: Turn 1 complete, next_step type=NextStepRunAgain
+2026-08-21 20:35:55.858 DEBUG   gc_7045 - openai.agents: Starting turn 2, current_agent=Client & API Security Auditor
+2026-08-21 20:35:55.858 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:55.859 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:35:55.859 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:55.860 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:56.208 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:35:58.211 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:35:58.215 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:35:58.570 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:36:00.067 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:00.070 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:00.138 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:00.141 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:00.489 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:36:00.499 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:36:02.573 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:02.576 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:02.970 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:36:09.935 INFO    gc_7045 - strix.report.sarif: Wrote SARIF 2.1.0 report: /Users/harsh/Desktop/GC/strix_runs/gc_7045/findings.sarif (0 results)
+2026-08-21 20:36:09.936 INFO    gc_7045 - strix.report.state: Essential scan data saved to: /Users/harsh/Desktop/GC/strix_runs/gc_7045
+2026-08-21 20:36:09.937 DEBUG   gc_7045 - openai.agents: Processing output item type=message class=ResponseOutputMessage
+2026-08-21 20:36:09.937 DEBUG   gc_7045 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-08-21 20:36:09.938 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:10.010 DEBUG   gc_7045 - openai.agents: Turn 4 complete, next_step type=NextStepRunAgain
+2026-08-21 20:36:10.023 DEBUG   gc_7045 - openai.agents: Starting turn 5, current_agent=SAST & Secret Specialist
+2026-08-21 20:36:10.023 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:10.026 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:36:10.026 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:10.029 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:10.460 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:36:10.974 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:10.982 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:11.357 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:36:12.464 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:12.468 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:12.815 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:36:16.491 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:16.494 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:16.509 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:16.511 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:16.818 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:16.821 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:17.086 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:36:17.095 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:36:17.178 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:36:25.181 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:25.185 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:25.528 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:36:27.360 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:27.363 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:27.871 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:36:41.533 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:41.536 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:41.982 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:36:49.089 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:49.093 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:49.112 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:49.113 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:49.459 WARNING gc_7045 - strix.core.execution: transient model/provider error for c9f5507b; replaying turn (attempt 1/5, backoff 2.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 10.595171006s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "10s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 10.595171006s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "10s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:36:49.673 DEBUG   gc_7045 - openai.agents: Resetting current trace
+2026-08-21 20:36:49.678 WARNING gc_7045 - strix.core.execution: transient model/provider error for a818faca; replaying turn (attempt 1/5, backoff 2.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 10.372302044s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "10s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 10.372302044s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "10s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:36:51.495 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.516 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.516 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Supabase Backend & RLS Specialist
+2026-08-21 20:36:51.516 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.517 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:36:51.518 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.518 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:51.708 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating trace
+2026-08-21 20:36:51.709 DEBUG   gc_7045 - openai.agents: Setting current trace: no-op
+2026-08-21 20:36:51.709 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.720 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.720 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Root Agent
+2026-08-21 20:36:51.720 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.721 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:36:51.722 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:51.723 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:51.869 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:36:52.138 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:36:53.871 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:53.877 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:54.141 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:54.144 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:54.237 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:36:54.483 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:36:58.240 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:58.244 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:58.487 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:58.492 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:36:58.787 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:36:58.942 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:36:59.874 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:36:59.877 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:00.239 WARNING gc_7045 - strix.core.execution: transient model/provider error for 81ab09e8; replaying turn (attempt 1/5, backoff 2.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 59.814564447s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "59s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 59.814564447s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "59s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:37:02.253 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:02.274 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:02.275 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Client & API Security Auditor
+2026-08-21 20:37:02.275 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:02.276 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:37:02.276 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:02.277 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:02.793 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:37:04.797 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:04.800 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:05.166 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:37:06.793 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:06.798 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:06.943 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:06.946 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:07.266 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:37:07.467 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:37:09.168 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:09.171 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:09.517 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:37:13.986 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:13.990 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:14.334 WARNING gc_7045 - strix.core.execution: transient model/provider error for 7a0c9ab4; replaying turn (attempt 1/5, backoff 2.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 45.723008408s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "45s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 45.723008408s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "45s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:37:16.375 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:16.396 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:16.396 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=SAST & Secret Specialist
+2026-08-21 20:37:16.396 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:16.398 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:37:16.398 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:16.399 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:16.796 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:37:17.520 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:17.524 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:17.911 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:37:18.799 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:18.803 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:19.152 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:37:23.154 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:23.158 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:23.270 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:23.274 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:23.471 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:23.475 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:23.499 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:37:23.710 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:37:23.986 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:37:31.502 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:31.506 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:32.102 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:37:33.916 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:33.920 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:34.269 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:37:48.105 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:48.108 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:49.262 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:37:55.714 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:55.719 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:55.989 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:37:55.990 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:37:56.070 WARNING gc_7045 - strix.core.execution: transient model/provider error for c9f5507b; replaying turn (attempt 2/5, backoff 4.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 3.991196511s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "3s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 3.991196511s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "3s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:37:56.502 DEBUG   gc_7045 - openai.agents: Resetting current trace
+2026-08-21 20:37:56.506 WARNING gc_7045 - strix.core.execution: transient model/provider error for a818faca; replaying turn (attempt 2/5, backoff 4.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 3.548986736s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "3s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 3.548986736s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "3s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:38:00.121 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.139 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.139 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Supabase Backend & RLS Specialist
+2026-08-21 20:38:00.139 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.140 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:38:00.140 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.141 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:00.483 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:38:00.544 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating trace
+2026-08-21 20:38:00.546 DEBUG   gc_7045 - openai.agents: Setting current trace: no-op
+2026-08-21 20:38:00.546 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.561 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.561 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Root Agent
+2026-08-21 20:38:00.561 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.562 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:38:00.562 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:00.563 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:00.996 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:38:02.486 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:02.489 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:02.841 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:38:02.999 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:03.003 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:03.558 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:38:06.271 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:06.274 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:06.705 WARNING gc_7045 - strix.core.execution: transient model/provider error for 81ab09e8; replaying turn (attempt 2/5, backoff 4.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 53.428287991s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "53s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 53.428287991s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "53s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:38:06.844 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:06.849 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:07.260 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:38:07.561 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:07.565 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:07.936 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:38:10.726 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:10.743 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:10.743 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Client & API Security Auditor
+2026-08-21 20:38:10.743 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:10.744 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:38:10.744 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:10.745 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:11.136 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:38:13.137 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:13.141 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:13.480 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:38:15.263 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:15.267 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:15.715 ERROR   gc_7045 - strix.core.execution: agent run failed for c9f5507b; marking failed
+Traceback (most recent call last):
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2824, in make_call
+  File "litellm/litellm_core_utils/logging_utils.py", line 297, in async_wrapper
+  File "litellm/llms/custom_httpx/http_handler.py", line 682, in post
+  File "litellm/llms/custom_httpx/http_handler.py", line 454, in _raise_masked_async_error
+litellm.llms.custom_httpx.http_handler.MaskedHTTPStatusError: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.6-flash:streamGenerateContent?alt=sse'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2090, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2073, in fetch_stream
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2830, in make_call
+litellm.llms.vertex_ai.common_utils.VertexAIError: b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 44.345704034s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "44s"\n      }\n    ]\n  }\n}\n'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "strix/core/execution.py", line 676, in _run_cycle
+  File "agents/result.py", line 861, in stream_events
+  File "agents/result.py", line 949, in _await_task_safely
+  File "agents/result.py", line 691, in _await_run_and_cleanup
+  File "agents/run_internal/run_loop.py", line 1095, in start_streaming
+  File "agents/run_internal/run_loop.py", line 1584, in run_single_turn_streamed
+  File "agents/models/_run_context.py", line 31, in model_run_context_stream
+  File "agents/run_internal/model_retry.py", line 560, in stream_response_with_retry
+  File "strix/config/models.py", line 354, in stream_response
+  File "strix/config/models.py", line 378, in _with_idle_timeout
+  File "asyncio/tasks.py", line 520, in wait_for
+  File "agents/extensions/models/litellm_model.py", line 401, in stream_response
+  File "agents/models/chatcmpl_stream_handler.py", line 519, in handle_stream
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2317, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2404, in _handle_stream_fallback_error
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2364, in _handle_stream_fallback_error
+  File "litellm/litellm_core_utils/exception_mapping_utils.py", line 2506, in exception_type
+  File "litellm/litellm_core_utils/exception_mapping_utils.py", line 1374, in exception_type
+litellm.exceptions.BadRequestError: litellm.BadRequestError: Vertex_ai_betaException BadRequestError - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 44.345704034s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "44s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:38:15.721 INFO    gc_7045 - strix.core.agents: agent.status c9f5507b=failed
+2026-08-21 20:38:15.939 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:15.942 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:16.300 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:38:17.483 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:17.486 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:17.832 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:38:21.266 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:21.270 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:21.706 WARNING gc_7045 - strix.core.execution: transient model/provider error for 7a0c9ab4; replaying turn (attempt 2/5, backoff 4.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 38.346481683s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "38s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 38.346481683s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "38s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:38:25.745 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:25.765 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:25.765 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=SAST & Secret Specialist
+2026-08-21 20:38:25.765 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:25.766 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:38:25.766 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:25.767 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:25.834 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:25.836 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:26.186 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:38:26.341 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:38:28.188 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:28.196 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:28.722 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:38:32.303 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:32.307 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:32.703 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:38:32.725 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:32.728 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:33.147 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:38:41.150 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:41.152 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:41.483 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:38:42.343 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:42.346 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:42.687 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:38:57.486 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:38:57.490 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:38:57.858 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:39:04.705 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:04.709 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:05.122 DEBUG   gc_7045 - openai.agents: Resetting current trace
+2026-08-21 20:39:05.126 WARNING gc_7045 - strix.core.execution: transient model/provider error for a818faca; replaying turn (attempt 3/5, backoff 8.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 54.92547225s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "54s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 54.92547225s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "54s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:39:13.162 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating trace
+2026-08-21 20:39:13.163 DEBUG   gc_7045 - openai.agents: Setting current trace: no-op
+2026-08-21 20:39:13.163 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:13.182 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:13.182 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Root Agent
+2026-08-21 20:39:13.182 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:13.183 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:39:13.183 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:13.184 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:13.514 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:39:14.689 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:14.693 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:15.041 WARNING gc_7045 - strix.core.execution: transient model/provider error for 81ab09e8; replaying turn (attempt 3/5, backoff 8.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 45.010889808s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "45s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 45.010889808s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "45s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:39:15.517 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:15.520 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:15.908 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:39:19.912 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:19.917 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:20.421 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:39:23.062 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:23.082 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:23.083 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Client & API Security Auditor
+2026-08-21 20:39:23.083 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:23.084 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:39:23.084 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:23.086 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:23.547 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:39:25.550 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:25.554 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:25.933 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:39:28.424 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:28.428 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:28.794 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:39:29.861 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:29.864 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:29.935 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:29.938 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:30.303 ERROR   gc_7045 - strix.core.execution: agent run failed for 7a0c9ab4; marking failed
+Traceback (most recent call last):
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2824, in make_call
+  File "litellm/litellm_core_utils/logging_utils.py", line 297, in async_wrapper
+  File "litellm/llms/custom_httpx/http_handler.py", line 682, in post
+  File "litellm/llms/custom_httpx/http_handler.py", line 454, in _raise_masked_async_error
+litellm.llms.custom_httpx.http_handler.MaskedHTTPStatusError: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.6-flash:streamGenerateContent?alt=sse'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2090, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2073, in fetch_stream
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2830, in make_call
+litellm.llms.vertex_ai.common_utils.VertexAIError: b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 29.760030403s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "29s"\n      }\n    ]\n  }\n}\n'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "strix/core/execution.py", line 676, in _run_cycle
+  File "agents/result.py", line 861, in stream_events
+  File "agents/result.py", line 949, in _await_task_safely
+  File "agents/result.py", line 691, in _await_run_and_cleanup
+  File "agents/run_internal/run_loop.py", line 1095, in start_streaming
+  File "agents/run_internal/run_loop.py", line 1584, in run_single_turn_streamed
+  File "agents/models/_run_context.py", line 31, in model_run_context_stream
+  File "agents/run_internal/model_retry.py", line 560, in stream_response_with_retry
+  File "strix/config/models.py", line 354, in stream_response
+  File "strix/config/models.py", line 378, in _with_idle_timeout
+  File "asyncio/tasks.py", line 520, in wait_for
+  File "agents/extensions/models/litellm_model.py", line 401, in stream_response
+  File "agents/models/chatcmpl_stream_handler.py", line 519, in handle_stream
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2317, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2404, in _handle_stream_fallback_error
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2364, in _handle_stream_fallback_error
+  File "litellm/litellm_core_utils/exception_mapping_utils.py", line 2506, in exception_type
+  File "litellm/litellm_core_utils/exception_mapping_utils.py", line 1374, in exception_type
+litellm.exceptions.BadRequestError: litellm.BadRequestError: Vertex_ai_betaException BadRequestError - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 29.760030403s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "29s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:39:30.308 INFO    gc_7045 - strix.core.agents: agent.status 7a0c9ab4=failed
+2026-08-21 20:39:30.715 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:39:38.716 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:38.719 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:39.167 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:39:44.796 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:44.800 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:45.333 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:39:55.170 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:39:55.175 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:39:55.632 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:40:17.336 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:17.339 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:18.064 DEBUG   gc_7045 - openai.agents: Resetting current trace
+2026-08-21 20:40:18.068 WARNING gc_7045 - strix.core.execution: transient model/provider error for a818faca; replaying turn (attempt 4/5, backoff 16.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 41.988027372s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "41s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 41.988027372s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "41s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:40:27.634 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:27.638 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:28.356 WARNING gc_7045 - strix.core.execution: transient model/provider error for 81ab09e8; replaying turn (attempt 4/5, backoff 16.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 31.698955044s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "31s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 31.698955044s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "31s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:40:34.108 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating trace
+2026-08-21 20:40:34.109 DEBUG   gc_7045 - openai.agents: Setting current trace: no-op
+2026-08-21 20:40:34.109 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:34.126 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:34.126 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Root Agent
+2026-08-21 20:40:34.126 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:34.128 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:40:34.128 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:34.129 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:34.466 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:40:36.472 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:36.476 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:37.011 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:40:41.013 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:41.016 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:41.545 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:40:44.377 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:44.401 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:44.401 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Client & API Security Auditor
+2026-08-21 20:40:44.401 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:44.402 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:40:44.402 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:44.404 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:44.753 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:40:46.757 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:46.761 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:47.291 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:40:49.547 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:49.551 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:50.280 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:40:51.294 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:51.298 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:40:51.634 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:40:59.638 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:40:59.644 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:41:00.033 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:41:06.285 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:41:06.291 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:41:06.734 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:41:16.036 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:41:16.041 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:41:16.497 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:41:38.740 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:41:38.747 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:41:39.268 DEBUG   gc_7045 - openai.agents: Resetting current trace
+2026-08-21 20:41:39.272 WARNING gc_7045 - strix.core.execution: transient model/provider error for a818faca; replaying turn (attempt 5/5, backoff 32.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 20.787048596s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "20s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 20.787048596s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "20s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:41:48.501 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:41:48.506 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:41:48.887 WARNING gc_7045 - strix.core.execution: transient model/provider error for 81ab09e8; replaying turn (attempt 5/5, backoff 32.0s): litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 11.181762174s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "11s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 11.181762174s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "11s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:42:11.313 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating trace
+2026-08-21 20:42:11.315 DEBUG   gc_7045 - openai.agents: Setting current trace: no-op
+2026-08-21 20:42:11.315 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:11.345 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:11.345 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Root Agent
+2026-08-21 20:42:11.345 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:11.347 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:42:11.347 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:11.348 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:11.621 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:42:13.623 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:13.628 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:14.057 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:42:18.059 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:18.063 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:18.604 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:42:20.906 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:20.926 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:20.926 DEBUG   gc_7045 - openai.agents: Starting turn 1, current_agent=Client & API Security Auditor
+2026-08-21 20:42:20.926 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:20.927 DEBUG   gc_7045 - openai.agents: No conversation_id available for request
+2026-08-21 20:42:20.928 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:20.928 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:21.294 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 2.0s (attempt 1/5).
+2026-08-21 20:42:23.297 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:23.300 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:23.650 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 4.0s (attempt 2/5).
+2026-08-21 20:42:26.608 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:26.612 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:27.065 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:42:27.652 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:27.655 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:28.249 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 8.0s (attempt 3/5).
+2026-08-21 20:42:36.250 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:36.253 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:36.752 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 16.0s (attempt 4/5).
+2026-08-21 20:42:43.068 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:43.072 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:43.525 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:42:52.757 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:42:52.761 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:42:53.195 DEBUG   gc_7045 - openai.agents: Retrying failed streamed model request in 32.0s (attempt 5/5).
+2026-08-21 20:43:15.529 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:43:15.533 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:43:15.916 DEBUG   gc_7045 - openai.agents: Resetting current trace
+2026-08-21 20:43:15.929 ERROR   gc_7045 - strix.core.execution: agent run failed for a818faca; marking failed
+Traceback (most recent call last):
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2824, in make_call
+  File "litellm/litellm_core_utils/logging_utils.py", line 297, in async_wrapper
+  File "litellm/llms/custom_httpx/http_handler.py", line 682, in post
+  File "litellm/llms/custom_httpx/http_handler.py", line 454, in _raise_masked_async_error
+litellm.llms.custom_httpx.http_handler.MaskedHTTPStatusError: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.6-flash:streamGenerateContent?alt=sse'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2090, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2073, in fetch_stream
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2830, in make_call
+litellm.llms.vertex_ai.common_utils.VertexAIError: b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 44.135233951s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "44s"\n      }\n    ]\n  }\n}\n'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "strix/core/execution.py", line 676, in _run_cycle
+  File "agents/result.py", line 861, in stream_events
+  File "agents/result.py", line 949, in _await_task_safely
+  File "agents/result.py", line 691, in _await_run_and_cleanup
+  File "agents/run_internal/run_loop.py", line 1095, in start_streaming
+  File "agents/run_internal/run_loop.py", line 1584, in run_single_turn_streamed
+  File "agents/models/_run_context.py", line 31, in model_run_context_stream
+  File "agents/run_internal/model_retry.py", line 560, in stream_response_with_retry
+  File "strix/config/models.py", line 354, in stream_response
+  File "strix/config/models.py", line 378, in _with_idle_timeout
+  File "asyncio/tasks.py", line 520, in wait_for
+  File "agents/extensions/models/litellm_model.py", line 401, in stream_response
+  File "agents/models/chatcmpl_stream_handler.py", line 519, in handle_stream
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2317, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2412, in _handle_stream_fallback_error
+litellm.exceptions.MidStreamFallbackError: litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 44.135233951s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "44s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 44.135233951s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-3.6-flash"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "44s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:43:15.931 INFO    gc_7045 - strix.core.agents: agent.status a818faca=failed
+2026-08-21 20:43:25.199 DEBUG   gc_7045 - openai.agents: Tracing is disabled. Not creating span
+2026-08-21 20:43:25.202 DEBUG   gc_7045 - openai.agents: Calling LLM
+2026-08-21 20:43:25.571 ERROR   gc_7045 - strix.core.execution: agent run failed for 81ab09e8; marking failed
+Traceback (most recent call last):
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2824, in make_call
+  File "litellm/litellm_core_utils/logging_utils.py", line 297, in async_wrapper
+  File "litellm/llms/custom_httpx/http_handler.py", line 682, in post
+  File "litellm/llms/custom_httpx/http_handler.py", line 454, in _raise_masked_async_error
+litellm.llms.custom_httpx.http_handler.MaskedHTTPStatusError: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.6-flash:streamGenerateContent?alt=sse'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2090, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2073, in fetch_stream
+  File "litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py", line 2830, in make_call
+litellm.llms.vertex_ai.common_utils.VertexAIError: b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 34.489556631s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "34s"\n      }\n    ]\n  }\n}\n'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "strix/core/execution.py", line 676, in _run_cycle
+  File "agents/result.py", line 861, in stream_events
+  File "agents/result.py", line 949, in _await_task_safely
+  File "agents/result.py", line 691, in _await_run_and_cleanup
+  File "agents/run_internal/run_loop.py", line 1095, in start_streaming
+  File "agents/run_internal/run_loop.py", line 1584, in run_single_turn_streamed
+  File "agents/models/_run_context.py", line 31, in model_run_context_stream
+  File "agents/run_internal/model_retry.py", line 560, in stream_response_with_retry
+  File "strix/config/models.py", line 354, in stream_response
+  File "strix/config/models.py", line 378, in _with_idle_timeout
+  File "asyncio/tasks.py", line 520, in wait_for
+  File "agents/extensions/models/litellm_model.py", line 401, in stream_response
+  File "agents/models/chatcmpl_stream_handler.py", line 519, in handle_stream
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2317, in __anext__
+  File "litellm/litellm_core_utils/streaming_handler.py", line 2412, in _handle_stream_fallback_error
+litellm.exceptions.MidStreamFallbackError: litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 34.489556631s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "34s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\\nPlease retry in 34.489556631s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "model": "gemini-3.6-flash",\n              "location": "global"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "34s"\n      }\n    ]\n  }\n}\n'
+2026-08-21 20:43:25.573 INFO    gc_7045 - strix.core.agents: agent.status 81ab09e8=failed
+2026-08-21 20:46:17.239 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /?token=ocCFwQ4Lr9_7S698NoKnndQMteDYDh93-Pj95CO00aU HTTP/1.1" 200 -
+2026-08-21 20:46:17.349 DEBUG   - - strix.telemetry.posthog: posthog event sent: viewer_opened
+2026-08-21 20:46:17.417 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /assets/index-DKbLYAbP.css HTTP/1.1" 200 -
+2026-08-21 20:46:17.417 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /assets/index-DBJ-RJqo.js HTTP/1.1" 200 -
+2026-08-21 20:46:17.470 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /logo.png HTTP/1.1" 200 -
+2026-08-21 20:46:17.570 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/auth/status HTTP/1.1" 200 -
+2026-08-21 20:46:17.570 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/capabilities HTTP/1.1" 200 -
+2026-08-21 20:46:17.571 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/runs HTTP/1.1" 200 -
+2026-08-21 20:46:17.572 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:17.580 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:17.581 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/report HTTP/1.1" 200 -
+2026-08-21 20:46:17.581 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /logo.png HTTP/1.1" 200 -
+2026-08-21 20:46:17.598 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:18.137 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:18.186 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:18.196 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:18.711 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:18.715 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:18.723 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:19.227 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:19.231 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:19.236 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:19.741 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:19.745 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:19.750 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:20.255 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:20.259 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:20.265 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:20.773 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:20.782 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:20.803 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:21.312 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:21.316 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:21.324 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:21.833 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:21.842 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:21.851 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:22.361 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:22.367 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:22.375 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:22.884 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:22.892 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:22.900 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:23.413 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:23.419 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:23.426 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:23.940 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:23.949 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:23.963 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:24.474 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:24.485 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:24.494 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:25.007 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:25.016 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:25.028 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:25.540 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:25.551 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:25.565 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:26.002 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/runs HTTP/1.1" 200 -
+2026-08-21 20:46:26.074 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:26.081 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:26.088 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:26.599 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:26.606 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:26.616 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:27.129 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:27.137 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:27.148 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:27.659 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:27.668 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:27.679 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:28.188 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:28.194 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:28.201 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:28.711 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:28.720 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:28.732 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:29.243 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:29.256 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:29.264 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:29.771 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:29.774 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:29.778 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:30.289 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:30.295 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:30.302 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:30.813 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:30.818 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:30.825 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:31.336 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:31.344 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:31.356 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:31.869 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:31.878 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:31.891 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:32.404 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:32.413 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:32.424 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:32.939 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:32.956 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:32.964 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:33.476 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:33.485 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:33.494 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:34.007 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:34.017 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:34.030 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:34.484 DEBUG   - - strix.telemetry.posthog: posthog event sent: viewer_cta_clicked
+2026-08-21 20:46:34.485 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "POST /api/event HTTP/1.1" 204 -
+2026-08-21 20:46:34.541 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:34.554 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:34.565 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:35.075 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:35.084 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:35.091 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:35.603 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:35.612 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:35.623 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:36.137 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:36.156 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:36.165 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:36.676 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:36.686 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:36.695 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:37.205 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:37.211 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:37.219 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:37.727 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:37.738 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:37.745 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:37.827 DEBUG   - - strix.telemetry.posthog: posthog event sent: viewer_cta_clicked
+2026-08-21 20:46:37.827 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "POST /api/event HTTP/1.1" 204 -
+2026-08-21 20:46:38.260 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:38.274 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:38.281 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:38.793 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:38.798 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:38.805 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:39.326 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:39.335 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:39.345 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:39.856 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:39.863 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:39.873 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:40.386 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:40.393 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:40.400 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:40.560 DEBUG   - - strix.telemetry.posthog: posthog event sent: viewer_cta_clicked
+2026-08-21 20:46:40.560 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "POST /api/event HTTP/1.1" 204 -
+2026-08-21 20:46:40.908 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:40.915 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:40.922 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:41.431 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:41.441 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:41.449 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:41.958 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:41.963 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:41.971 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:42.483 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:42.490 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:42.498 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:42.858 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/runs HTTP/1.1" 200 -
+2026-08-21 20:46:43.013 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:43.023 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:43.034 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:43.546 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:43.554 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:43.566 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:44.077 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:44.087 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:44.098 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:44.607 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:44.614 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:44.623 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:45.135 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:45.143 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:45.152 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:45.666 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:45.675 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:45.682 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:46.195 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:46.204 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:46.217 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:46.726 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:46.731 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:46.738 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:47.254 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:47.263 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:47.276 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:47.787 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:47.795 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:47.806 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:48.316 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:48.323 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:48.333 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:48.840 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:48.846 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:48.853 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:49.362 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:49.366 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:49.375 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:49.886 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:49.893 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:49.902 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:50.412 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:50.423 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:50.434 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:50.947 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:50.957 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:50.968 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:51.478 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:51.483 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:51.490 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:52.003 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:52.017 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:52.025 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:52.538 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:52.546 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:52.555 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:53.065 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:53.076 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:53.086 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:53.600 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:53.608 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:53.618 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:54.129 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:54.138 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:54.147 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:54.658 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:54.667 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:54.679 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:55.191 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:55.201 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:55.213 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:55.724 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:55.732 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:55.740 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:56.296 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:56.302 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:56.308 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:56.816 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:56.824 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:56.832 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:57.338 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:57.343 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:57.350 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:57.860 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:57.866 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:57.873 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:58.383 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:58.390 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:58.397 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:58.909 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:58.914 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:58.924 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:59.434 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:59.439 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:59.445 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:46:59.956 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:46:59.963 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:46:59.975 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:00.487 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:00.498 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:00.509 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:01.021 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:01.028 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:01.037 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:01.546 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:01.552 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:01.561 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:02.072 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:02.078 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:02.088 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:02.603 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:02.621 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:02.630 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:03.142 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:03.151 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:03.163 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:03.680 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:03.692 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:03.713 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:04.230 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:04.238 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:04.246 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:04.755 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:04.762 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:04.768 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:05.280 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:05.288 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:05.297 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:05.808 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:05.816 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:05.824 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:06.336 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:06.344 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:06.352 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:06.863 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:06.870 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:06.878 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:07.388 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:07.396 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:07.405 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:07.914 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:07.922 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:07.928 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:08.438 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:08.445 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:08.452 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:08.964 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:08.972 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:08.980 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:09.492 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:09.504 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:09.505 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:10.016 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:10.023 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:10.033 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:10.546 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:10.553 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:10.561 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:11.072 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:11.081 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:11.090 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:11.601 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:11.608 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:11.616 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:12.128 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:12.137 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:12.146 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:12.657 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:12.664 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:12.672 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:13.183 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:13.191 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:13.199 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:13.710 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:13.718 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:13.726 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:14.238 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:14.246 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:14.253 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:14.765 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:14.772 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:14.781 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:15.292 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:15.300 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:15.308 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:15.818 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:15.828 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:15.838 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:16.349 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:16.357 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:16.365 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:16.877 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:16.886 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:16.898 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:17.410 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:17.417 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:17.426 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:17.937 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:17.944 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:17.947 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:18.458 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:18.466 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:18.470 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:18.981 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:18.990 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:18.997 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:19.509 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:19.517 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:19.526 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:20.038 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:20.047 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:20.056 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:20.566 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:20.571 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:20.576 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:21.086 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:21.099 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:21.106 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:21.621 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:21.629 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:21.634 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:22.148 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:22.156 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:22.170 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:22.680 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:22.688 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:22.698 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:23.220 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:23.226 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:23.231 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:23.744 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:23.754 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:23.764 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:24.274 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:24.284 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:24.296 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:24.807 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:24.815 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:24.823 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:25.333 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:25.340 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:25.349 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:25.859 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:25.869 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:25.876 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:26.390 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:26.400 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:26.406 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:26.913 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:26.918 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:26.921 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:27.428 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:27.435 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:27.439 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -
+2026-08-21 20:47:27.947 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/run HTTP/1.1" 200 -
+2026-08-21 20:47:27.958 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/vulnerabilities HTTP/1.1" 200 -
+2026-08-21 20:47:27.965 DEBUG   - - strix.interface.viewer.server: viewer 127.0.0.1 - "GET /api/transcript HTTP/1.1" 200 -

@@ -162,37 +162,72 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
     return () => sub.remove();
   }, [fetchGroups]);
 
+  // Sorted and joined so this is a *value*, not an identity: fetchGroups
+  // replaces the groups array on every refetch, and depending on the array
+  // itself would tear the channel down and rebuild it several times a minute.
+  const groupIdsKey = groups
+    .map((g) => g.id)
+    .sort()
+    .join(',');
+
   useEffect(() => {
     if (!session?.user || !realtime) return;
 
-    const channel = supabase
-      .channel(`group-list-${channelId.current}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        () => fetchGroups()
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'groups' },
-        () => fetchGroups()
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'group_members',
-          filter: `user_id=eq.${session.user.id}`,
-        },
-        () => fetchGroups()
-      )
-      .subscribe(onChannelStatus('group-list'));
+    // Realtime already withholds rows RLS won't let this user read, so these
+    // filters aren't what keeps other people's groups out. They spare the
+    // Realtime server an RLS evaluation per subscriber per insert, which is
+    // the part that actually costs something as the group gets chattier.
+    const ids = groupIdsKey ? groupIdsKey.split(',') : [];
+    const inFilter = ids.length > 0 ? `in.(${ids.join(',')})` : null;
+
+    // The group list only shows each group's latest message, so N messages
+    // arriving in a burst need one refetch, not N. Without this, an active
+    // conversation re-ran the whole list query on every single message.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleFetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        fetchGroups();
+      }, 250);
+    };
+
+    let channel = supabase.channel(`group-list-${channelId.current}`);
+
+    if (inFilter) {
+      channel = channel
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `group_id=${inFilter}` },
+          scheduleFetch
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=${inFilter}` },
+          scheduleFetch
+        );
+    }
+
+    // Unfiltered by group on purpose — this is how a *new* group first
+    // appears, so it cannot be scoped to the ones already known.
+    channel = channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'group_members',
+        filter: `user_id=eq.${session.user.id}`,
+      },
+      scheduleFetch
+    );
+
+    channel.subscribe(onChannelStatus('group-list'));
 
     return () => {
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [session?.user?.id, fetchGroups, realtime]);
+  }, [session?.user?.id, fetchGroups, realtime, groupIdsKey]);
 
   return { groups, loading, refetch: fetchGroups };
 }

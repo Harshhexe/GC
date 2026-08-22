@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
   },
-  root: { flex: 1, backgroundColor: '#07060B' },
+  root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1 },
   flex: { flex: 1 },
   scroll: {
@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
   },
 
   // Glow Background Styles
-  glowBgRoot: { backgroundColor: '#07060B', overflow: 'hidden' },
+  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
   topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
   cornerBlob: { position: 'absolute', borderRadius: 999 },
   blobFill: { flex: 1, borderRadius: 999 },
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#07060B',
+    borderColor: colors.appRoot,
   },
   identityInputsCol: {
     flex: 1,

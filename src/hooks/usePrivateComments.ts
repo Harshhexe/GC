@@ -31,13 +31,21 @@ export function usePrivateComments(messageId: string | null) {
       return;
     }
     setLoading(true);
-    const { data } = await supabase
-      .from('private_comments')
-      .select(PRIVATE_COMMENT_COLUMNS)
-      .eq('message_id', messageId)
-      .order('created_at', { ascending: true });
-    setComments(((data ?? []) as PrivateCommentRow[]).map(toPrivateComment));
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('private_comments')
+        .select(PRIVATE_COMMENT_COLUMNS)
+        .eq('message_id', messageId)
+        .order('created_at', { ascending: true });
+      if (error) {
+        console.warn('Failed to load private comments:', error.message);
+      }
+      setComments(((data ?? []) as PrivateCommentRow[]).map(toPrivateComment));
+    } catch (err) {
+      console.warn('Error loading private comments:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [messageId]);
 
   useEffect(() => {
@@ -105,15 +113,15 @@ export function usePrivateCommentCounts(groupId: string) {
 
   const load = useCallback(async () => {
     if (!groupId || !myId) return;
-    const { data } = await supabase
-      .from('private_comments')
-      .select('message_id, deleted_at')
-      .eq('group_id', groupId);
+    // Counts only — pulling every comment row in the group just to render a
+    // number under a bubble does not scale. The RPC is SECURITY INVOKER, so it
+    // runs under the caller's RLS and stays scoped per viewer exactly as the
+    // raw query was.
+    const { data } = await supabase.rpc('private_comment_counts', { p_group_id: groupId });
 
     const next = new Map<string, number>();
-    for (const row of (data ?? []) as { message_id: string; deleted_at: string | null }[]) {
-      if (row.deleted_at) continue;
-      next.set(row.message_id, (next.get(row.message_id) ?? 0) + 1);
+    for (const row of (data ?? []) as { message_id: string; comment_count: number }[]) {
+      next.set(row.message_id, Number(row.comment_count));
     }
     setCounts(next);
   }, [groupId, myId]);

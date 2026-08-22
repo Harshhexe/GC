@@ -79,23 +79,39 @@ export function useWordle(groupId?: string) {
   }, [refresh]);
 
   // Realtime updates: when another group member plays or guesses, update leaderboard live
+  const puzzleId = state?.puzzleId;
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !puzzleId) return;
+    // Scoped to today's puzzle: attempts on older ones can never change this
+    // leaderboard, and refresh() is three RPCs, so it is worth not firing.
+    // Bursts are collapsed for the same reason — six guesses in a row are one
+    // leaderboard change, not six.
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel(`wordle_live_${groupId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'wordle_attempts' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wordle_attempts',
+          filter: `puzzle_id=eq.${puzzleId}`,
+        },
         () => {
-          refresh();
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            timer = null;
+            refresh();
+          }, 400);
         }
       )
       .subscribe();
 
     return () => {
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [groupId, refresh]);
+  }, [groupId, puzzleId, refresh]);
 
   /**
    * Submits a guess. Resolves to null on success, or why it was refused.

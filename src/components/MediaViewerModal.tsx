@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
+import { useSignedMediaUrl } from '../lib/mediaUrl';
 import type { MessageMedia } from '../types';
 
 /** Mounted only while a video is actually being viewed — useVideoPlayer
@@ -52,6 +53,9 @@ export function MediaViewerModal({
   const translateY = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
   const insets = useSafeAreaInsets();
+  // Full-size playback and full-size stills both come out of the private
+  // bucket, so the viewer opens against a signed URL rather than the stored one.
+  const signedUrl = useSignedMediaUrl(media?.url);
 
   const screenHeight = Dimensions.get('window').height;
 
@@ -200,12 +204,14 @@ export function MediaViewerModal({
             <Animated.View style={styles.flex}>
               {media?.type === 'video' ? (
                 <Animated.View style={[styles.flex, videoSurfaceStyle]}>
-                  <VideoPlayerView url={media.url} />
+                  {/* useVideoPlayer wants a real source at mount, so the player
+                      only appears once the signature has come back. */}
+                  {!!signedUrl && <VideoPlayerView url={signedUrl} />}
                 </Animated.View>
               ) : media ? (
                 <Animated.View style={[styles.flex, animatedImageStyle]}>
                   <Image
-                    source={media.url}
+                    source={signedUrl ?? undefined}
                     style={styles.media}
                     contentFit="contain"
                     cachePolicy="memory-disk"

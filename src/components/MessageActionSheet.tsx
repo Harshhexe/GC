@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement } from 'react';
+import { Fragment, useRef, type ReactElement } from 'react';
 import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
@@ -9,6 +9,7 @@ import { duration, easing, reduceMotion } from '../theme/motion';
 import { reactionCatalog } from '../data/reactions';
 import { PressableScale } from './ui/PressableScale';
 import { selectFeedback } from '../utils/haptics';
+import { useSignedMediaUrl } from '../lib/mediaUrl';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import type { MessageMedia } from '../types';
 
@@ -67,6 +68,7 @@ export function MessageActionSheet({
   onUnpin,
   onToggleStickerFavorite,
   onDownload,
+  onDismiss,
   onClose,
 }: {
   visible: boolean;
@@ -93,8 +95,16 @@ export function MessageActionSheet({
   onSelect: () => void;
   onPin: () => void;
   onUnpin: () => void;
+  /** Fired when native Modal dismissal animation finishes (iOS). */
+  onDismiss?: () => void;
   onClose: () => void;
 }) {
+  const lastTargetRef = useRef<MessageActionTarget | null>(null);
+  if (target) {
+    lastTargetRef.current = target;
+  }
+  const currentTarget = target ?? lastTargetRef.current;
+
   const alignItems: 'flex-end' | 'flex-start' = anchor?.mine ? 'flex-end' : 'flex-start';
 
   // The menu is a full-window Modal, so hugging a side means hugging the side
@@ -119,17 +129,17 @@ export function MessageActionSheet({
         }
       : { alignItems };
 
-  if (!target) return null;
+  if (!currentTarget) return null;
 
   // Anyone can drop a message from their own view; taking it down for the
   // whole group is the author's call, or a moderator's.
-  const canDeleteForEveryone = target.isMine || target.canModerate;
+  const canDeleteForEveryone = currentTarget.isMine || currentTarget.canModerate;
 
   // What's actually offered narrows by what the message *is* — copying or
   // sharing "text" makes no sense on a photo/video/voice note/sticker/gif
   // (there is no text to lift), and editing isn't a thing for the media
   // types that have no caption-editing UI in the first place.
-  const mediaType = target.media?.type ?? null;
+  const mediaType = currentTarget.media?.type ?? null;
   const hideCopyShare =
     mediaType === 'image' ||
     mediaType === 'video' ||
@@ -140,10 +150,16 @@ export function MessageActionSheet({
   // Never offered for a view-once attachment — saving it to the device
   // library would defeat the entire "one look" premise.
   const showDownload =
-    (mediaType === 'image' || mediaType === 'video') && !target.media?.viewOnce;
+    (mediaType === 'image' || mediaType === 'video') && !currentTarget.media?.viewOnce;
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal
+      visible={visible && !!target}
+      transparent
+      animationType="none"
+      onDismiss={onDismiss}
+      onRequestClose={onClose}
+    >
       <View style={styles.root}>
         <Animated.View
           entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
@@ -196,43 +212,43 @@ export function MessageActionSheet({
               <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
             )}
             <Text style={styles.previewAuthor} numberOfLines={1}>
-              {target.isMine ? 'You' : target.authorName}
+              {currentTarget.isMine ? 'You' : currentTarget.authorName}
             </Text>
 
-            {target.media && (
+            {currentTarget.media && (
               <View style={styles.previewMediaWrap}>
-                {target.media.type === 'file' ? (
+                {currentTarget.media.type === 'file' ? (
                   <View style={styles.previewFileRow}>
                     <Ionicons name="document-text" size={20} color={colors.primary} />
                     <Text style={styles.previewFileName} numberOfLines={1}>
-                      {target.media.name || 'Document'}
+                      {currentTarget.media.name || 'Document'}
                     </Text>
                   </View>
-                ) : target.media.viewOnce ? (
+                ) : currentTarget.media.viewOnce ? (
                   // Never the real thumbnail here — same rule ViewOnceCard
                   // enforces in the transcript itself. Long-pressing a
                   // view-once bubble is not a second look.
                   <View style={[styles.previewImageContainer, styles.previewLockedContainer]}>
                     <Ionicons
-                      name={target.media.type === 'video' ? 'videocam' : 'flame'}
+                      name={currentTarget.media.type === 'video' ? 'videocam' : 'flame'}
                       size={22}
                       color={colors.onSurfaceVariant}
                     />
                     <Text style={styles.previewLockedText}>
-                      View once {target.media.type === 'video' ? 'video' : 'photo'}
+                      View once {currentTarget.media.type === 'video' ? 'video' : 'photo'}
                     </Text>
                   </View>
                 ) : (
                   <View style={styles.previewImageContainer}>
-                    <MediaThumb media={target.media} />
-                    {target.media.type === 'video' && (
+                    <MediaThumb media={currentTarget.media} />
+                    {currentTarget.media.type === 'video' && (
                       <View style={styles.previewPlayOverlay}>
                         <View style={styles.previewPlayIcon}>
                           <Ionicons name="play" size={16} color="#FFFFFF" />
                         </View>
                       </View>
                     )}
-                    {target.media.type === 'gif' && (
+                    {currentTarget.media.type === 'gif' && (
                       <View style={styles.previewGifBadge}>
                         <Text style={styles.previewGifText}>GIF</Text>
                       </View>
@@ -242,9 +258,9 @@ export function MessageActionSheet({
               </View>
             )}
 
-            {!!target.text && (
+            {!!currentTarget.text && (
               <Text style={styles.previewText} numberOfLines={2}>
-                {target.text}
+                {currentTarget.text}
               </Text>
             )}
           </Animated.View>
@@ -267,7 +283,7 @@ export function MessageActionSheet({
                   <Text style={styles.quickActionLabel}>Reply</Text>
                 </PressableScale>
 
-                {target.isMine && !hideEdit && (
+                {currentTarget.isMine && !hideEdit && (
                   <PressableScale style={styles.quickActionButton} scaleTo={0.9} haptic="medium" onPress={onEdit}>
                     <Ionicons name="pencil-outline" size={19} color={colors.onSurface} />
                     <Text style={styles.quickActionLabel}>Edit</Text>
@@ -301,7 +317,7 @@ export function MessageActionSheet({
                 // public to the GC, this is only ever seen by the two people.
                 // Not offered on your own message — there is nobody to whisper
                 // to — nor on a tombstone.
-                !!onComment && !target.isMine && !target.isDeleted && (
+                !!onComment && !currentTarget.isMine && !currentTarget.isDeleted && (
                   <MenuRow
                     key="comment"
                     icon="lock-closed-outline"
@@ -310,16 +326,16 @@ export function MessageActionSheet({
                   />
                 ),
                 !hideCopyShare && <MenuRow key="copy" icon="copy-outline" label="Copy" onPress={onCopy} />,
-                !!target.stickerId && (
+                !!currentTarget.stickerId && (
                   <MenuRow
                     key="fav"
-                    icon={target.stickerFavorited ? 'star' : 'star-outline'}
-                    label={target.stickerFavorited ? 'Unfavorite sticker' : 'Favorite sticker'}
+                    icon={currentTarget.stickerFavorited ? 'star' : 'star-outline'}
+                    label={currentTarget.stickerFavorited ? 'Unfavorite sticker' : 'Favorite sticker'}
                     onPress={() => onToggleStickerFavorite?.()}
                   />
                 ),
-                target.canModerate &&
-                  (target.isPinned ? (
+                currentTarget.canModerate &&
+                  (currentTarget.isPinned ? (
                     <MenuRow key="pin" icon="pin" label="Unpin message" onPress={onUnpin} />
                   ) : (
                     <MenuRow key="pin" icon="pin-outline" label="Pin message" onPress={onPin} />
@@ -362,8 +378,10 @@ export function MessageActionSheet({
  *  derived on the device for ones sent before posters existed. */
 function MediaThumb({ media }: { media: MessageMedia }) {
   const isVideo = media.type === 'video';
-  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? media.url : null);
-  const previewUri = isVideo ? media.thumbUrl ?? derivedPoster : media.url;
+  const signedUrl = useSignedMediaUrl(media.url);
+  const signedThumb = useSignedMediaUrl(media.thumbUrl);
+  const derivedPoster = useVideoPoster(isVideo && !media.thumbUrl ? signedUrl : null);
+  const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
 
   if (!previewUri) return <View style={styles.previewImage} />;
   return (
