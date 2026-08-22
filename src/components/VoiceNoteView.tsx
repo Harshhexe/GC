@@ -32,7 +32,7 @@ export function VoiceNoteView({
   tint: string;
   onLongPress?: (e: GestureResponderEvent) => void;
 }) {
-  const player = useAudioPlayer({ uri: media.url });
+  const player = useAudioPlayer(media.url);
   const status = useAudioPlayerStatus(player);
 
   const bars = useMemo(() => waveformFor(media.url, BAR_COUNT), [media.url]);
@@ -71,6 +71,18 @@ export function VoiceNoteView({
     }
     await releaseRecordingSession();
     if (status.didJustFinish || progress >= 1) player.seekTo(0);
+    // If the audio hasn't loaded yet, wait up to 5s for it to become ready
+    if (!status.isLoaded) {
+      await new Promise<void>((resolve) => {
+        const start = Date.now();
+        const interval = setInterval(() => {
+          if (player.isLoaded || Date.now() - start > 5000) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 100);
+      });
+    }
     player.play();
   }
 
