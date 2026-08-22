@@ -1,7 +1,11 @@
 {
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist",
+  "cleanUrls": true,
   "rewrites": [
+    { "source": "/delete", "destination": "/delete.html" },
+    { "source": "/delete-account", "destination": "/delete.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

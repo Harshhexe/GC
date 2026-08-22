@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Delete Account — GC</title>
+    <meta name="description" content="Request permanent account and data deletion for GC (Group Chat)." />
+    <meta name="theme-color" content="#030206" />
+    <link rel="icon" href="/favicon.ico" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #030206;
+        --card: #0F0E17;
+        --card-border: rgba(255, 255, 255, 0.08);
+        --card-border-glow: rgba(129, 140, 248, 0.25);
+        --text: #F3F4F6;
+        --text-muted: #9CA3AF;
+        --primary: #818CF8;
+        --error: #F87171;
+        --error-bg: rgba(248, 113, 113, 0.12);
+        --error-border: rgba(248, 113, 113, 0.3);
+        --success: #34D399;
+        --success-bg: rgba(52, 211, 153, 0.12);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-image: 
+          radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15), transparent 45%),
+          radial-gradient(circle at 10% 20%, rgba(244, 114, 182, 0.08), transparent 35%);
+      }
+      .wrap {
+        width: 100%;
+        max-width: 680px;
+        padding: 40px 20px 80px;
+      }
+      .header {
+        margin-bottom: 32px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        font-weight: 700;
+        color: var(--primary);
+        font-size: 15px;
+        text-decoration: none;
+        transition: opacity 0.2s;
+      }
+      .brand:hover {
+        opacity: 0.85;
+      }
+      h1 {
+        font-size: 32px;
+        margin: 0 0 8px;
+        color: #FFFFFF;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .subtitle {
+        color: var(--text-muted);
+        font-size: 15px;
+        margin: 0 0 28px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 28px 24px;
+        margin-bottom: 28px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      }
+      .card-title {
+        font-size: 19px;
+        font-weight: 700;
+        margin: 0 0 12px;
+        color: #FFFFFF;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .card p {
+        margin: 0 0 16px;
+        color: var(--text-muted);
+        font-size: 14.5px;
+        line-height: 1.6;
+      }
+      .danger-badge {
+        background: var(--error-bg);
+        border: 1px solid var(--error-border);
+        color: var(--error);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 16px;
+      }
+      .form-group {
+        margin-bottom: 16px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+      }
+      input {
+        width: 100%;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        color: #FFFFFF;
+        font-size: 15px;
+        outline: none;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      input:focus {
+        border-color: var(--primary);
+        background: rgba(255, 255, 255, 0.07);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 13px 20px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        transition: transform 0.15s, opacity 0.2s, background 0.2s;
+      }
+      .btn:active {
+        transform: scale(0.98);
+      }
+      .btn-primary {
+        background: #6366F1;
+        color: #FFFFFF;
+      }
+      .btn-primary:hover {
+        background: #4F46E5;
+      }
+      .btn-danger {
+        background: #EF4444;
+        color: #FFFFFF;
+      }
+      .btn-danger:hover {
+        background: #DC2626;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .profile-preview {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        margin-bottom: 20px;
+      }
+      .avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 999px;
+        background: #312E81;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 700;
+        color: #FFFFFF;
+      }
+      .avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        object-fit: cover;
+      }
+      .profile-info {
+        flex: 1;
+      }
+      .profile-name {
+        font-weight: 700;
+        font-size: 16px;
+        color: #FFFFFF;
+      }
+      .profile-email {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+      .step-list {
+        padding-left: 20px;
+        margin: 12px 0 0;
+        color: var(--text-muted);
+        font-size: 14.5px;
+      }
+      .step-list li {
+        margin-bottom: 8px;
+      }
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+        font-size: 14px;
+      }
+      .data-table th, .data-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        text-align: left;
+      }
+      .data-table th {
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+      .data-table td {
+        color: #E5E7EB;
+      }
+      .alert {
+        padding: 14px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+        margin-bottom: 16px;
+        display: none;
+      }
+      .alert-error {
+        background: var(--error-bg);
+        border: 1px solid var(--error-border);
+        color: var(--error);
+      }
+      .alert-success {
+        background: var(--success-bg);
+        border: 1px solid rgba(52, 211, 153, 0.3);
+        color: var(--success);
+      }
+      .footer-contact {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13.5px;
+        margin-top: 40px;
+      }
+      .footer-contact a {
+        color: var(--primary);
+        text-decoration: none;
+      }
+      .footer-contact a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="header">
+        <a class="brand" href="/">← Return to GC</a>
+        <h1>Delete Account</h1>
+        <p class="subtitle">Request immediate and permanent deletion of your GC account and all associated data.</p>
+      </div>
+
+      <!-- Live Self-Service Delete Tool -->
+      <div class="card" id="deleteToolCard">
+        <div class="card-title">
+          <span>🗑️</span>
+          <span>Self-Service Account Deletion</span>
+        </div>
+
+        <div id="alertBox" class="alert"></div>
+
+        <!-- State 1: Sign in form if not authenticated -->
+        <div id="loginState">
+          <p>Sign in to your GC account below to immediately and permanently delete your account directly from your browser.</p>
+          
+          <form id="signInForm" onsubmit="handleSignIn(event)">
+            <div class="form-group">
+              <label for="emailInput">Account Email</label>
+              <input type="email" id="emailInput" placeholder="name@example.com" required autocomplete="email" />
+            </div>
+            <div class="form-group">
+              <label for="passwordInput">Password</label>
+              <input type="password" id="passwordInput" placeholder="••••••••••••" required autocomplete="current-password" />
+            </div>
+            <button type="submit" id="signInBtn" class="btn btn-primary">
+              Sign In to Proceed
+            </button>
+          </form>
+        </div>
+
+        <!-- State 2: Authenticated state ready to delete -->
+        <div id="authenticatedState" style="display: none;">
+          <div class="danger-badge">⚠️ Irreversible Action</div>
+          
+          <div class="profile-preview">
+            <div class="avatar" id="userAvatar">👤</div>
+            <div class="profile-info">
+              <div class="profile-name" id="userName">User</div>
+              <div class="profile-email" id="userEmail">user@example.com</div>
+            </div>
+          </div>
+
+          <p style="color: var(--error); font-weight: 500;">
+            Deleting your account will permanently wipe your profile, remove you from all groups, revoke your login, and erase your personal data immediately.
+          </p>
+
+          <button type="button" id="deleteAccountBtn" onclick="handleDeleteAccount()" class="btn btn-danger">
+            Permanently Delete My Account Now
+          </button>
+        </div>
+
+        <!-- State 3: Completed state -->
+        <div id="successState" style="display: none; text-align: center; padding: 20px 0;">
+          <div style="font-size: 48px; margin-bottom: 16px;">✨</div>
+          <h2 style="font-size: 22px; margin: 0 0 10px; color: #FFFFFF;">Account Deleted Successfully</h2>
+          <p style="color: var(--text-muted); max-width: 460px; margin: 0 auto 24px;">
+            Your GC account, profile, group memberships, and credentials have been permanently deleted from our servers.
+          </p>
+          <a href="/" class="btn btn-primary" style="display: inline-flex; width: auto; text-decoration: none;">
+            Return to Homepage
+          </a>
+        </div>
+      </div>
+
+      <!-- In-App Instructions -->
+      <div class="card">
+        <div class="card-title">
+          <span>📱</span>
+          <span>How to delete your account inside the GC App</span>
+        </div>
+        <p>If you have the GC app installed on your iPhone or Android device, you can delete your account at any time:</p>
+        <ol class="step-list">
+          <li>Open the <strong>GC App</strong> on your device.</li>
+          <li>Tap your <strong>Profile picture / Avatar</strong> in the top-right corner to open Settings.</li>
+          <li>Scroll down to the bottom of the Settings screen.</li>
+          <li>Tap <strong>"Delete Account Permanently"</strong>.</li>
+          <li>Confirm deletion when prompted. Your account is deleted immediately.</li>
+        </ol>
+      </div>
+
+      <!-- Data Deletion & Retention Policy -->
+      <div class="card">
+        <div class="card-title">
+          <span>🔒</span>
+          <span>Data Deletion & Retention Details</span>
+        </div>
+        <p>In accordance with Apple App Store, Google Play Store, and privacy regulations (GDPR/CCPA):</p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Data Type</th>
+              <th>Action on Deletion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Profile & Account</strong></td>
+              <td>Immediately & permanently erased (display name, username, bio, avatar, auth credentials).</td>
+            </tr>
+            <tr>
+              <td><strong>Group Memberships</strong></td>
+              <td>Immediately removed from all groups and permissions revoked.</td>
+            </tr>
+            <tr>
+              <td><strong>Private Comments</strong></td>
+              <td>Immediately & permanently erased.</td>
+            </tr>
+            <tr>
+              <td><strong>Push Notifications</strong></td>
+              <td>Device tokens and subscriptions immediately deregistered.</td>
+            </tr>
+            <tr>
+              <td><strong>Retention Timeline</strong></td>
+              <td>Deletion is instantaneous. No backups or copies are retained.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer-contact">
+        Need assistance or have questions? Email us at <a href="mailto:hdhiman0302@gmail.com">hdhiman0302@gmail.com</a>
+        <br />
+        <a href="/privacy" style="margin-top: 8px; display: inline-block;">View Privacy Policy</a>
+      </div>
+    </div>
+
+    <script>
+      const SUPABASE_URL = 'https://cfrefuvtcxzczxespres.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmcmVmdXZ0Y3h6Y3p4ZXNwcmVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNjE3MzcsImV4cCI6MjEwMTkzNzczN30.V5XEkfM13gQFiC5YwuKwqu4e-eN0gUew_U_1oL5rq-w';
+
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      function showAlert(message, type = 'error') {
+        const box = document.getElementById('alertBox');
+        box.textContent = message;
+        box.className = `alert alert-${type}`;
+        box.style.display = 'block';
+      }
+
+      function hideAlert() {
+        const box = document.getElementById('alertBox');
+        box.style.display = 'none';
+      }
+
+      async function checkCurrentSession() {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          showAuthenticatedState(session.user);
+        }
+      }
+
+      async function showAuthenticatedState(user) {
+        document.getElementById('loginState').style.display = 'none';
+        document.getElementById('authenticatedState').style.display = 'block';
+        document.getElementById('userEmail').textContent = user.email || 'No email';
+
+        // Load profile details
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('display_name, avatar_emoji, avatar_url')
+            .eq('id', user.id)
+            .single();
+
+          if (profile) {
+            document.getElementById('userName').textContent = profile.display_name || user.email;
+            const avatarEl = document.getElementById('userAvatar');
+            if (profile.avatar_url) {
+              avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="avatar" />`;
+            } else if (profile.avatar_emoji) {
+              avatarEl.textContent = profile.avatar_emoji;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function handleSignIn(e) {
+        e.preventDefault();
+        hideAlert();
+        const email = document.getElementById('emailInput').value.trim();
+        const password = document.getElementById('passwordInput').value;
+        const btn = document.getElementById('signInBtn');
+
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
+
+          if (error) {
+            showAlert(error.message || 'Invalid email or password.');
+            return;
+          }
+
+          if (data.user) {
+            showAuthenticatedState(data.user);
+          }
+        } catch (err) {
+          showAlert(err.message || 'Could not sign in.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Sign In to Proceed';
+        }
+      }
+
+      async function handleDeleteAccount() {
+        const confirmed = window.confirm('Are you ABSOLUTELY SURE you want to permanently delete your GC account? This action cannot be undone and all your data will be permanently wiped.');
+        if (!confirmed) return;
+
+        hideAlert();
+        const btn = document.getElementById('deleteAccountBtn');
+        btn.disabled = true;
+        btn.textContent = 'Deleting account and data...';
+
+        try {
+          const { error } = await supabase.rpc('delete_own_account');
+          if (error) {
+            showAlert(`Failed to delete account: ${error.message}`);
+            btn.disabled = false;
+            btn.textContent = 'Permanently Delete My Account Now';
+            return;
+            }
+
+          await supabase.auth.signOut();
+          document.getElementById('authenticatedState').style.display = 'none';
+          document.getElementById('successState').style.display = 'block';
+        } catch (err) {
+          showAlert(`Error deleting account: ${err.message}`);
+          btn.disabled = false;
+          btn.textContent = 'Permanently Delete My Account Now';
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', checkCurrentSession);
+    </script>
+  </body>
+</html>
