@@ -1688,26 +1688,51 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const handleMentionPress = useCallback((userId: string) => setViewingProfileId(userId), []);
 
+  const pendingModalActionRef = useRef<(() => void) | null>(null);
+
+  const handleActionSheetDismiss = useCallback(() => {
+    const action = pendingModalActionRef.current;
+    pendingModalActionRef.current = null;
+    if (action) {
+      action();
+    }
+  }, []);
+
   /** Opens the private side-conversation on a message and closes the menu. */
   const openPrivateComments = useCallback(
     (m: { id: string; text: string; authorId: string | null; authorName: string; threadUserId?: string | null }) => {
-      setActionTarget(null);
-      setActionAnchor(null);
-      // Wait for MessageActionSheet modal to dismiss before presenting PrivateCommentThread modal on mobile
-      setTimeout(
-        () => {
-          setCommentTarget({
-            messageId: m.id,
-            text: m.text,
-            authorId: m.authorId,
-            authorName: m.authorName,
-            threadUserId: m.threadUserId ?? null,
-          });
-        },
-        Platform.OS === 'ios' ? 120 : 50
-      );
+      const open = () => {
+        setCommentTarget({
+          messageId: m.id,
+          text: m.text,
+          authorId: m.authorId,
+          authorName: m.authorName,
+          threadUserId: m.threadUserId ?? null,
+        });
+      };
+
+      if (actionTarget) {
+        if (Platform.OS === 'ios') {
+          pendingModalActionRef.current = open;
+          setActionTarget(null);
+          setActionAnchor(null);
+          // Fallback in case onDismiss doesn't fire
+          setTimeout(() => {
+            if (pendingModalActionRef.current === open) {
+              pendingModalActionRef.current = null;
+              open();
+            }
+          }, 350);
+        } else {
+          setActionTarget(null);
+          setActionAnchor(null);
+          setTimeout(open, 60);
+        }
+      } else {
+        open();
+      }
     },
-    []
+    [actionTarget]
   );
 
   /** Tapping the lock indicator under a bubble opens the same sheet. */
@@ -2404,13 +2429,26 @@ export default function ChatScreen({ route, navigation }: Props) {
         }}
         onMoreReactions={() => {
           const targetId = actionTarget?.id;
-          setActionTarget(null);
-          setActionAnchor(null);
           if (targetId) {
-            setTimeout(
-              () => setPickerForMessage(targetId),
-              Platform.OS === 'ios' ? 120 : 50
-            );
+            const open = () => setPickerForMessage(targetId);
+            if (Platform.OS === 'ios') {
+              pendingModalActionRef.current = open;
+              setActionTarget(null);
+              setActionAnchor(null);
+              setTimeout(() => {
+                if (pendingModalActionRef.current === open) {
+                  pendingModalActionRef.current = null;
+                  open();
+                }
+              }, 350);
+            } else {
+              setActionTarget(null);
+              setActionAnchor(null);
+              setTimeout(open, 60);
+            }
+          } else {
+            setActionTarget(null);
+            setActionAnchor(null);
           }
         }}
         onReply={() => actionTarget && startReply(actionTarget)}
@@ -2429,6 +2467,7 @@ export default function ChatScreen({ route, navigation }: Props) {
           setActionTarget(null);
           setActionAnchor(null);
         }}
+        onDismiss={handleActionSheetDismiss}
         onClose={() => {
           setActionTarget(null);
           setActionAnchor(null);
