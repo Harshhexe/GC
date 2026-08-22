@@ -21,7 +21,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { colors } from './src/theme/theme';
-import { releaseRecordingSession } from './src/lib/voice';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -77,7 +76,6 @@ export default function App() {
   });
 
   useEffect(() => {
-    releaseRecordingSession();
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync().catch(() => {});
     }
