@@ -241,12 +241,8 @@ export default function ChatScreen({ route, navigation }: Props) {
         paddingBottom: webKeyboardInset > 0 ? webKeyboardInset + 2 : 6,
       };
     }
-    if (Platform.OS === 'android') {
-      const kbHeight = keyboard.height.value;
-      return {
-        paddingBottom: kbHeight > 0 ? kbHeight : Math.max(insets.bottom, spacing.xs),
-      };
-    }
+    // Android uses softwareKeyboardLayoutMode: "resize" (which natively resizes the window),
+    // and iOS uses KeyboardAvoidingView. When keyboard is open, only spacing.xs padding is needed.
     return {
       paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
     };
