@@ -78,7 +78,7 @@ export function PrivateCommentThread({
     if (!iAmAuthor) return myId;
     if (pickedThread) return pickedThread;
     if (initialThreadUserId) return initialThreadUserId;
-    return threads.length > 0 ? threads[0].threadUserId : null;
+    return threads.length === 1 ? threads[0].threadUserId : null;
   }, [iAmAuthor, myId, pickedThread, initialThreadUserId, threads]);
 
   useEffect(() => {
@@ -257,13 +257,9 @@ export function PrivateCommentThread({
               style={styles.input}
               value={draft}
               onChangeText={setDraft}
-              placeholder={
-                !iAmAuthor || activeThreadUserId
-                  ? 'Write a private comment...'
-                  : 'Pick a conversation first'
-              }
+              placeholder={activeThreadUserId ? 'Write a private comment...' : 'Pick a conversation first'}
               placeholderTextColor={colors.outline}
-              editable={!iAmAuthor || !!activeThreadUserId}
+              editable={!!activeThreadUserId}
               multiline
               accessibilityLabel="Private comment text"
             />
