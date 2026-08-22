@@ -18,7 +18,11 @@ import type { PendingAttachment } from './media';
  */
 export async function releaseRecordingSession() {
   try {
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+    });
   } catch {
     // Routing is a nicety; never let it break playback or a send.
   }
