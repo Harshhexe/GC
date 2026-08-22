@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — GC</title>
+    <meta name="theme-color" content="#030206" />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 0;
+        background: #030206;
+        color: #E5E7EB;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 48px 24px 96px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 4px;
+        color: #F9FAFB;
+      }
+      .updated {
+        color: #9CA3AF;
+        font-size: 13px;
+        margin: 0 0 40px;
+      }
+      h2 {
+        font-size: 18px;
+        color: #F9FAFB;
+        margin: 40px 0 12px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+      h2:first-of-type { border-top: none; padding-top: 0; }
+      p, li { color: #D1D5DB; font-size: 15px; }
+      ul { padding-left: 20px; margin: 8px 0; }
+      li { margin: 4px 0; }
+      a { color: #818CF8; }
+      strong { color: #F3F4F6; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 14px;
+      }
+      th, td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        vertical-align: top;
+      }
+      th { color: #9CA3AF; font-weight: 600; }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 24px;
+        font-weight: 700;
+        color: #818CF8;
+        font-size: 14px;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="brand" href="/">← GC</a>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 22 August 2026</p>
+
+      <p>
+        GC ("we", "our", "the app") is a private group-chat app. This page explains what
+        data GC collects, why, and how you can remove it. GC is built and operated by an
+        individual developer, not a company — if anything here is unclear, email
+        <a href="mailto:hdhiman0302@gmail.com">hdhiman0302@gmail.com</a> and you'll get a
+        real reply.
+      </p>
+
+      <h2>What we collect</h2>
+      <table>
+        <tr><th>Data</th><th>Why</th></tr>
+        <tr><td>Email address, password</td><td>Creates and signs in to your account (Supabase Auth). Your password is hashed — we never see or store the plain text.</td></tr>
+        <tr><td>Display name, username, avatar</td><td>Shown to people in your groups so they know who's talking.</td></tr>
+        <tr><td>Messages, photos, videos, voice notes, files, stickers, polls</td><td>The content you send is stored so your groups can read it and so it syncs across your devices. It is visible only to members of the group you sent it in.</td></tr>
+        <tr><td>Private comments</td><td>A one-to-one note attached to a message. Visible only to you and the one other person in that thread — not to the rest of the group, not even to group admins.</td></tr>
+        <tr><td>Push notification token</td><td>Lets your phone or browser receive a notification when someone messages you. Apple, Google, or your browser vendor relays the notification on our behalf; we don't control what they see of that relay.</td></tr>
+        <tr><td>Microphone access</td><td>Only while you're actively recording a voice note. GC does not listen in the background.</td></tr>
+        <tr><td>Camera / photo library access</td><td>Only when you choose to attach a photo or video to a message.</td></tr>
+      </table>
+
+      <p>
+        We do not collect your location, your contacts, or browsing history, and GC has no
+        advertising or analytics SDKs of any kind — nothing in this app is tracking you for
+        marketing purposes.
+      </p>
+
+      <h2>AI features</h2>
+      <p>
+        Optional features (like "What did I miss?" recaps or the GC AI assistant) send the
+        relevant chat text to a third-party AI provider — currently Anthropic or Google — to
+        generate a response. Only what's needed for that specific request is sent, and only
+        when you use the feature; it is not sent continuously in the background. These
+        providers process the text to return a result and do not use it to serve you ads.
+      </p>
+
+      <h2>Who can see your data</h2>
+      <ul>
+        <li>Messages and media: the members of the group you sent them in, and no one else.</li>
+        <li>Private comments: only you and the other participant in that specific thread.</li>
+        <li>Profile info (name, username, avatar): anyone you share a group with.</li>
+        <li>We do not sell your data, and we do not share it with advertisers.</li>
+      </ul>
+
+      <h2>Where it's stored</h2>
+      <p>
+        GC is built on Supabase, which stores data on servers operated by Supabase's cloud
+        infrastructure providers. Data in transit is encrypted (HTTPS/TLS).
+      </p>
+
+      <h2>Your controls</h2>
+      <ul>
+        <li>Edit or delete any message you sent, at any time.</li>
+        <li>Leave any group, which stops you receiving its messages.</li>
+        <li>Delete your account from Profile → Settings, which removes your profile and
+          account access. Messages you already sent inside a shared group remain visible
+          to that group, the same way a text message stays in someone else's inbox after
+          you delete your copy — deleting your account does not reach into other people's
+          conversations.</li>
+        <li>Revoke microphone, camera, or notification permission at any time from your
+          device's system settings.</li>
+      </ul>
+
+      <h2>Children</h2>
+      <p>
+        GC is not directed at children under 13, and we do not knowingly collect data from
+        them.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If this policy changes in a way that matters, the "Last updated" date above will
+        change and, where practical, we'll say so in the app.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions, data requests, or anything else:
+        <a href="mailto:hdhiman0302@gmail.com">hdhiman0302@gmail.com</a>
+      </p>
+    </div>
+  </body>
+</html>
