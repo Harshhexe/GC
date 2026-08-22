@@ -3,6 +3,9 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/child-safety", "destination": "/child-safety.html" },
+    { "source": "/csae", "destination": "/child-safety.html" },
+    { "source": "/csae-policy", "destination": "/child-safety.html" },
     { "source": "/delete", "destination": "/delete.html" },
     { "source": "/delete-account", "destination": "/delete.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
