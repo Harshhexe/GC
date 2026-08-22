@@ -218,6 +218,7 @@ export function PrivateCommentThread({
       ) : (
         <FlatList
           ref={listRef}
+          style={styles.flex}
           data={activeComments}
           keyExtractor={(c) => c.id}
           contentContainerStyle={styles.list}
@@ -339,6 +340,7 @@ function CommentBubble({
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   root: { flex: 1, backgroundColor: colors.bgElevated },
   header: {
     flexDirection: 'row',

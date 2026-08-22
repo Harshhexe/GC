@@ -1690,15 +1690,22 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   /** Opens the private side-conversation on a message and closes the menu. */
   const openPrivateComments = useCallback(
-    (m: { id: string; text: string; authorId: string | null; authorName: string }) => {
+    (m: { id: string; text: string; authorId: string | null; authorName: string; threadUserId?: string | null }) => {
       setActionTarget(null);
       setActionAnchor(null);
-      setCommentTarget({
-        messageId: m.id,
-        text: m.text,
-        authorId: m.authorId,
-        authorName: m.authorName,
-      });
+      // Wait for MessageActionSheet modal to dismiss before presenting PrivateCommentThread modal on mobile
+      setTimeout(
+        () => {
+          setCommentTarget({
+            messageId: m.id,
+            text: m.text,
+            authorId: m.authorId,
+            authorName: m.authorName,
+            threadUserId: m.threadUserId ?? null,
+          });
+        },
+        Platform.OS === 'ios' ? 120 : 50
+      );
     },
     []
   );
@@ -2396,9 +2403,15 @@ export default function ChatScreen({ route, navigation }: Props) {
           setActionAnchor(null);
         }}
         onMoreReactions={() => {
-          if (actionTarget) setPickerForMessage(actionTarget.id);
+          const targetId = actionTarget?.id;
           setActionTarget(null);
           setActionAnchor(null);
+          if (targetId) {
+            setTimeout(
+              () => setPickerForMessage(targetId),
+              Platform.OS === 'ios' ? 120 : 50
+            );
+          }
         }}
         onReply={() => actionTarget && startReply(actionTarget)}
         onComment={() => actionTarget && openPrivateComments(actionTarget)}

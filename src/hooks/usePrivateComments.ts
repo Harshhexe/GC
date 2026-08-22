@@ -31,13 +31,21 @@ export function usePrivateComments(messageId: string | null) {
       return;
     }
     setLoading(true);
-    const { data } = await supabase
-      .from('private_comments')
-      .select(PRIVATE_COMMENT_COLUMNS)
-      .eq('message_id', messageId)
-      .order('created_at', { ascending: true });
-    setComments(((data ?? []) as PrivateCommentRow[]).map(toPrivateComment));
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('private_comments')
+        .select(PRIVATE_COMMENT_COLUMNS)
+        .eq('message_id', messageId)
+        .order('created_at', { ascending: true });
+      if (error) {
+        console.warn('Failed to load private comments:', error.message);
+      }
+      setComments(((data ?? []) as PrivateCommentRow[]).map(toPrivateComment));
+    } catch (err) {
+      console.warn('Error loading private comments:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [messageId]);
 
   useEffect(() => {
