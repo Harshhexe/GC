@@ -18,7 +18,21 @@ import type { PendingAttachment } from './media';
  */
 export async function releaseRecordingSession() {
   try {
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+      // Keeps a voice note playing when the screen locks or the user switches
+      // apps mid-listen. Without it the session is torn down the moment GC
+      // stops being foreground, which cuts playback off part-way through.
+      // The matching native capabilities are declared in app.json:
+      // UIBackgroundModes: ["audio"] on iOS, and FOREGROUND_SERVICE +
+      // FOREGROUND_SERVICE_MEDIA_PLAYBACK on Android — the JS flag alone is
+      // not enough on either platform.
+      shouldPlayInBackground: true,
+      // Voice notes are speech, so ducking other audio rather than mixing
+      // under it is what makes them intelligible over music.
+      interruptionMode: 'duckOthers',
+    });
   } catch {
     // Routing is a nicety; never let it break playback or a send.
   }
