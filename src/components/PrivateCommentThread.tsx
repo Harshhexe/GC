@@ -21,6 +21,7 @@ import { clockTime } from '../utils/time';
 import { PressableScale } from './ui/PressableScale';
 import { Avatar } from './ui/Avatar';
 import { WebModalCard } from './ui/WebModalCard';
+import { useAndroidModalKeyboard } from '../hooks/useAndroidModalKeyboard';
 import { usePrivateComments } from '../hooks/usePrivateComments';
 import { sendPrivateComment, type PrivateComment } from '../lib/privateComments';
 import type { GroupMember } from '../types';
@@ -61,6 +62,13 @@ export function PrivateCommentThread({
   initialThreadUserId?: string | null;
 }) {
   const insets = useSafeAreaInsets();
+
+  // Android modals do not resize for the keyboard; see the hook for why.
+  // The list shrinks by the same amount the composer rises, so it also gets
+  // scrolled back to the end.
+  const androidKeyboard = useAndroidModalKeyboard(visible, () =>
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }))
+  );
   const theme = tint ?? groupTheme('violet');
   const { threads, loading } = usePrivateComments(visible ? messageId : null);
   const [draft, setDraft] = useState('');
@@ -231,7 +239,10 @@ export function PrivateCommentThread({
       )}
 
       {/* Composer */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ paddingBottom: androidKeyboard }}
+      >
         {!!error && (
           <Animated.View entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)} style={styles.errorRow}>
             <Ionicons name="alert-circle" size={14} color={colors.error} />
@@ -241,7 +252,14 @@ export function PrivateCommentThread({
         <View
           style={[
             styles.composerWrap,
-            { paddingBottom: Platform.OS === 'web' ? spacing.md : Math.max(insets.bottom, spacing.md) },
+            {
+              // The keyboard already covers the gesture bar, so the bottom
+              // inset would just be dead space stacked on top of it.
+              paddingBottom:
+                Platform.OS === 'web' || androidKeyboard > 0
+                  ? spacing.md
+                  : Math.max(insets.bottom, spacing.md),
+            },
           ]}
         >
           <View style={styles.privacyNote}>
