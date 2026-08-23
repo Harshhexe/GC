@@ -37,7 +37,7 @@ export function AttachmentSheet({
   onClosed,
 }: {
   visible: boolean;
-  onCamera: () => void;
+  onCamera?: () => void;
   onLibrary: () => void;
   onDocument: () => void;
   onGif: () => void;
@@ -52,16 +52,6 @@ export function AttachmentSheet({
   onClosed?: () => void;
 }) {
   const actions: AttachmentAction[] = [
-    {
-      id: 'camera',
-      label: 'Camera',
-      icon: 'camera',
-      color: '#06B6D4',
-      onPress: () => {
-        onClose();
-        onCamera();
-      },
-    },
     {
       id: 'photos',
       label: 'Photos',
