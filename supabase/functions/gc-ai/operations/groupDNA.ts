@@ -23,8 +23,8 @@ const DNA_VERSION = 1;
 const LOOKBACK_DAYS = 56;
 
 /** Below any of these, a personality would be invention rather than analysis. */
-const MIN_AGE_DAYS = 14;
-const MIN_MESSAGES = 100;
+const MIN_AGE_DAYS = 3;
+const MIN_MESSAGES = 20;
 const MIN_ACTIVE_MEMBERS = 2;
 
 /**
