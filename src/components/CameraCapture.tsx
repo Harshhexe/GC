@@ -392,7 +392,13 @@ export function CameraCapture({
           without their own root here — without this the pinch is silently
           dead, the same way it is in MediaViewerModal. */}
       <GestureHandlerRootView style={styles.root}>
-        {!cameraGranted ? (
+        {/* On a phone the stage is simply the screen. On desktop web it is a
+            phone-width column instead: a camera stretched across a 2000px
+            window puts the shutter, album and flip buttons an inch from
+            opposite edges of the monitor, and blows the preview up far past
+            the resolution the webcam actually delivers. */}
+        <View style={styles.stage}>
+          {!cameraGranted ? (
           <View style={styles.permissionRoot}>
             <Pressable
               style={[styles.permissionClose, { top: insets.top + spacing.sm }]}
@@ -726,14 +732,30 @@ export function CameraCapture({
               </View>
             </View>
           </>
-        )}
+          )}
+        </View>
       </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000000' },
+  root: {
+    flex: 1,
+    backgroundColor: '#000000',
+    // Centres the column on desktop; a no-op at phone widths where the stage
+    // already fills the screen.
+    alignItems: 'center',
+  },
+  stage: {
+    flex: 1,
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+    // Roughly a large phone. Everything inside is absolutely positioned
+    // against this rather than the window, so the chrome stays reachable.
+    ...(Platform.OS === 'web' ? { maxWidth: 460 } : null),
+  },
   /** Used by the review step, which contains rather than crops. */
   previewFill: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000' },
   /** Full-screen black bed; the preview is centred inside it, so the bars
