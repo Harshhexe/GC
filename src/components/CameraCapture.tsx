@@ -108,6 +108,14 @@ export function CameraCapture({
   /** Mirrors zoom for the gesture callbacks, which must not close over state. */
   const zoomRef = useRef(0);
   zoomRef.current = zoom;
+  /**
+   * Height of the bottom chrome, measured rather than assumed — it changes
+   * with the safe-area inset and with whether the filmstrip is showing. The
+   * preview is centred in the space *above* it, so the controls sit on black
+   * instead of covering the shot, and the dead band ends up under the
+   * controls rather than stranded above the frame.
+   */
+  const [chromeHeight, setChromeHeight] = useState(0);
   /** Captured but not yet sent — drives the review step. */
   const [pending, setPending] = useState<PendingAttachment | null>(null);
 
@@ -478,7 +486,7 @@ export function CameraCapture({
                 the surface to the sensor's own ratio and letterboxing shows
                 the true framing at native resolution instead. */}
             <GestureDetector gesture={pinch}>
-              <View style={styles.cameraStage}>
+              <View style={[styles.cameraStage, { paddingBottom: chromeHeight }]}>
                 <View style={styles.cameraFrame}>
                   <CameraView
                     ref={cameraRef}
@@ -536,7 +544,10 @@ export function CameraCapture({
               </Pressable>
             </View>
 
-            <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+            <View
+              style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+              onLayout={(e) => setChromeHeight(e.nativeEvent.layout.height)}
+            >
               {/* Zoom. Sits above the filmstrip so the thumb reaches it
                   without covering the preview, and reads as part of the
                   camera rather than part of the send controls. */}
