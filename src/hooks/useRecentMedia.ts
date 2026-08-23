@@ -2,6 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 
+/**
+ * Android 13+ splits media access into per-type permissions, and
+ * expo-media-library asks for *all* of them by default — including audio,
+ * which this strip never reads. Requesting the superset means the response
+ * only reports granted when every one of them was allowed, so a perfectly
+ * normal "photos and videos, not audio" grant came back as a partial state
+ * and images silently dropped out of the results while videos survived.
+ * Asking for exactly what is displayed keeps the dialog honest and the
+ * result unambiguous.
+ */
+const GRANULAR: MediaLibrary.GranularPermission[] = ['photo', 'video'];
+
 export type RecentAsset = {
   id: string;
   uri: string;
@@ -53,7 +65,7 @@ export function useRecentMedia(enabled: boolean, limit = 30) {
     if (Platform.OS === 'web' || !enabled) return;
     setLoading(true);
     try {
-      const perm = await MediaLibrary.getPermissionsAsync();
+      const perm = await MediaLibrary.getPermissionsAsync(false, GRANULAR);
       setAsked(true);
       setGranted(perm.granted);
       if (!perm.granted) {
@@ -79,7 +91,7 @@ export function useRecentMedia(enabled: boolean, limit = 30) {
   const request = useCallback(async () => {
     if (Platform.OS === 'web') return false;
     try {
-      const perm = await MediaLibrary.requestPermissionsAsync();
+      const perm = await MediaLibrary.requestPermissionsAsync(false, GRANULAR);
       setAsked(true);
       setGranted(perm.granted);
       if (perm.granted) await read();
