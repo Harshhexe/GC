@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import type { PinnedMessage } from '../types';
@@ -16,7 +16,10 @@ export function usePinnedMessages(groupId: string) {
   const [pins, setPins] = useState<PinnedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const channelId = useRef(Math.random().toString(36).slice(2, 10));
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // Whether the app has actually been backgrounded since it was last
+  // foregrounded. See the resume handler for why the previous state alone
+  // is not enough to tell a real resume from a notification banner.
+  const wasBackgrounded = useRef(AppState.currentState === 'background');
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -85,10 +88,11 @@ export function usePinnedMessages(groupId: string) {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active' && appStateRef.current !== 'active') {
+      if (next === 'active' && wasBackgrounded.current) {
+        wasBackgrounded.current = false;
         load();
       }
-      appStateRef.current = next;
+      if (next === 'background') wasBackgrounded.current = true;
     });
     return () => sub.remove();
   }, [load]);

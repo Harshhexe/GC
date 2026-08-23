@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
@@ -37,7 +37,10 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
   const [loading, setLoading] = useState(true);
   // Unique per hook instance so two subscribers never collide on one channel.
   const channelId = useRef(Math.random().toString(36).slice(2, 10));
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // Whether the app has actually been backgrounded since it was last
+  // foregrounded. See the resume handler for why the previous state alone
+  // is not enough to tell a real resume from a notification banner.
+  const wasBackgrounded = useRef(AppState.currentState === 'background');
 
   const fetchGroups = useCallback(async () => {
     if (!session?.user?.id) {
@@ -154,10 +157,11 @@ export function useGroups({ realtime = true }: { realtime?: boolean } = {}) {
    */
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active' && appStateRef.current !== 'active') {
+      if (next === 'active' && wasBackgrounded.current) {
+        wasBackgrounded.current = false;
         fetchGroups();
       }
-      appStateRef.current = next;
+      if (next === 'background') wasBackgrounded.current = true;
     });
     return () => sub.remove();
   }, [fetchGroups]);

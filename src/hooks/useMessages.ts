@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { consumeMissedBoundary } from '../lib/readState';
@@ -150,7 +150,10 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
   // Last seen AppState, so the resume listener can tell a real
   // background → active transition from the transient 'inactive' events that
   // fire without the app ever actually leaving.
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // Whether the app has actually been backgrounded since it was last
+  // foregrounded. See the resume handler for why the previous state alone
+  // is not enough to tell a real resume from a notification banner.
+  const wasBackgrounded = useRef(AppState.currentState === 'background');
   // Debounces reaction refetches so a burst collapses into one query.
   const reactionRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The realtime subscription is set up once per group, so any `messages` it
@@ -624,13 +627,21 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
     if (!groupId) return;
 
     const sub = AppState.addEventListener('change', (next) => {
-      // Only the background → active edge. AppState also fires 'inactive'
-      // for transient things (notification shade, app switcher preview), and
-      // refetching on those would hammer the API for no reason.
-      if (next === 'active' && appStateRef.current !== 'active') {
+      // Only a real resume. This cannot be decided from the previous state:
+      // iOS backgrounds via active → inactive → background and resumes via
+      // background → inactive → active, so the step before 'active' is
+      // 'inactive' either way — and 'inactive' is also what a notification
+      // banner, the app switcher peek and a Control Centre pull produce
+      // without ever leaving the foreground. Against the old `!== 'active'`
+      // guard every banner looked like a resume and triggered a full refetch,
+      // which is what made the app appear to refresh itself whenever a
+      // message arrived. Tracking whether 'background' was actually reached
+      // separates the two.
+      if (next === 'active' && wasBackgrounded.current) {
+        wasBackgrounded.current = false;
         load();
       }
-      appStateRef.current = next;
+      if (next === 'background') wasBackgrounded.current = true;
     });
 
     return () => sub.remove();
