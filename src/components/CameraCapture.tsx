@@ -54,6 +54,17 @@ const ULTRA_WIDE_LENS = 'builtInUltraWideCamera';
 /** Only used to place the 2x/4x presets on the 0..1 scale; see above. */
 const ASSUMED_MAX_ZOOM = 8;
 
+/**
+ * How much of the bottom chrome's height to reserve when centring the preview.
+ *
+ * 1 centres it in the clear space above the controls, which sits too high and
+ * leaves the frame floating; 0 centres it in the whole screen, which is where
+ * this started and let the controls cover ~105pt of the actual shot. 0.7 lands
+ * between the two: the preview drops to roughly twice the top margin, with the
+ * controls just meeting its bottom edge rather than eating into it.
+ */
+const PREVIEW_LIFT = 0.7;
+
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 /** 1 -> "1", 2.35 -> "2.4" — keeps the pill from jittering in width. */
 const formatFactor = (f: number) => (Number.isInteger(f) ? String(f) : f.toFixed(1));
@@ -486,7 +497,7 @@ export function CameraCapture({
                 the surface to the sensor's own ratio and letterboxing shows
                 the true framing at native resolution instead. */}
             <GestureDetector gesture={pinch}>
-              <View style={[styles.cameraStage, { paddingBottom: chromeHeight }]}>
+              <View style={[styles.cameraStage, { paddingBottom: chromeHeight * PREVIEW_LIFT }]}>
                 <View style={styles.cameraFrame}>
                   <CameraView
                     ref={cameraRef}
