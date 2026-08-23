@@ -22,7 +22,33 @@ import type { MessageMedia } from '../types';
 /** Mounted only while a video is actually being viewed — useVideoPlayer
  *  needs a real source, so this stays a separate component rather than a
  *  conditional hook call inside MediaViewerModal itself. */
-function VideoPlayerView({ url }: { url: string }) {
+function VideoPlayerView({ url, poster }: { url: string; poster?: string | null }) {
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.webVideoContainer}>
+        {/* @ts-ignore */}
+        <video
+          src={url}
+          poster={poster || undefined}
+          controls
+          autoPlay
+          playsInline
+          style={{
+            width: '100%',
+            height: '100%',
+            maxWidth: '92vw',
+            maxHeight: '82vh',
+            objectFit: 'contain',
+            backgroundColor: '#000000',
+            outline: 'none',
+            borderRadius: 12,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+          }}
+        />
+      </View>
+    );
+  }
+
   const player = useVideoPlayer(url, (p) => {
     p.play();
   });
@@ -56,6 +82,7 @@ export function MediaViewerModal({
   // Full-size playback and full-size stills both come out of the private
   // bucket, so the viewer opens against a signed URL rather than the stored one.
   const signedUrl = useSignedMediaUrl(media?.url);
+  const signedThumb = useSignedMediaUrl(media?.thumbUrl);
 
   const screenHeight = Dimensions.get('window').height;
 
@@ -200,13 +227,21 @@ export function MediaViewerModal({
         <View style={styles.flex}>
           <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]} />
 
-          <GestureDetector gesture={media?.type === 'video' ? panGesture : imageGestures}>
+          <GestureDetector
+            gesture={
+              Platform.OS === 'web' && media?.type === 'video'
+                ? Gesture.Native()
+                : media?.type === 'video'
+                  ? panGesture
+                  : imageGestures
+            }
+          >
             <Animated.View style={styles.flex}>
               {media?.type === 'video' ? (
                 <Animated.View style={[styles.flex, videoSurfaceStyle]}>
                   {/* useVideoPlayer wants a real source at mount, so the player
                       only appears once the signature has come back. */}
-                  {!!signedUrl && <VideoPlayerView url={signedUrl} />}
+                  {!!signedUrl && <VideoPlayerView url={signedUrl} poster={signedThumb} />}
                 </Animated.View>
               ) : media ? (
                 <Animated.View style={[styles.flex, animatedImageStyle, styles.imageCenterWrap]}>
@@ -268,7 +303,21 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   backdrop: { backgroundColor: 'rgba(0, 0, 0, 0.96)' },
   media: { flex: 1, width: '100%' },
-  topBarWrap: { position: 'absolute', top: 0, left: 0, right: 0 },
+  topBarWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+  webVideoContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',

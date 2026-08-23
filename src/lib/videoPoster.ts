@@ -20,9 +20,73 @@ function getThumbnailFn(): ((uri: string, opts: object) => Promise<{ uri: string
  *  real time on a long clip, and frame 0 is what the sender was aiming at. */
 const POSTER_OPTIONS = { time: 0, quality: 0.7 };
 
+function captureVideoPosterWeb(videoUri: string): Promise<string | null> {
+  if (typeof document === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        video.removeAttribute('src');
+        video.load();
+      };
+
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(null);
+      }, 5000);
+
+      const captureFrame = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 360;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            clearTimeout(timer);
+            cleanup();
+            resolve(dataUrl);
+            return;
+          }
+        } catch {}
+        clearTimeout(timer);
+        cleanup();
+        resolve(null);
+      };
+
+      video.onloadeddata = () => {
+        video.currentTime = 0.001;
+      };
+
+      video.onseeked = () => {
+        captureFrame();
+      };
+
+      video.onerror = () => {
+        clearTimeout(timer);
+        cleanup();
+        resolve(null);
+      };
+
+      video.src = videoUri;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 /** Capture a poster from a local file. Used at send time. */
 export async function captureVideoPoster(fileUri: string): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === 'web') return captureVideoPosterWeb(fileUri);
   const getThumbnailAsync = getThumbnailFn();
   if (!getThumbnailAsync) return null;
   try {
@@ -50,13 +114,12 @@ const inFlight = new Map<string, Promise<string | null>>();
  * one and treat this purely as the fallback for older messages.
  */
 export async function getRemoteVideoPoster(videoUrl: string): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
   if (posterCache.has(videoUrl)) return posterCache.get(videoUrl) ?? null;
 
   const pending = inFlight.get(videoUrl);
   if (pending) return pending;
 
-  const request = captureVideoPoster(videoUrl).then((uri) => {
+  const request = (Platform.OS === 'web' ? captureVideoPosterWeb(videoUrl) : captureVideoPoster(videoUrl)).then((uri) => {
     posterCache.set(videoUrl, uri);
     inFlight.delete(videoUrl);
     return uri;

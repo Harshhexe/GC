@@ -291,6 +291,8 @@ export async function fromWebFile(file: File): Promise<PickResult> {
 
       let width: number | null = null;
       let height: number | null = null;
+      let durationMs: number | null = null;
+      let thumbUri: string | null = null;
 
       if (type === 'image' || type === 'gif') {
         try {
@@ -305,6 +307,41 @@ export async function fromWebFile(file: File): Promise<PickResult> {
             img.onerror = () => r();
           });
         } catch {}
+      } else if (type === 'video') {
+        try {
+          const vid = document.createElement('video');
+          vid.preload = 'metadata';
+          vid.muted = true;
+          vid.playsInline = true;
+          vid.src = dataUrl;
+          await new Promise<void>((r) => {
+            const timer = setTimeout(r, 4000);
+            vid.onloadedmetadata = () => {
+              width = vid.videoWidth || null;
+              height = vid.videoHeight || null;
+              durationMs = vid.duration ? Math.round(vid.duration * 1000) : null;
+              vid.currentTime = 0.001;
+            };
+            vid.onseeked = () => {
+              try {
+                const canvas = document.createElement('canvas');
+                canvas.width = vid.videoWidth || 640;
+                canvas.height = vid.videoHeight || 360;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+                  thumbUri = canvas.toDataURL('image/jpeg', 0.7);
+                }
+              } catch {}
+              clearTimeout(timer);
+              r();
+            };
+            vid.onerror = () => {
+              clearTimeout(timer);
+              r();
+            };
+          });
+        } catch {}
       }
 
       resolve({
@@ -317,8 +354,8 @@ export async function fromWebFile(file: File): Promise<PickResult> {
           size,
           width,
           height,
-          durationMs: null,
-          thumbUri: null,
+          durationMs,
+          thumbUri,
         },
         error: null,
       });
