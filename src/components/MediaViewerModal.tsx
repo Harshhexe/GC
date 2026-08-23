@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { preventScreenCaptureAsync, allowScreenCaptureAsync } from '../lib/screenCapture';
@@ -209,14 +209,18 @@ export function MediaViewerModal({
                   {!!signedUrl && <VideoPlayerView url={signedUrl} />}
                 </Animated.View>
               ) : media ? (
-                <Animated.View style={[styles.flex, animatedImageStyle]}>
-                  <Image
-                    source={signedUrl ?? undefined}
-                    style={styles.media}
-                    contentFit="contain"
-                    cachePolicy="memory-disk"
-                    transition={140}
-                  />
+                <Animated.View style={[styles.flex, animatedImageStyle, styles.imageCenterWrap]}>
+                  {signedUrl ? (
+                    <Image
+                      source={signedUrl}
+                      style={styles.media}
+                      contentFit="contain"
+                      cachePolicy="memory-disk"
+                      transition={140}
+                    />
+                  ) : (
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                  )}
                 </Animated.View>
               ) : null}
             </Animated.View>
@@ -307,5 +311,9 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#FFA450',
+  },
+  imageCenterWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

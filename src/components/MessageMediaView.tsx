@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GestureResponderEvent, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, GestureResponderEvent, Platform, StyleSheet, Text, View } from 'react-native';
 // expo-image, not RN's Image: it keeps a real memory+disk cache, so reopening
 // a chat redraws photos from disk instead of re-downloading every one of them
 // (the reason the transcript used to crawl on open), and it cross-fades in
@@ -152,6 +152,12 @@ export function MessageMediaView({
       haptic="light"
       style={[styles.mediaBox, { width: box.width, height: box.height }]}
     >
+      {!previewUri && !imgError && (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.4)" />
+        </View>
+      )}
+
       {!!previewUri && !imgError && (
         <Image
           source={previewUri}
@@ -160,10 +166,18 @@ export function MessageMediaView({
           contentFit="cover"
           cachePolicy="memory-disk"
           transition={180}
-          recyclingKey={media.url}
+          recyclingKey={Platform.OS !== 'web' ? media.url : undefined}
           onError={() => setImgError(true)}
         />
       )}
+
+      {imgError && (
+        <View style={styles.errorBox}>
+          <Ionicons name="image-outline" size={24} color="rgba(255, 255, 255, 0.4)" />
+          <Text style={styles.errorText}>Photo</Text>
+        </View>
+      )}
+
       {media.type === 'video' && (
         <View style={[styles.videoOverlay, (!previewUri || imgError) && styles.videoPlate]}>
           <View style={styles.playCircle}>
@@ -276,4 +290,22 @@ const styles = StyleSheet.create({
   fileCopy: { flex: 1, gap: 1 },
   fileName: { ...typography.bodyMedium, fontSize: 13.5, color: colors.onSurface },
   fileMeta: { ...typography.micro, fontSize: 11, color: colors.onSurfaceVariant },
+  loadingBox: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  errorBox: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  errorText: {
+    ...typography.micro,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.4)',
+  },
 });

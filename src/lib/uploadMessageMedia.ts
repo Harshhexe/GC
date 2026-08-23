@@ -28,7 +28,20 @@ export async function uploadMessageMedia(
   onProgress?: (fraction: number) => void
 ): Promise<{ url: string | null; thumbUrl: string | null; error: string | null }> {
   try {
-    const safeName = (attachment.name ?? 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+    let name = attachment.name || (attachment.type === 'image' ? 'photo.jpg' : attachment.type === 'video' ? 'video.mp4' : 'file');
+    // Ensure web-safe extensions: convert .heic/.heif to .jpg, and add extension if missing
+    if (attachment.type === 'image') {
+      if (/\.(heic|heif)$/i.test(name)) {
+        name = name.replace(/\.(heic|heif)$/i, '.jpg');
+      } else if (!/\.(jpg|jpeg|png|webp|gif|svg)$/i.test(name)) {
+        const ext = attachment.mime === 'image/png' ? '.png' : attachment.mime === 'image/webp' ? '.webp' : attachment.mime === 'image/gif' ? '.gif' : '.jpg';
+        name = `${name}${ext}`;
+      }
+    } else if (attachment.type === 'video' && !/\.(mp4|mov|webm|m4v)$/i.test(name)) {
+      name = `${name}.mp4`;
+    }
+
+    const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const stamp = Date.now();
     const path = `${groupId}/${stamp}-${safeName}`;
 

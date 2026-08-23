@@ -178,13 +178,22 @@ async function fromImagePickerAsset(asset: ImagePicker.ImagePickerAsset): Promis
         ? Math.round(asset.duration > 10000 ? asset.duration : asset.duration * 1000)
         : null;
 
+    let fileName = asset.fileName ?? null;
+    if (type === 'image' && fileName) {
+      if (/\.(heic|heif)$/i.test(fileName)) {
+        fileName = fileName.replace(/\.(heic|heif)$/i, '.jpg');
+      } else if (!/\.(jpg|jpeg|png|webp|gif)$/i.test(fileName)) {
+        fileName = `${fileName}.jpg`;
+      }
+    }
+
     return {
       attachment: {
         uri,
         base64,
         mime: outMime,
         type,
-        name: asset.fileName ?? null,
+        name: fileName,
         size,
         width,
         height,

@@ -7,6 +7,11 @@
     "icon": "./assets/gc-logo.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#030206",
+    "splash": {
+      "image": "./assets/Splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#030206"
+    },
     "updates": {
       "url": "https://u.expo.dev/eda4be96-0e54-4b02-88a8-d7a456652f83"
     },
@@ -48,7 +53,19 @@
       "./plugins/withIosDeploymentTarget",
       "./plugins/withSceneDelegate",
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#030206",
+          "image": "./assets/Splash.png",
+          "resizeMode": "cover",
+          "dark": {
+            "image": "./assets/Splash.png",
+            "backgroundColor": "#030206",
+            "resizeMode": "cover"
+          }
+        }
+      ],
       "expo-video",
       [
         "expo-audio",
