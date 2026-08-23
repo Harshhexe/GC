@@ -91,6 +91,29 @@ export function CameraCapture({
     }
   }, [visible]);
 
+  /**
+   * Ask for the photo roll once, right after camera access is settled.
+   *
+   * This deliberately reverses an earlier call. Holding the prompt back until
+   * the user tapped the strip avoided stacking two system dialogs, but it also
+   * meant the filmstrip was empty on first open — which is precisely when it
+   * is most useful. The prompts are sequential rather than simultaneous, so
+   * the cost is small and the strip is actually populated.
+   */
+  const mediaPrompted = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      mediaPrompted.current = false;
+      return;
+    }
+    if (!cameraGranted || mediaGranted || mediaPrompted.current) return;
+    // `asked` means the current status is known; requesting before that would
+    // race the initial read and could prompt for something already granted.
+    if (!mediaAsked) return;
+    mediaPrompted.current = true;
+    requestMedia();
+  }, [visible, cameraGranted, mediaGranted, mediaAsked, requestMedia]);
+
   // Recording timer. Separate from the recordAsync promise because that only
   // resolves once the clip is finished — there is nothing to count with.
   useEffect(() => {
@@ -332,14 +355,22 @@ export function CameraCapture({
         ) : (
           /* ── Capture ────────────────────────────────────────────────── */
           <>
-            <View style={styles.previewFill}>
-              <CameraView
-                ref={cameraRef}
-                style={StyleSheet.absoluteFill}
-                facing={facing}
-                flash={flash}
-                mode={mode === 'video' ? 'video' : 'picture'}
-              />
+            {/* The sensor is 4:3; a full-bleed preview on a ~19.5:9 phone
+                makes the view center-crop hard (everything looks zoomed in)
+                and upscale what's left (everything looks soft). Constraining
+                the surface to the sensor's own ratio and letterboxing shows
+                the true framing at native resolution instead. */}
+            <View style={styles.cameraStage}>
+              <View style={styles.cameraFrame}>
+                <CameraView
+                  ref={cameraRef}
+                  style={StyleSheet.absoluteFill}
+                  facing={facing}
+                  flash={flash}
+                  ratio="4:3"
+                  mode={mode === 'video' ? 'video' : 'picture'}
+                />
+              </View>
             </View>
 
             <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
@@ -525,10 +556,18 @@ export function CameraCapture({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
-  /** The preview owns the whole screen; chrome floats over it. Explicitly
-   *  black so letterboxed areas of a non-matching aspect ratio never let
-   *  whatever is behind the modal show through. */
+  /** Used by the review step, which contains rather than crops. */
   previewFill: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000' },
+  /** Full-screen black bed; the preview is centred inside it, so the bars
+   *  above and below are deliberate letterboxing rather than dead space. */
+  cameraStage: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // aspectRatio is width/height, so a portrait 4:3 sensor is 3/4.
+  cameraFrame: { width: '100%', aspectRatio: 3 / 4, overflow: 'hidden', backgroundColor: '#000000' },
 
   permissionRoot: {
     flex: 1,
