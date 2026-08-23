@@ -504,6 +504,14 @@ export default function ChatScreen({ route, navigation }: Props) {
 
       e.preventDefault();
       handleSendRef.current();
+
+      // Keep focus on the textarea so the user can immediately continue typing
+      requestAnimationFrame(() => {
+        target.focus();
+      });
+      setTimeout(() => {
+        target.focus();
+      }, 30);
     };
 
     document.addEventListener('keydown', onKeyDown, true);
@@ -976,6 +984,22 @@ export default function ChatScreen({ route, navigation }: Props) {
     setDraft('');
     setMentionCandidates(new Map());
     setSelection(undefined);
+
+    if (Platform.OS === 'web') {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        if (typeof document !== 'undefined') {
+          const el = document.querySelector('[data-gccomposer]') as HTMLTextAreaElement | null;
+          el?.focus();
+        }
+      });
+      setTimeout(() => {
+        if (typeof document !== 'undefined') {
+          const el = document.querySelector('[data-gccomposer]') as HTMLTextAreaElement | null;
+          el?.focus();
+        }
+      }, 40);
+    }
   }
 
   const sendMediaDirectly = useCallback(async (attachment: PendingAttachment) => {
