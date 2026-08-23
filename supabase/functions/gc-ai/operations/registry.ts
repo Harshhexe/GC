@@ -7,6 +7,7 @@ import { teaReportOperation } from './teaReport.ts';
 import { weeklyAwardsOperation } from './weeklyAwards.ts';
 import { groupDNAOperation } from './groupDNA.ts';
 import { pollDraftOperation } from './pollDraft.ts';
+import { dailyNamesOperation } from './dailyNames.ts';
 import type { AIOperation } from './types.ts';
 
 /**
@@ -19,7 +20,7 @@ import type { AIOperation } from './types.ts';
  * forgetting) a security check.
  *
  * Planned, not yet built:
- *   explain_lore · find_receipt · member_personality
+ *   explain_lore · find_receipt
  */
 const OPERATIONS = new Map<string, AIOperation<unknown>>([
   [testSummaryOperation.name, testSummaryOperation as AIOperation<unknown>],
@@ -30,6 +31,7 @@ const OPERATIONS = new Map<string, AIOperation<unknown>>([
   [weeklyAwardsOperation.name, weeklyAwardsOperation as AIOperation<unknown>],
   [groupDNAOperation.name, groupDNAOperation as AIOperation<unknown>],
   [pollDraftOperation.name, pollDraftOperation as AIOperation<unknown>],
+  [dailyNamesOperation.name, dailyNamesOperation as AIOperation<unknown>],
 ]);
 
 export function getOperation(name: unknown): AIOperation<unknown> {

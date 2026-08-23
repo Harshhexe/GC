@@ -28,6 +28,7 @@ import { useWhatDidIMiss } from '../hooks/useWhatDidIMiss';
 import { useMissedRecapHistory, type MissedRecapEntry } from '../hooks/useMissedRecapHistory';
 import { useDailyRecapHistory } from '../hooks/useDailyRecapHistory';
 import { useTodaysTea } from '../hooks/useTodaysTea';
+import { useDailyNames } from '../hooks/useDailyNames';
 import { TeaReportModal } from '../components/TeaReportModal';
 import type { TeaSession } from '../hooks/useTeaSession';
 import { useWeeklyAwards } from '../hooks/useWeeklyAwards';
@@ -43,12 +44,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WhatDidIMiss'>;
-type MissedTab = 'missed' | 'tea' | 'pulse';
+type MissedTab = 'missed' | 'tea' | 'pulse' | 'names';
 
 const TABS: { id: MissedTab; label: string }[] = [
   { id: 'missed', label: 'Missed' },
   { id: 'tea', label: 'Tea' },
   { id: 'pulse', label: 'Stats' },
+  { id: 'names', label: 'Names' },
 ];
 
 /**
@@ -421,6 +423,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   const history = useMissedRecapHistory(groupId);
   const dailyHistory = useDailyRecapHistory(groupId);
   const todaysTea = useTodaysTea(groupId);
+  const dailyNames = useDailyNames(groupId);
   const weeklyAwards = useWeeklyAwards(groupId);
   const [openDailyRecap, setOpenDailyRecap] = useState<DailyRecapResult | null>(null);
   const [openTea, setOpenTea] = useState<TeaSession | null>(null);
@@ -560,6 +563,12 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   );
 
   const jumpTo = (messageId: string) => handleJumpToChat(messageId);
+
+  useEffect(() => {
+    // Deliberately tied to the tab being open, not to the screen mounting:
+    // generation costs a model call, and most visits here are for Missed.
+    if (activeTab === 'names') dailyNames.ensure();
+  }, [activeTab, dailyNames]);
 
   const handleTabChange = (tab: MissedTab) => {
     setActiveTab(tab);
@@ -1029,6 +1038,72 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           )}
 
           {/* TAB 3: PULSE & 11:11 (Stats & Missed 11:11 Wall) */}
+          {activeTab === 'names' && (
+            <Section
+              icon="pricetag"
+              iconColor={colors.secondary}
+              title="Today's GC Names"
+              delay={STAGGER_MS}
+              aiGenerated
+            >
+              {dailyNames.generating || (dailyNames.loading && !dailyNames.result) ? (
+                <AIThinking tint={activeTheme.accent} />
+              ) : dailyNames.error ? (
+                <AIErrorState error={dailyNames.error} onRetry={dailyNames.retry} />
+              ) : dailyNames.result && dailyNames.result.names.length > 0 ? (
+                <View style={styles.namesBody}>
+                  <Text style={styles.namesHeadline}>{dailyNames.result.headline}</Text>
+                  {dailyNames.result.names.map((n) => {
+                    const member = members.find((m) => m.id === n.userId);
+                    return (
+                      <PressableScale
+                        key={n.userId}
+                        scaleTo={0.99}
+                        haptic="light"
+                        style={styles.nameRow}
+                        // The citation is what makes a name checkable rather
+                        // than something the app just asserts about someone.
+                        onPress={() => n.sourceMessageIds[0] && jumpTo(n.sourceMessageIds[0])}
+                        accessibilityLabel={`${member?.displayName ?? 'Member'} is ${n.name}. ${n.reason}`}
+                      >
+                        <Avatar
+                          emoji={member?.avatarEmoji ?? undefined}
+                          imageUrl={member?.avatarUrl}
+                          label={member?.displayName}
+                          size={40}
+                          ringColors={[activeTheme.accent, colors.secondary]}
+                        />
+                        <View style={styles.nameCopy}>
+                          <Text style={styles.nameTitle} numberOfLines={1}>
+                            {n.emoji} {n.name}
+                          </Text>
+                          <Text style={styles.nameWho} numberOfLines={1}>
+                            {member?.displayName ?? 'Someone'}
+                          </Text>
+                          {!!n.reason && (
+                            <Text style={styles.nameReason} numberOfLines={2}>
+                              {n.reason}
+                            </Text>
+                          )}
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={styles.emptyRecapWrap}>
+                  <Text style={styles.emptyRecapHeadline}>
+                    {dailyNames.result?.headline || 'Too quiet to name anyone today.'}
+                  </Text>
+                  <Text style={styles.emptyMentions}>
+                    Names come from what people actually said — talk for a bit and check back.
+                  </Text>
+                </View>
+              )}
+            </Section>
+          )}
+
           {activeTab === 'pulse' && (
             <>
               {/* Stats */}
@@ -1680,5 +1755,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  namesBody: { gap: spacing.sm },
+  namesHeadline: {
+    ...typography.bodyMedium,
+    color: colors.onSurface,
+    marginBottom: spacing.xs,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  nameCopy: { flex: 1, gap: 2 },
+  nameTitle: { ...typography.subheading, color: colors.onSurface },
+  nameWho: { ...typography.micro, color: colors.onSurfaceVariant },
+  nameReason: { ...typography.micro, color: colors.onSurfaceVariant, lineHeight: 16 },
   ctaWrap: { marginTop: spacing.sm },
 });
