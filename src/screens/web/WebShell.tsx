@@ -233,6 +233,19 @@ export default function WebShell({ navigation, route }: Props) {
           params
         );
       },
+      setParams: (params: Record<string, unknown>) => {
+        setSelected((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            ...params,
+            jumpToMessageId:
+              'jumpToMessageId' in params
+                ? (params.jumpToMessageId as string | undefined)
+                : prev.jumpToMessageId,
+          };
+        });
+      },
       // Back inside a pane returns to the chat list rather than leaving the
       // shell — there is nowhere "back" to go on desktop.
       goBack: () => {

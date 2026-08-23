@@ -1651,15 +1651,22 @@ export default function ChatScreen({ route, navigation }: Props) {
     [invertedMessages, loadUntilMessage]
   );
 
+  const lastHandledJumpIdRef = useRef<string | null>(null);
+  const jumpToMessageRef = useRef(jumpToMessage);
+  jumpToMessageRef.current = jumpToMessage;
+
   useEffect(() => {
-    const jumpId = route.params.jumpToMessageId;
+    const jumpId = route.params?.jumpToMessageId;
     if (!jumpId || loading) return;
+    if (lastHandledJumpIdRef.current === jumpId) return;
+
+    lastHandledJumpIdRef.current = jumpId;
     navigation.setParams({ jumpToMessageId: undefined });
     const timer = setTimeout(() => {
-      jumpToMessage(jumpId);
+      jumpToMessageRef.current(jumpId);
     }, 150);
     return () => clearTimeout(timer);
-  }, [route.params.jumpToMessageId, loading, jumpToMessage, navigation]);
+  }, [route.params?.jumpToMessageId, loading, navigation]);
 
   // ── Stable per-row callbacks handed to every MessageBubble ───────────────
   const handleLongPress = useCallback((message: Message, pageY: number, pageX: number) => {
