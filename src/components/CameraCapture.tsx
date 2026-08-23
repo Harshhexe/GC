@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,12 +10,13 @@ import {
   View,
 } from 'react-native';
 import { CameraView, CameraType, FlashMode, useCameraPermissions } from 'expo-camera';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration as motionDuration, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
@@ -34,6 +35,32 @@ import { tapFeedback, successFeedback } from '../utils/haptics';
 const MAX_VIDEO_SECONDS = 60;
 
 type Mode = 'photo' | 'video';
+
+/**
+ * Zoom on expo-camera is awkward: `zoom` is a 0..1 *fraction of the device's
+ * maximum*, not a magnification, and the maximum itself is never exposed. So a
+ * labelled "2x" can only ever be an approximation of the normalised value.
+ *
+ * The 0.5x/1x boundary is the exception and the one that actually mattered
+ * here: iOS reaches those by switching physical lens, which is exact. Left to
+ * itself expo-camera opens on a virtual multi-camera device whose zero point
+ * is the ultra-wide, which is why the camera used to start at 0.5x instead of
+ * the 1x everyone expects.
+ */
+const WIDE_LENS = 'builtInWideAngleCamera';
+const ULTRA_WIDE_LENS = 'builtInUltraWideCamera';
+
+/** Only used to place the 2x/4x presets on the 0..1 scale; see above. */
+const ASSUMED_MAX_ZOOM = 8;
+
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+/** 1 -> "1", 2.35 -> "2.4" — keeps the pill from jittering in width. */
+const formatFactor = (f: number) => (Number.isInteger(f) ? String(f) : f.toFixed(1));
+/** magnification (on the wide lens) -> expo-camera's normalised zoom */
+const zoomForFactor = (factor: number) =>
+  clamp01((factor - 1) / (ASSUMED_MAX_ZOOM - 1));
+/** the inverse, for the live readout while pinching */
+const factorForZoom = (zoom: number) => 1 + zoom * (ASSUMED_MAX_ZOOM - 1);
 
 /** Mounted only while a recorded clip is actually being reviewed —
  *  useVideoPlayer needs a real source, so this can't be a conditional hook
@@ -70,6 +97,16 @@ export function CameraCapture({
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
+  /** expo-camera's normalised 0..1 zoom, not a magnification. */
+  const [zoom, setZoom] = useState(0);
+  /** iOS only: which physical lens is active. 0.5x is a lens, not a zoom. */
+  const [lens, setLens] = useState(WIDE_LENS);
+  const [lenses, setLenses] = useState<string[]>([]);
+  /** Zoom at the moment a pinch began, so the gesture is relative. */
+  const pinchBase = useRef(0);
+  /** Mirrors zoom for the gesture callbacks, which must not close over state. */
+  const zoomRef = useRef(0);
+  zoomRef.current = zoom;
   /** Captured but not yet sent — drives the review step. */
   const [pending, setPending] = useState<PendingAttachment | null>(null);
 
@@ -88,8 +125,25 @@ export function CameraCapture({
       setBusy(false);
       setMode('photo');
       setPending(null);
+      // Reopen at 1x on the wide lens rather than wherever it was left.
+      setZoom(0);
+      setLens(WIDE_LENS);
     }
   }, [visible]);
+
+  // Which lenses this device actually has, so 0.5x is only offered when there
+  // is an ultra-wide to switch to.
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !visible || !cameraGranted) return;
+    let cancelled = false;
+    cameraRef.current
+      ?.getAvailableLensesAsync()
+      .then((l) => !cancelled && setLenses(l))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, cameraGranted, facing]);
 
   /**
    * Ask for the photo roll once, right after camera access is settled.
@@ -185,6 +239,55 @@ export function CameraCapture({
     }
   }, [busy, recording, stage, onError]);
 
+  /**
+   * Pinch anywhere on the preview. Relative to where the gesture started, so
+   * repeated pinches accumulate the way they do in every native camera.
+   * Updates are gated to meaningful deltas — an unfiltered 60fps setState on
+   * the preview surface is visible jank.
+   */
+  const applyZoom = useCallback((next: number) => {
+    setZoom((prev) => (Math.abs(prev - next) < 0.004 ? prev : next));
+  }, []);
+
+  const pinch = useMemo(
+    () =>
+      Gesture.Pinch()
+        .onStart(() => {
+          'worklet';
+          runOnJS(rememberPinchBase)();
+        })
+        .onUpdate((e) => {
+          'worklet';
+          runOnJS(handlePinch)(e.scale);
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  function rememberPinchBase() {
+    pinchBase.current = zoomRef.current;
+  }
+
+  function handlePinch(scale: number) {
+    // Pinch scale is multiplicative on magnification, so convert to a factor,
+    // scale that, then convert back rather than scaling the 0..1 value (which
+    // would make the gesture feel wrong at the low end).
+    const baseFactor = factorForZoom(pinchBase.current);
+    applyZoom(zoomForFactor(baseFactor * scale));
+  }
+
+  /** Presets. 0.5x is a lens change on iOS; the rest are digital zoom. */
+  const selectPreset = useCallback((factor: number) => {
+    tapFeedback();
+    if (factor < 1) {
+      setLens(ULTRA_WIDE_LENS);
+      setZoom(0);
+      return;
+    }
+    setLens(WIDE_LENS);
+    setZoom(zoomForFactor(factor));
+  }, []);
+
   const onShutter = useCallback(() => {
     tapFeedback();
     if (mode === 'photo') takePhoto();
@@ -242,6 +345,12 @@ export function CameraCapture({
     onClose();
   }, [pending, onCaptured, onClose]);
 
+  // 0.5x is only meaningful where there is an ultra-wide to switch to.
+  const hasUltraWide =
+    Platform.OS === 'ios' && lenses.some((l) => l.toLowerCase().includes('ultrawide'));
+  const presets = hasUltraWide ? [0.5, 1, 2, 4] : [1, 2, 4];
+  const currentFactor = lens === ULTRA_WIDE_LENS ? 0.5 : factorForZoom(zoom);
+
   if (!visible) return null;
 
   return (
@@ -255,7 +364,10 @@ export function CameraCapture({
       presentationStyle="fullScreen"
       onRequestClose={pending ? () => setPending(null) : onClose}
     >
-      <View style={styles.root}>
+      {/* Gesture handlers do not reach into a Modal's separate view tree
+          without their own root here — without this the pinch is silently
+          dead, the same way it is in MediaViewerModal. */}
+      <GestureHandlerRootView style={styles.root}>
         {!cameraGranted ? (
           <View style={styles.permissionRoot}>
             <Pressable
@@ -360,18 +472,24 @@ export function CameraCapture({
                 and upscale what's left (everything looks soft). Constraining
                 the surface to the sensor's own ratio and letterboxing shows
                 the true framing at native resolution instead. */}
-            <View style={styles.cameraStage}>
-              <View style={styles.cameraFrame}>
-                <CameraView
-                  ref={cameraRef}
-                  style={StyleSheet.absoluteFill}
-                  facing={facing}
-                  flash={flash}
-                  ratio="4:3"
-                  mode={mode === 'video' ? 'video' : 'picture'}
-                />
+            <GestureDetector gesture={pinch}>
+              <View style={styles.cameraStage}>
+                <View style={styles.cameraFrame}>
+                  <CameraView
+                    ref={cameraRef}
+                    style={StyleSheet.absoluteFill}
+                    facing={facing}
+                    flash={flash}
+                    ratio="4:3"
+                    zoom={zoom}
+                    // iOS only; ignored elsewhere. Pinning the wide lens is
+                    // what makes the camera open at 1x instead of 0.5x.
+                    selectedLens={facing === 'back' ? lens : undefined}
+                    mode={mode === 'video' ? 'video' : 'picture'}
+                  />
+                </View>
               </View>
-            </View>
+            </GestureDetector>
 
             <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
               <Pressable
@@ -414,6 +532,39 @@ export function CameraCapture({
             </View>
 
             <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+              {/* Zoom. Sits above the filmstrip so the thumb reaches it
+                  without covering the preview, and reads as part of the
+                  camera rather than part of the send controls. */}
+              <View style={styles.zoomRow}>
+                <View style={styles.zoomCluster}>
+                  {presets.map((factor) => {
+                    const active = Math.abs(currentFactor - factor) < 0.05;
+                    return (
+                      <Pressable
+                        key={factor}
+                        onPress={() => selectPreset(factor)}
+                        hitSlop={10}
+                        style={[styles.zoomPill, active && styles.zoomPillActive]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={`Zoom ${factor}x`}
+                      >
+                        <Text
+                          style={[
+                            styles.zoomText,
+                            active && { color: accentColor, fontWeight: '800' },
+                          ]}
+                        >
+                          {active
+                            ? `${formatFactor(currentFactor)}\u00D7`
+                            : formatFactor(factor)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
               {/* Filmstrip. Hidden while recording so it can't be tapped
                   mid-clip. */}
               {!recording && Platform.OS !== 'web' && (
@@ -549,7 +700,7 @@ export function CameraCapture({
             </View>
           </>
         )}
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -665,6 +816,30 @@ const styles = StyleSheet.create({
   },
   stripCtaText: { ...typography.micro, color: '#FFFFFF' },
   stripEmptyText: { ...typography.micro, color: colors.onSurfaceVariant, textAlign: 'center' },
+
+  zoomRow: { alignItems: 'center' },
+  /** Segmented pill, the way every phone camera does it — one glass container
+   *  so the options read as a single control rather than four loose buttons. */
+  zoomCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  // 38pt visual with hitSlop 10 clears the 44pt minimum in every direction
+  // while keeping the cluster compact enough not to crowd the filmstrip.
+  zoomPill: {
+    minWidth: 38,
+    height: 38,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomPillActive: { backgroundColor: 'rgba(255, 255, 255, 0.18)' },
+  zoomText: { ...typography.label, fontSize: 12, color: 'rgba(255, 255, 255, 0.8)' },
 
   modes: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xl },
   modeTab: { paddingVertical: 4, paddingHorizontal: spacing.md },
