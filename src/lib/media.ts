@@ -251,6 +251,38 @@ export async function pickFromCamera(): Promise<PickResult | null> {
 }
 
 /**
+ * Copies a Photos-library asset into the app's own cache directory.
+ *
+ * MediaLibrary hands back a URI pointing inside the iOS Photos container. The
+ * app can read it through the Photos framework, but the upload streams the
+ * file straight off disk with an NSURLSession task, and that task has no such
+ * access — it fails with a bare `NSURLErrorDomain Code=-1 "unknown error"`.
+ *
+ * Images never hit this because compressImage() rewrites them into the cache
+ * on the way through; videos are not compressed, so they arrived at the
+ * uploader still pointing at the Photos container. Copying first puts every
+ * picked asset on the same footing, which is also what ImagePicker does
+ * internally for exactly this reason.
+ */
+export async function copyToCacheDir(uri: string, kind: 'photo' | 'video'): Promise<string> {
+  if (Platform.OS === 'web') return uri;
+  const cache = FileSystem.cacheDirectory;
+  // Already ours (a fresh camera capture) — nothing to copy.
+  if (!cache || uri.startsWith(cache)) return uri;
+  try {
+    const ext =
+      uri.match(/\.(mov|mp4|m4v|jpe?g|png|heic|heif|gif|webp)$/i)?.[0] ??
+      (kind === 'video' ? '.mp4' : '.jpg');
+    const dest = `${cache}gc-pick-${Date.now()}${ext.toLowerCase()}`;
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  } catch {
+    // Better to attempt the original than to fail the send outright.
+    return uri;
+  }
+}
+
+/**
  * Normalises a capture from the in-app camera (or a tap on its filmstrip)
  * into the same attachment every other path produces.
  *

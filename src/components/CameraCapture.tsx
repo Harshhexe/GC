@@ -25,6 +25,7 @@ import {
   fromCameraCapture,
   pickFromLibrary,
   formatFileSize,
+  copyToCacheDir,
   type PendingAttachment,
 } from '../lib/media';
 import { tapFeedback, successFeedback } from '../utils/haptics';
@@ -303,13 +304,17 @@ export function CameraCapture({
       setBusy(true);
       try {
         const info = await MediaLibrary.getAssetInfoAsync(asset.id);
+        // Out of the Photos container and into our own cache before anything
+        // tries to upload it — see copyToCacheDir.
+        const uri = await copyToCacheDir(info.localUri ?? asset.uri, asset.mediaType);
         stage(
           await fromCameraCapture({
-            uri: info.localUri ?? asset.uri,
+            uri,
             kind: asset.mediaType,
             width: info.width,
             height: info.height,
             durationSeconds: info.duration ?? null,
+            fileName: info.filename ?? null,
           })
         );
       } catch {
