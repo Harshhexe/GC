@@ -318,7 +318,11 @@ export async function fromCameraCapture(capture: {
         : /\.png$/i.test(capture.uri)
           ? 'image/png'
           : 'image/jpeg'),
-    duration: capture.durationSeconds ?? null,
+    // Only videos carry a duration. MediaLibrary reports `0` for photos, and
+    // fromImagePickerAsset treats *any* non-null duration as proof of video —
+    // `0 != null` is true — so forwarding it classified every filmstrip photo
+    // as a video. `kind` is authoritative here, so anything else is dropped.
+    duration: isVideo ? (capture.durationSeconds ?? null) : null,
     fileName: capture.fileName ?? null,
   } as ImagePicker.ImagePickerAsset);
 }

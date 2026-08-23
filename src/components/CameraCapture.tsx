@@ -313,7 +313,7 @@ export function CameraCapture({
             kind: asset.mediaType,
             width: info.width,
             height: info.height,
-            durationSeconds: info.duration ?? null,
+            durationSeconds: asset.mediaType === 'video' ? (info.duration ?? null) : null,
             fileName: info.filename ?? null,
           })
         );
