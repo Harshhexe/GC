@@ -60,6 +60,7 @@ import type { Sticker } from '../types';
 import { AttachmentPreview } from '../components/AttachmentPreview';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { CameraCapture } from '../components/CameraCapture';
+import { useDailyNameMap } from '../hooks/useDailyNames';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { EmptyState } from '../components/EmptyState';
 import { TypingIndicator } from '../components/TypingIndicator';
@@ -569,6 +570,9 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const [attachmentSheetVisible, setAttachmentSheetVisible] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
+  // Read-only: chat never generates names, it only shows what the Names tab
+  // has already produced for the day.
+  const dailyNames = useDailyNameMap(groupId);
   const [gifPickerVisible, setGifPickerVisible] = useState(false);
   const [stickerPickerVisible, setStickerPickerVisible] = useState(false);
   const [stickerCreatorVisible, setStickerCreatorVisible] = useState(false);
@@ -1927,6 +1931,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             showAuthor={showAuthor}
             showAvatar={showAvatar}
             showTimestamp={showTimestamp}
+            dailyName={item.authorId ? dailyNames.get(item.authorId) : undefined}
             readers={readersByMessage.get(item.id)}
             privateCommentCount={privateCommentCounts.get(item.id) ?? 0}
             onPrivateCommentsPress={handlePrivateCommentPress}

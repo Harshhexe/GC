@@ -55,6 +55,7 @@ function MessageBubbleImpl({
   showAuthor,
   showAvatar = true,
   showTimestamp = true,
+  dailyName,
   readers,
   privateCommentCount = 0,
   onPrivateCommentsPress,
@@ -85,6 +86,9 @@ function MessageBubbleImpl({
   showAuthor?: boolean;
   /** False on every row but the last in a same-author run. */
   showAvatar?: boolean;
+  /** Today's AI-chosen GC name for the sender, shown beside their name.
+   *  Undefined until the group has generated names for the day. */
+  dailyName?: { name: string; emoji: string };
   /** False when this message is followed by another from the same author within 1 min. */
   showTimestamp?: boolean;
   /** Members whose "read up to" mark lands on this message. */
@@ -356,6 +360,11 @@ function MessageBubbleImpl({
                 ]}
               >
                 {message.authorName}
+                {!!dailyName && (
+                  <Text style={styles.authorDailyName}>
+                    {`  ${dailyName.emoji} ${dailyName.name}`}
+                  </Text>
+                )}
               </Text>
             )}
 
@@ -618,6 +627,7 @@ function arePropsEqual(prev: any, next: any) {
     prev.showAuthor === next.showAuthor &&
     prev.showAvatar === next.showAvatar &&
     prev.showTimestamp === next.showTimestamp &&
+    prev.dailyName?.name === next.dailyName?.name &&
     areReadersEqual(prev.readers, next.readers) &&
     prev.tint === next.tint &&
     prev.bubbleStyle === next.bubbleStyle &&
@@ -701,6 +711,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginBottom: 4,
     marginLeft: spacing.xs,
+  },
+  /** Deliberately quieter than the real name: it is a joke about the person,
+   *  not their identity, and must never be mistaken for who actually sent
+   *  the message. Inherits the row's own colour rather than the author tint
+   *  so it reads as an aside. */
+  authorDailyName: {
+    ...typography.label,
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
   },
 
   bubbleShadow: { borderRadius: radius.md + 4 },

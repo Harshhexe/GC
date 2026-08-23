@@ -102,3 +102,39 @@ export function useDailyNames(groupId: string) {
 
   return { result, loading, generating, error, ensure, retry };
 }
+
+/**
+ * Just the names, keyed by user id, for showing beside senders in the chat.
+ *
+ * Read-only on purpose: it never calls the edge function. Chat is the most
+ * opened screen in the app, and generating from here would mean any member
+ * opening any conversation could trigger a model call — the exact cost this
+ * feature was designed to avoid. Generation stays where someone deliberately
+ * asked for it, on the Names tab; until that has happened the map is simply
+ * empty and the chat shows nothing extra.
+ */
+export function useDailyNameMap(groupId: string) {
+  const [byUser, setByUser] = useState<Map<string, DailyName>>(new Map());
+
+  useEffect(() => {
+    if (!groupId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('daily_gc_names')
+        .select('names')
+        .eq('group_id', groupId)
+        .eq('name_date', yesterdayBounds().date)
+        .maybeSingle();
+
+      if (cancelled) return;
+      const rows = (data?.names ?? []) as DailyName[];
+      setByUser(new Map(rows.map((n) => [n.userId, n])));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId]);
+
+  return byUser;
+}
