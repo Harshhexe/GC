@@ -1628,20 +1628,21 @@ export default function ChatScreen({ route, navigation }: Props) {
       }
 
       if (index >= 0) {
-        if (Platform.OS === 'web' && typeof document !== 'undefined') {
-          const el = document.getElementById(`msg-${id}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const scrollToTarget = () => {
+          if (Platform.OS === 'web' && typeof document !== 'undefined') {
+            const el = document.getElementById(`msg-${id}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
           }
-        }
-        const doScroll = () => {
           try {
             flatListRef.current?.scrollToIndex({ index, viewPosition: 0.35, animated: true });
           } catch { }
         };
-        doScroll();
-        setTimeout(doScroll, 120);
-        setTimeout(doScroll, 300);
+
+        scrollToTarget();
+        setTimeout(scrollToTarget, 80);
+        setTimeout(scrollToTarget, 200);
 
         if (highlightTimer.current) clearTimeout(highlightTimer.current);
         setHighlightedId(id);
@@ -1651,22 +1652,13 @@ export default function ChatScreen({ route, navigation }: Props) {
     [invertedMessages, loadUntilMessage]
   );
 
-  const lastHandledJumpIdRef = useRef<string | null>(null);
-  const jumpToMessageRef = useRef(jumpToMessage);
-  jumpToMessageRef.current = jumpToMessage;
-
   useEffect(() => {
     const jumpId = route.params?.jumpToMessageId;
     if (!jumpId || loading) return;
-    if (lastHandledJumpIdRef.current === jumpId) return;
 
-    lastHandledJumpIdRef.current = jumpId;
     navigation.setParams({ jumpToMessageId: undefined });
-    const timer = setTimeout(() => {
-      jumpToMessageRef.current(jumpId);
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [route.params?.jumpToMessageId, loading, navigation]);
+    jumpToMessage(jumpId);
+  }, [route.params?.jumpToMessageId, loading, jumpToMessage, navigation]);
 
   // ── Stable per-row callbacks handed to every MessageBubble ───────────────
   const handleLongPress = useCallback((message: Message, pageY: number, pageX: number) => {
