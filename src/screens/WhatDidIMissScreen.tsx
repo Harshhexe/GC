@@ -1042,7 +1042,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
             <Section
               icon="pricetag"
               iconColor={colors.secondary}
-              title="Today's GC Names"
+              title="GC Names"
               delay={STAGGER_MS}
               aiGenerated
             >
@@ -1058,11 +1058,13 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                     return (
                       <PressableScale
                         key={n.userId}
-                        scaleTo={0.99}
+                        scaleTo={n.sourceMessageIds.length ? 0.99 : 1}
                         haptic="light"
-                        style={styles.nameRow}
+                        style={[styles.nameRow, !n.spoke && styles.nameRowQuiet]}
                         // The citation is what makes a name checkable rather
                         // than something the app just asserts about someone.
+                        // A ghost has nothing to cite, so it isn't tappable.
+                        disabled={!n.sourceMessageIds.length}
                         onPress={() => n.sourceMessageIds[0] && jumpTo(n.sourceMessageIds[0])}
                         accessibilityLabel={`${member?.displayName ?? 'Member'} is ${n.name}. ${n.reason}`}
                       >
@@ -1086,7 +1088,9 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                             </Text>
                           )}
                         </View>
-                        <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
+                        {n.sourceMessageIds.length > 0 && (
+                          <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
+                        )}
                       </PressableScale>
                     );
                   })}
@@ -1097,7 +1101,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                     {dailyNames.result?.headline || 'Too quiet to name anyone today.'}
                   </Text>
                   <Text style={styles.emptyMentions}>
-                    Names come from what people actually said — talk for a bit and check back.
+                    Names are set once a day from the previous day's chat.
                   </Text>
                 </View>
               )}
@@ -1770,6 +1774,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
+  nameRowQuiet: { backgroundColor: 'rgba(255, 255, 255, 0.02)', opacity: 0.75 },
   nameCopy: { flex: 1, gap: 2 },
   nameTitle: { ...typography.subheading, color: colors.onSurface },
   nameWho: { ...typography.micro, color: colors.onSurfaceVariant },

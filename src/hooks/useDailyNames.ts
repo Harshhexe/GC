@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { invokeGCAI, type AIError, type DailyName, type DailyNamesResult } from '../lib/ai';
+import { yesterdayBounds } from '../utils/time';
 
 type DailyNamesRow = {
   name_date: string;
@@ -9,14 +10,6 @@ type DailyNamesRow = {
   names: DailyName[];
   created_at: string;
 };
-
-/** Local calendar date, matching how the day reads to the person looking at
- *  it rather than to UTC. */
-function todayLocal(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
 
 /**
  * Today's GC names — one AI-chosen title per member, from what they said.
@@ -45,7 +38,7 @@ export function useDailyNames(groupId: string) {
       .from('daily_gc_names')
       .select('name_date, headline, total_messages, names, created_at')
       .eq('group_id', groupId)
-      .eq('name_date', todayLocal())
+      .eq('name_date', yesterdayBounds().date)
       .maybeSingle();
 
     if (!data) return null;
@@ -61,17 +54,24 @@ export function useDailyNames(groupId: string) {
   const generate = useCallback(async () => {
     setGenerating(true);
     setError(null);
-    const res = await invokeGCAI<DailyNamesResult>(groupId, 'daily_names');
+    const { date, from, to } = yesterdayBounds();
+    const res = await invokeGCAI<DailyNamesResult>(groupId, 'daily_names', { date, from, to });
     if (res.ok) {
-      setResult(res.result);
+      // Prefer the stored row over the response we just received. If two
+      // members opened the tab at the same instant they each generated, and
+      // the table's upsert keeps whichever landed first — reading it back is
+      // what makes everyone converge on one set of names instead of two
+      // people quoting different ones at each other.
+      const stored = await readStored();
+      setResult(stored ?? res.result);
     } else {
       // A failed generation leaves the day unnamed rather than half-named;
-      // the tab shows a retry instead of an empty card that looks like
-      // "nobody did anything today".
+      // the tab shows a retry instead of an empty card that reads as
+      // "nobody did anything".
       setError(res.error);
     }
     setGenerating(false);
-  }, [groupId]);
+  }, [groupId, readStored]);
 
   useEffect(() => {
     if (!groupId) return;

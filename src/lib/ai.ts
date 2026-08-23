@@ -220,6 +220,8 @@ export type DailyName = {
   name: string;
   emoji: string;
   reason: string;
+  /** False for a member who sent nothing that day — they still get a name. */
+  spoke: boolean;
   sourceMessageIds: string[];
 };
 
