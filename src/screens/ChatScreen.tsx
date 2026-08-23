@@ -59,6 +59,7 @@ import { useStickers } from '../hooks/useStickers';
 import type { Sticker } from '../types';
 import { AttachmentPreview } from '../components/AttachmentPreview';
 import { VoiceRecorder } from '../components/VoiceRecorder';
+import { CameraCapture } from '../components/CameraCapture';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { EmptyState } from '../components/EmptyState';
 import { TypingIndicator } from '../components/TypingIndicator';
@@ -567,6 +568,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [attachmentSheetVisible, setAttachmentSheetVisible] = useState(false);
+  const [cameraVisible, setCameraVisible] = useState(false);
   const [gifPickerVisible, setGifPickerVisible] = useState(false);
   const [stickerPickerVisible, setStickerPickerVisible] = useState(false);
   const [stickerCreatorVisible, setStickerCreatorVisible] = useState(false);
@@ -2329,6 +2331,28 @@ export default function ChatScreen({ route, navigation }: Props) {
               )}
               {isRecordingVoice && <View style={styles.input} />}
 
+              {/* Camera sits beside the mic rather than buried in the
+                  attachment sheet: taking a photo for the group is a
+                  first-class action, not a rarely-used attachment type.
+                  Hidden while recording or editing, where it has nothing to
+                  do and would only crowd the row. */}
+              {!isRecordingVoice && !editingMessage && (
+                <PressableScale
+                  style={styles.plusButton}
+                  scaleTo={0.85}
+                  haptic="medium"
+                  disabled={uploading}
+                  onPress={() => setCameraVisible(true)}
+                  accessibilityLabel="Open camera"
+                >
+                  <Ionicons
+                    name="camera"
+                    size={22}
+                    color={uploading ? colors.outline : colors.onSurfaceVariant}
+                  />
+                </PressableScale>
+              )}
+
               {/* The mic takes the send button's place when there's nothing
                   to send — the same slot, so the composer never grows a
                   fourth control, and the swap itself signals which action is
@@ -2515,6 +2539,14 @@ export default function ChatScreen({ route, navigation }: Props) {
         visible={viewingProfileId !== null}
         member={groupMembers.find((m) => m.id === viewingProfileId) ?? null}
         onClose={() => setViewingProfileId(null)}
+      />
+
+      <CameraCapture
+        visible={cameraVisible}
+        accentColor={theme.accent}
+        onClose={() => setCameraVisible(false)}
+        onCaptured={(attachment) => sendMediaDirectly(attachment)}
+        onError={setAttachError}
       />
 
       <AttachmentSheet

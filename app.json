@@ -80,6 +80,14 @@
           "cameraPermission": "Let GC use your camera so you can snap something for the group."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Let GC use your camera so you can snap something for the group.",
+          "microphonePermission": "Let GC use your mic so the videos you record have sound.",
+          "recordAudioAndroid": true
+        }
+      ],
       "./plugins/withPushEntitlement",
       [
         "expo-notifications",

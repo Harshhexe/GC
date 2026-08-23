@@ -251,6 +251,47 @@ export async function pickFromCamera(): Promise<PickResult | null> {
 }
 
 /**
+ * Normalises a capture from the in-app camera (or a tap on its filmstrip)
+ * into the same attachment every other path produces.
+ *
+ * Deliberately routed through fromImagePickerAsset rather than duplicating its
+ * work: image compression, the size ceiling, HEIC renaming and video poster
+ * extraction all live there, and a second copy of those rules would drift.
+ *
+ * `durationSeconds` matches expo-image-picker's unit, not milliseconds — that
+ * function disambiguates the two by magnitude, so handing it milliseconds for
+ * a short clip would be read as seconds and inflated a thousandfold.
+ */
+export async function fromCameraCapture(capture: {
+  uri: string;
+  kind: 'photo' | 'video';
+  width?: number | null;
+  height?: number | null;
+  durationSeconds?: number | null;
+  mimeType?: string | null;
+  fileName?: string | null;
+}): Promise<PickResult> {
+  const isVideo = capture.kind === 'video';
+  return fromImagePickerAsset({
+    uri: capture.uri,
+    width: capture.width ?? 0,
+    height: capture.height ?? 0,
+    type: isVideo ? 'video' : 'image',
+    mimeType:
+      capture.mimeType ??
+      (isVideo
+        ? capture.uri.toLowerCase().endsWith('.mov')
+          ? 'video/quicktime'
+          : 'video/mp4'
+        : /\.png$/i.test(capture.uri)
+          ? 'image/png'
+          : 'image/jpeg'),
+    duration: capture.durationSeconds ?? null,
+    fileName: capture.fileName ?? null,
+  } as ImagePicker.ImagePickerAsset);
+}
+
+/**
  * Whether to use the in-app `getUserMedia` camera instead of the OS one.
  *
  * `ImagePicker.launchCameraAsync` on web is a file input carrying the
