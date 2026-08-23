@@ -12,6 +12,7 @@ import {
 import { CameraView, CameraType, FlashMode, useCameraPermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -19,7 +20,12 @@ import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration as motionDuration, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { useRecentMedia, type RecentAsset } from '../hooks/useRecentMedia';
-import { fromCameraCapture, pickFromLibrary, type PendingAttachment } from '../lib/media';
+import {
+  fromCameraCapture,
+  pickFromLibrary,
+  formatFileSize,
+  type PendingAttachment,
+} from '../lib/media';
 import { tapFeedback, successFeedback } from '../utils/haptics';
 
 /** Hard ceiling on a recorded clip, mirroring the voice-note cap in spirit —
@@ -28,6 +34,17 @@ import { tapFeedback, successFeedback } from '../utils/haptics';
 const MAX_VIDEO_SECONDS = 60;
 
 type Mode = 'photo' | 'video';
+
+/** Mounted only while a recorded clip is actually being reviewed —
+ *  useVideoPlayer needs a real source, so this can't be a conditional hook
+ *  inside the parent. */
+function ReviewVideo({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.play();
+  });
+  return <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} />;
+}
 
 export function CameraCapture({
   visible,
@@ -53,17 +70,24 @@ export function CameraCapture({
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
+  /** Captured but not yet sent — drives the review step. */
+  const [pending, setPending] = useState<PendingAttachment | null>(null);
 
-  const { assets, permission: mediaPermission, request: requestMedia } = useRecentMedia(visible);
+  const cameraGranted = !!permission?.granted;
+  const {
+    assets,
+    granted: mediaGranted,
+    asked: mediaAsked,
+    request: requestMedia,
+  } = useRecentMedia(visible && cameraGranted);
 
-  // Reset transient state whenever the camera is reopened, so it never comes
-  // back mid-recording or still showing the previous session's timer.
   useEffect(() => {
     if (!visible) {
       setRecording(false);
       setElapsed(0);
       setBusy(false);
       setMode('photo');
+      setPending(null);
     }
   }, [visible]);
 
@@ -79,17 +103,17 @@ export function CameraCapture({
     return () => clearInterval(id);
   }, [recording]);
 
-  const finish = useCallback(
-    async (result: Awaited<ReturnType<typeof fromCameraCapture>>) => {
+  /** Captures land in review rather than sending straight away — a photo of
+   *  the wrong thing is otherwise irreversible once it's in the group. */
+  const stage = useCallback(
+    (result: Awaited<ReturnType<typeof fromCameraCapture>>) => {
       if (result.error || !result.attachment) {
         onError(result.error ?? 'Couldn’t use that capture.');
         return;
       }
-      successFeedback();
-      onCaptured(result.attachment);
-      onClose();
+      setPending(result.attachment);
     },
-    [onCaptured, onClose, onError]
+    [onError]
   );
 
   const takePhoto = useCallback(async () => {
@@ -98,7 +122,7 @@ export function CameraCapture({
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
       if (!photo?.uri) return;
-      await finish(
+      stage(
         await fromCameraCapture({
           uri: photo.uri,
           kind: 'photo',
@@ -111,12 +135,12 @@ export function CameraCapture({
     } finally {
       setBusy(false);
     }
-  }, [busy, finish, onError]);
+  }, [busy, stage, onError]);
 
   const stopVideo = useCallback(() => {
     if (!recording) return;
-    // stopRecording resolves the pending recordAsync promise below, which is
-    // where the finished clip is actually handled.
+    // Resolves the pending recordAsync promise below, which is where the
+    // finished clip is actually handled.
     cameraRef.current?.stopRecording();
     setRecording(false);
   }, [recording]);
@@ -129,24 +153,20 @@ export function CameraCapture({
       setRecording(false);
       if (!clip?.uri) return;
       setBusy(true);
-      await finish(await fromCameraCapture({ uri: clip.uri, kind: 'video' }));
+      stage(await fromCameraCapture({ uri: clip.uri, kind: 'video' }));
     } catch {
       setRecording(false);
       onError('Couldn’t record that video — try again.');
     } finally {
       setBusy(false);
     }
-  }, [busy, recording, finish, onError]);
+  }, [busy, recording, stage, onError]);
 
   const onShutter = useCallback(() => {
     tapFeedback();
-    if (mode === 'photo') {
-      takePhoto();
-    } else if (recording) {
-      stopVideo();
-    } else {
-      startVideo();
-    }
+    if (mode === 'photo') takePhoto();
+    else if (recording) stopVideo();
+    else startVideo();
   }, [mode, recording, takePhoto, startVideo, stopVideo]);
 
   /** A tap on the filmstrip. Library assets need resolving to a real file
@@ -157,10 +177,9 @@ export function CameraCapture({
       setBusy(true);
       try {
         const info = await MediaLibrary.getAssetInfoAsync(asset.id);
-        const uri = info.localUri ?? asset.uri;
-        await finish(
+        stage(
           await fromCameraCapture({
-            uri,
+            uri: info.localUri ?? asset.uri,
             kind: asset.mediaType,
             width: info.width,
             height: info.height,
@@ -173,7 +192,7 @@ export function CameraCapture({
         setBusy(false);
       }
     },
-    [busy, finish, onError]
+    [busy, stage, onError]
   );
 
   const openAlbum = useCallback(async () => {
@@ -186,26 +205,38 @@ export function CameraCapture({
         onError(result.error ?? 'Couldn’t open your photos.');
         return;
       }
-      onCaptured(result.attachment);
-      onClose();
+      setPending(result.attachment);
     } finally {
       setBusy(false);
     }
-  }, [onCaptured, onClose, onError]);
+  }, [onError]);
+
+  const confirmSend = useCallback(() => {
+    if (!pending) return;
+    successFeedback();
+    onCaptured(pending);
+    setPending(null);
+    onClose();
+  }, [pending, onCaptured, onClose]);
 
   if (!visible) return null;
 
-  // Permission gate. Shown inside the modal rather than before opening it, so
-  // the request always has visible context explaining what it is for.
-  const needsCamera = !permission?.granted;
-
   return (
-    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      statusBarTranslucent
+      // Without an explicit fullScreen presentation the modal can composite
+      // over the chat instead of replacing it, which left the screen showing
+      // the transcript above the camera preview.
+      presentationStyle="fullScreen"
+      onRequestClose={pending ? () => setPending(null) : onClose}
+    >
       <View style={styles.root}>
-        {needsCamera ? (
-          <View style={[styles.permissionRoot, { paddingTop: insets.top + spacing.lg }]}>
+        {!cameraGranted ? (
+          <View style={styles.permissionRoot}>
             <Pressable
-              style={styles.permissionClose}
+              style={[styles.permissionClose, { top: insets.top + spacing.sm }]}
               onPress={onClose}
               hitSlop={12}
               accessibilityRole="button"
@@ -228,17 +259,89 @@ export function CameraCapture({
               <Text style={styles.permissionBtnText}>Allow camera</Text>
             </PressableScale>
           </View>
-        ) : (
-          <>
-            <CameraView
-              ref={cameraRef}
-              style={StyleSheet.absoluteFill}
-              facing={facing}
-              flash={flash}
-              mode={mode === 'video' ? 'video' : 'picture'}
-            />
+        ) : pending ? (
+          /* ── Review ─────────────────────────────────────────────────── */
+          <View style={styles.root}>
+            <View style={styles.previewFill}>
+              {pending.type === 'video' ? (
+                <ReviewVideo uri={pending.uri} />
+              ) : (
+                <Image
+                  source={pending.uri}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="contain"
+                  transition={120}
+                />
+              )}
+            </View>
 
-            {/* Top chrome. Kept clear of the notch/Dynamic Island. */}
+            <View style={[styles.reviewTop, { paddingTop: insets.top + spacing.sm }]}>
+              <Pressable
+                style={styles.roundBtn}
+                onPress={() => setPending(null)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Retake"
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </Pressable>
+              <View style={styles.metaPill}>
+                <Ionicons
+                  name={pending.type === 'video' ? 'videocam' : 'image'}
+                  size={13}
+                  color={colors.onSurfaceVariant}
+                />
+                <Text style={styles.metaText}>
+                  {pending.size > 0 ? formatFileSize(pending.size) : 'Ready'}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.reviewBar,
+                { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xs },
+              ]}
+            >
+              <PressableScale
+                style={styles.retakeBtn}
+                scaleTo={0.96}
+                haptic="light"
+                onPress={() => {
+                  tapFeedback();
+                  setPending(null);
+                }}
+                accessibilityLabel="Retake"
+              >
+                <Ionicons name="refresh" size={18} color="#FFFFFF" />
+                <Text style={styles.retakeText}>Retake</Text>
+              </PressableScale>
+
+              <PressableScale
+                style={[styles.sendBtn, { backgroundColor: accentColor }]}
+                scaleTo={0.96}
+                haptic="medium"
+                onPress={confirmSend}
+                accessibilityLabel="Send to the group"
+              >
+                <Text style={styles.sendText}>Send</Text>
+                <Ionicons name="send" size={16} color="#FFFFFF" />
+              </PressableScale>
+            </View>
+          </View>
+        ) : (
+          /* ── Capture ────────────────────────────────────────────────── */
+          <>
+            <View style={styles.previewFill}>
+              <CameraView
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+                facing={facing}
+                flash={flash}
+                mode={mode === 'video' ? 'video' : 'picture'}
+              />
+            </View>
+
             <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
               <Pressable
                 style={styles.roundBtn}
@@ -257,9 +360,7 @@ export function CameraCapture({
                   style={styles.recPill}
                 >
                   <View style={styles.recDot} />
-                  <Text style={styles.recText}>
-                    {`0:${String(elapsed).padStart(2, '0')}`}
-                  </Text>
+                  <Text style={styles.recText}>{`0:${String(elapsed).padStart(2, '0')}`}</Text>
                 </Animated.View>
               )}
 
@@ -282,16 +383,25 @@ export function CameraCapture({
             </View>
 
             <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-              {/* Filmstrip: a shortcut to the last few shots, not a gallery.
-                  Hidden entirely while recording so it can't be tapped
+              {/* Filmstrip. Hidden while recording so it can't be tapped
                   mid-clip. */}
-              {!recording && (
+              {!recording && Platform.OS !== 'web' && (
                 <View style={styles.stripWrap}>
-                  {Platform.OS !== 'web' && mediaPermission != null && !assets.length ? (
-                    <Pressable style={styles.stripEmpty} onPress={requestMedia}>
-                      <Ionicons name="images-outline" size={16} color={colors.onSurfaceVariant} />
-                      <Text style={styles.stripEmptyText}>Tap to show recent photos</Text>
-                    </Pressable>
+                  {!mediaGranted ? (
+                    <PressableScale
+                      style={styles.stripCta}
+                      scaleTo={0.97}
+                      haptic="light"
+                      onPress={requestMedia}
+                      accessibilityLabel="Show recent photos"
+                    >
+                      <Ionicons name="images-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.stripCtaText}>
+                        {mediaAsked ? 'Allow photo access' : 'Show recent photos'}
+                      </Text>
+                    </PressableScale>
+                  ) : assets.length === 0 ? (
+                    <Text style={styles.stripEmptyText}>No recent photos</Text>
                   ) : (
                     <FlatList
                       horizontal
@@ -306,7 +416,7 @@ export function CameraCapture({
                           style={styles.thumb}
                           onPress={() => useRollAsset(item)}
                           accessibilityLabel={
-                            item.mediaType === 'video' ? 'Send this video' : 'Send this photo'
+                            item.mediaType === 'video' ? 'Review this video' : 'Review this photo'
                           }
                         >
                           <Image
@@ -328,8 +438,6 @@ export function CameraCapture({
                 </View>
               )}
 
-              {/* Mode switch. Text labels rather than icons: "PHOTO"/"VIDEO"
-                  is unambiguous, and it matches what every phone camera does. */}
               {!recording && (
                 <View style={styles.modes}>
                   {(['photo', 'video'] as Mode[]).map((m) => (
@@ -346,10 +454,7 @@ export function CameraCapture({
                       accessibilityLabel={m === 'photo' ? 'Photo mode' : 'Video mode'}
                     >
                       <Text
-                        style={[
-                          styles.modeText,
-                          mode === m && { color: accentColor, fontWeight: '800' },
-                        ]}
+                        style={[styles.modeText, mode === m && { color: accentColor }]}
                       >
                         {m === 'photo' ? 'PHOTO' : 'VIDEO'}
                       </Text>
@@ -362,12 +467,12 @@ export function CameraCapture({
                 <Pressable
                   style={styles.sideBtn}
                   onPress={openAlbum}
-                  disabled={busy}
+                  disabled={busy || recording}
                   hitSlop={10}
                   accessibilityRole="button"
                   accessibilityLabel="Open photo album"
                 >
-                  <Ionicons name="images" size={22} color="#FFFFFF" />
+                  <Ionicons name="images" size={22} color={recording ? colors.outline : '#FFFFFF'} />
                 </Pressable>
 
                 <Pressable
@@ -375,11 +480,7 @@ export function CameraCapture({
                   disabled={busy && !recording}
                   accessibilityRole="button"
                   accessibilityLabel={
-                    mode === 'photo'
-                      ? 'Take photo'
-                      : recording
-                        ? 'Stop recording'
-                        : 'Start recording'
+                    mode === 'photo' ? 'Take photo' : recording ? 'Stop recording' : 'Start recording'
                   }
                   style={[styles.shutterRing, recording && { borderColor: colors.error }]}
                 >
@@ -424,6 +525,10 @@ export function CameraCapture({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
+  /** The preview owns the whole screen; chrome floats over it. Explicitly
+   *  black so letterboxed areas of a non-matching aspect ratio never let
+   *  whatever is behind the modal show through. */
+  previewFill: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000' },
 
   permissionRoot: {
     flex: 1,
@@ -433,7 +538,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     backgroundColor: colors.appChrome,
   },
-  permissionClose: { position: 'absolute', left: spacing.lg, top: spacing.xl },
+  permissionClose: { position: 'absolute', left: spacing.lg },
   permissionTitle: { ...typography.titleMd, color: colors.onSurface },
   permissionBody: {
     ...typography.bodyMedium,
@@ -460,8 +565,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  // 44pt round hit areas over a live preview, dark enough to stay legible
-  // against a bright scene.
   roundBtn: {
     width: 44,
     height: 44,
@@ -487,18 +590,18 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    gap: spacing.md,
+    paddingTop: spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
-  stripWrap: { height: 62, justifyContent: 'center' },
+  stripWrap: { minHeight: 60, justifyContent: 'center' },
   strip: { paddingHorizontal: spacing.lg, gap: spacing.sm },
   thumb: {
-    width: 56,
-    height: 56,
+    width: 58,
+    height: 58,
     borderRadius: radius.sm,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
   thumbVideo: {
     position: 'absolute',
@@ -511,16 +614,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
-  stripEmpty: {
+  stripCta: {
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
-  stripEmptyText: { ...typography.micro, color: colors.onSurfaceVariant },
+  stripCtaText: { ...typography.micro, color: '#FFFFFF' },
+  stripEmptyText: { ...typography.micro, color: colors.onSurfaceVariant, textAlign: 'center' },
 
   modes: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xl },
-  modeTab: { paddingVertical: 6, paddingHorizontal: spacing.sm },
+  modeTab: { paddingVertical: 4, paddingHorizontal: spacing.md },
   modeText: { ...typography.label, fontSize: 12, color: 'rgba(255, 255, 255, 0.65)' },
 
   controls: {
@@ -528,7 +636,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.xl + spacing.sm,
-    paddingTop: spacing.xs,
   },
   sideBtn: {
     width: 48,
@@ -539,25 +646,70 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
   shutterRing: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 74,
+    height: 74,
+    borderRadius: 37,
     borderWidth: 4,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shutterCore: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFFFFF',
+  shutterCore: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFFFFF' },
+  /** Recording turns the disc into a square "stop" — the standard idiom. */
+  shutterStop: { width: 28, height: 28, borderRadius: 6, backgroundColor: colors.error },
+
+  reviewTop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  // Recording turns the disc into a square "stop" — the standard camera idiom.
-  shutterStop: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: colors.error,
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
+  metaText: { ...typography.micro, color: colors.onSurfaceVariant },
+
+  reviewBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  retakeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  retakeText: { ...typography.label, fontSize: 13, color: '#FFFFFF' },
+  sendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm + 4,
+    borderRadius: radius.pill,
+  },
+  sendText: { ...typography.label, fontSize: 13, color: '#FFFFFF' },
 });
