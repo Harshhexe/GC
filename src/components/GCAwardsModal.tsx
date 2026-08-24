@@ -16,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, spacing, typography, glass, shadows } from '../theme/theme';
+import { CONTAINER_MARGIN, colors, radius, spacing, typography, glass, shadows } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { Avatar } from './ui/Avatar';
 import { PressableScale } from './ui/PressableScale';
@@ -139,9 +139,9 @@ function dateLabel(iso: string): string {
 function GoldenAwardsBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.goldenBgRoot]} pointerEvents="none">
-      {/* Deep Obsidian-Gold Base Gradient */}
+      {/* Deep Obsidian Base Gradient */}
       <LinearGradient
-        colors={['#141006', '#0C0A04', '#050402']}
+        colors={['#100E17', '#0A0910', '#050508']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -149,7 +149,7 @@ function GoldenAwardsBackground() {
 
       {/* Top Grand Golden Atmospheric Glow */}
       <LinearGradient
-        colors={['rgba(253, 224, 71, 0.18)', 'rgba(245, 158, 11, 0.08)', 'transparent']}
+        colors={['rgba(253, 224, 71, 0.22)', 'rgba(245, 158, 11, 0.10)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 0.65 }}
         style={styles.topSpotlight}
@@ -157,7 +157,7 @@ function GoldenAwardsBackground() {
 
       {/* Top-Left Ambient Gold Wash */}
       <LinearGradient
-        colors={['rgba(251, 191, 36, 0.10)', 'transparent']}
+        colors={['rgba(251, 191, 36, 0.12)', 'transparent']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0.7, y: 0.5 }}
         style={StyleSheet.absoluteFill}
@@ -165,7 +165,7 @@ function GoldenAwardsBackground() {
 
       {/* Top-Right Amber Accent Wash */}
       <LinearGradient
-        colors={['rgba(245, 158, 11, 0.08)', 'transparent']}
+        colors={['rgba(245, 158, 11, 0.09)', 'transparent']}
         start={{ x: 1, y: 0 }}
         end={{ x: 0.3, y: 0.5 }}
         style={StyleSheet.absoluteFill}
@@ -179,10 +179,10 @@ function GoldenAwardsBackground() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Bottom Grounding Vignette */}
+      {/* Top Sheen & Subtle Dark Vignette */}
       <LinearGradient
-        colors={['transparent', 'rgba(5, 4, 2, 0.65)']}
-        start={{ x: 0.5, y: 0.6 }}
+        colors={['rgba(253, 224, 71, 0.08)', 'transparent', 'rgba(5, 5, 8, 0.6)']}
+        start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
@@ -782,10 +782,10 @@ export function GCAwardsModal({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0E0B04',
+    backgroundColor: colors.appRoot,
   },
   goldenBgRoot: {
-    backgroundColor: '#0E0B04',
+    backgroundColor: colors.appRoot,
     overflow: 'hidden',
   },
   topSpotlight: {
@@ -839,10 +839,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   header: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: spacing.sm + 2,
     zIndex: 10,
   },
@@ -881,7 +884,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
-    paddingHorizontal: spacing.lg,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: CONTAINER_MARGIN,
     paddingTop: spacing.xs,
     gap: spacing.lg,
   },

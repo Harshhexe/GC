@@ -567,6 +567,9 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1 },
   scroll: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: spacing.xl * 2,
     gap: spacing.lg,
@@ -584,6 +587,9 @@ const styles = StyleSheet.create({
 
   // Top Bar
   topBar: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

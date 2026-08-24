@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { CONTAINER_MARGIN, colors, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { GlassPanel } from './ui/Glass';
 import { PressableScale } from './ui/PressableScale';
@@ -276,10 +276,13 @@ export function TeaReportModal({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: spacing.sm,
     zIndex: 20,
   },
@@ -318,7 +321,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
-    paddingHorizontal: spacing.lg,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: CONTAINER_MARGIN,
     paddingTop: spacing.xs,
     gap: spacing.lg,
   },
