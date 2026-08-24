@@ -90,8 +90,10 @@ export default function RootNavigator() {
     isDownloading: isUpdateDownloading,
     error: updateError,
     updateMessage,
+    isWhatsNewVisible,
     applyUpdate,
     dismissUpdate,
+    dismissWhatsNew,
   } = useAppUpdates();
 
   if (loading) {
@@ -180,11 +182,17 @@ export default function RootNavigator() {
         {session && <InAppNotificationBanner onTap={goToChat} />}
         <AppUpdateModal
           visible={isUpdateAvailable}
+          type="available"
           isDownloading={isUpdateDownloading}
           error={updateError}
           updateMessage={updateMessage}
           onUpdate={applyUpdate}
           onDismiss={dismissUpdate}
+        />
+        <AppUpdateModal
+          visible={isWhatsNewVisible}
+          type="whats_new"
+          onDismiss={dismissWhatsNew}
         />
       </View>
     </NavigationContainer>

@@ -43,6 +43,7 @@ import {
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { copy, pick } from '../theme/copy';
 import { MessageBubble } from '../components/MessageBubble';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { MessageActionAnchor, MessageActionSheet } from '../components/MessageActionSheet';
 import { MessageQuotePreview } from '../components/MessageQuotePreview';
@@ -195,6 +196,10 @@ export default function ChatScreen({ route, navigation }: Props) {
     reloadMessages,
     markMediaViewed,
     toggleReaction,
+    isOnline,
+    isReconnecting,
+    reconnect,
+    retryMessage,
   } = useMessages(groupId, {
     initialLimit: (route.params.unreadCount ?? 0) > 0 ? (route.params.unreadCount ?? 0) + 15 : undefined,
   });
@@ -2019,6 +2024,13 @@ export default function ChatScreen({ route, navigation }: Props) {
     [jumpToMessage]
   );
 
+  const handleRetryMessage = useCallback(
+    (msg: Message) => {
+      retryMessage(msg.id);
+    },
+    [retryMessage]
+  );
+
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const olderMsg = index < invertedMessages.length - 1 ? invertedMessages[index + 1] : null;
@@ -2143,6 +2155,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             }
             onMentionPress={selectMode ? undefined : handleMentionPress}
             onMediaPress={handleMediaPress}
+            onRetry={handleRetryMessage}
           />
         </View>
       );
@@ -2245,6 +2258,12 @@ export default function ChatScreen({ route, navigation }: Props) {
             </PressableScale>
           </View>
         )}
+
+        <OfflineBanner
+          isOnline={isOnline}
+          isReconnecting={isReconnecting}
+          onRetry={reconnect}
+        />
 
         <ElevenElevenBanner
           isWishTime={elevenEleven.isWishTime}

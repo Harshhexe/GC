@@ -83,6 +83,8 @@ export type Mention = {
   username: string;
 };
 
+export type MessageDeliveryStatus = 'sending' | 'sent' | 'failed';
+
 export type Message = {
   id: string;
   groupId: string;
@@ -119,6 +121,10 @@ export type Message = {
   pollId?: string | null;
   reactions: Reaction[];
   isMine: boolean;
+  /** Delivery status for optimistic sending and offline queuing */
+  deliveryStatus?: MessageDeliveryStatus;
+  /** Unique client message identifier for deduplication */
+  clientMessageId?: string;
   /**
    * Set only on the synthetic "daily recap" entry ChatScreen weaves into the
    * message array at its chronological slot (right after midnight) so it

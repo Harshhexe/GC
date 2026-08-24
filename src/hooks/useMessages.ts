@@ -4,6 +4,16 @@ import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { consumeMissedBoundary } from '../lib/readState';
 import { useAuth } from '../context/AuthContext';
+import { useNetworkStatus } from './useNetworkStatus';
+import {
+  getCachedMessages,
+  saveCachedMessages,
+  getOfflineQueue,
+  enqueueOfflineMessage,
+  dequeueOfflineMessage,
+  updateQueuedMessageStatus,
+  QueuedMessage,
+} from '../lib/offlineQueue';
 import { AIShare, MediaType, Mention, MediaViewerProfile, Message, MessageKind, MessageMedia, Reaction, ReplyPreview } from '../types';
 import { labelFor } from '../data/reactions';
 
@@ -131,6 +141,8 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
   const myIdRef = useRef(myId);
   myIdRef.current = myId;
 
+  const { isOnline, isReconnecting, reconnect } = useNetworkStatus();
+
   const [allMessages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   // Messages this viewer has "deleted for me". They still exist for everyone
@@ -143,6 +155,35 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
   );
   const profilesRef = useRef<Map<string, ProfileLite>>(new Map());
   const reactionRowsRef = useRef<ReactionRow[]>([]);
+
+  // Initial cache hydration from AsyncStorage for instant render
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!groupId) return;
+      const cached = await getCachedMessages(groupId);
+      if (active && cached.length > 0 && messagesRef.current.length === 0) {
+        setMessages(cached);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [groupId]);
+
+  // Persist messages to AsyncStorage cache (debounced)
+  const saveCacheTimer = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!groupId || messages.length === 0) return;
+    if (saveCacheTimer.current) clearTimeout(saveCacheTimer.current);
+    saveCacheTimer.current = setTimeout(() => {
+      saveCachedMessages(groupId, messages);
+    }, 400);
+    return () => {
+      if (saveCacheTimer.current) clearTimeout(saveCacheTimer.current);
+    };
+  }, [groupId, messages]);
   // messageId -> everyone who has burned their one look at it. Holds every
   // group member's views, not just mine: the sender's own bubble needs to know
   // whether *anyone* has opened it to show "Opened".
@@ -733,9 +774,30 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
               .single();
             if (p) profilesRef.current.set(p.id, p);
           }
-          setMessages((prev) =>
-            prev.some((m) => m.id === row.id) ? prev : [...prev, ...buildMessages([row])]
-          );
+          const built = buildMessages([row]);
+          if (built.length === 0) return;
+          const newMsg = built[0];
+
+          setMessages((prev) => {
+            // Check if this incoming server message matches an optimistic client message
+            const optimisticIndex = prev.findIndex(
+              (m) =>
+                m.id === row.id ||
+                (m.deliveryStatus === 'sending' &&
+                  m.authorId === row.author_id &&
+                  m.text === newMsg.text &&
+                  ((!m.media && !row.media_url) || (m.media?.url === row.media_url)))
+            );
+
+            if (optimisticIndex >= 0) {
+              const next = [...prev];
+              next[optimisticIndex] = { ...newMsg, deliveryStatus: 'sent' };
+              return next;
+            }
+
+            if (prev.some((m) => m.id === row.id)) return prev;
+            return [...prev, newMsg];
+          });
           if (row.reply_to_message_id) resolveReplyPreview(row.reply_to_message_id);
         }
       )
@@ -881,6 +943,82 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
     }
   }, [messages, resolveReplyPreview]);
 
+  const drainingRef = useRef(false);
+
+  const drainQueue = useCallback(async () => {
+    if (drainingRef.current || !groupId || !myIdRef.current || !isOnline) return;
+    drainingRef.current = true;
+    try {
+      const queue = await getOfflineQueue(groupId);
+      if (queue.length === 0) return;
+
+      for (const item of queue) {
+        try {
+          const { error } = await supabase.from('messages').insert({
+            ai_share: item.aiShare ?? null,
+            group_id: item.groupId,
+            author_id: item.authorId,
+            text: item.text,
+            reply_to_message_id: item.replyToMessageId ?? null,
+            mentions: item.mentions ?? [],
+            mention_everyone: item.mentionEveryone ?? false,
+            media_url: item.media?.url ?? null,
+            media_thumb_url: item.media?.thumbUrl ?? null,
+            media_type: item.media?.type ?? null,
+            media_mime: item.media?.mime ?? null,
+            media_name: item.media?.name ?? null,
+            media_size: item.media?.size ?? null,
+            media_width: item.media?.width ?? null,
+            media_height: item.media?.height ?? null,
+            media_duration_ms: item.media?.durationMs ?? null,
+            media_view_once: item.media?.viewOnce ?? false,
+            sticker_id: item.stickerId ?? null,
+            poll_id: item.pollId ?? null,
+          });
+
+          if (error) {
+            console.warn('[useMessages] drainQueue item error:', error);
+            await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.clientMessageId === item.clientMessageId
+                  ? { ...m, deliveryStatus: 'failed' }
+                  : m
+              )
+            );
+          } else {
+            await dequeueOfflineMessage(groupId, item.clientMessageId);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.clientMessageId === item.clientMessageId
+                  ? { ...m, deliveryStatus: 'sent' }
+                  : m
+              )
+            );
+          }
+        } catch (err) {
+          console.warn('[useMessages] drainQueue exception:', err);
+          await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientMessageId === item.clientMessageId
+                ? { ...m, deliveryStatus: 'failed' }
+                : m
+            )
+          );
+        }
+      }
+    } finally {
+      drainingRef.current = false;
+    }
+  }, [groupId, isOnline]);
+
+  useEffect(() => {
+    if (isOnline) {
+      drainQueue();
+    }
+  }, [isOnline, drainQueue]);
+
   const sendMessage = useCallback(
     async (
       text: string,
@@ -893,45 +1031,204 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
       pollId?: string | null
     ) => {
       const uid = myIdRef.current;
-      // A media-only message needs no caption; a plain-text one still needs
-      // real content — no sending an empty bubble.
-      //
-      // A poll counts as content too. It carries no text and no media (it isn't
-      // a media_type — see supabase/polls.sql), so without `pollId` here the
-      // guard silently swallowed every poll: the row was never inserted, and
-      // the composer looked like it had sent something.
       if (!uid || (!text.trim() && !media && !pollId)) return;
-      await supabase.from('messages').insert({
-        ai_share: aiShare ?? null,
-        group_id: groupId,
-        author_id: uid,
-        text: text.trim(),
-        reply_to_message_id: replyToMessageId ?? null,
-        mentions,
-        mention_everyone: mentionEveryone,
-        media_url: media?.url ?? null,
-        media_thumb_url: media?.thumbUrl ?? null,
-        media_type: media?.type ?? null,
-        media_mime: media?.mime ?? null,
-        media_name: media?.name ?? null,
-        media_size: media?.size ?? null,
-        media_width: media?.width ?? null,
-        media_height: media?.height ?? null,
-        media_duration_ms: media?.durationMs ?? null,
-        media_view_once: media?.viewOnce ?? false,
-        sticker_id: stickerId ?? null,
-        poll_id: pollId ?? null,
-      });
 
-      // Replying is proof of having caught up, so the preserved "what did I
-      // miss" boundary is spent here rather than left pinned for the rest of
-      // the sitting — otherwise the recap keeps re-reporting the very messages
-      // you just answered. Done inside sendMessage so every path (text, media,
-      // gif, sticker, voice, AI share) is covered by one call instead of six.
+      const trimmed = text.trim();
+      const clientMessageId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const myProfile = profilesRef.current.get(uid);
+
+      const optimisticMsg: Message = {
+        id: clientMessageId,
+        clientMessageId,
+        groupId,
+        authorId: uid,
+        authorName: myProfile?.display_name ?? 'You',
+        authorColor: myProfile?.avatar_color ?? '#818CF8',
+        authorEmoji: myProfile?.avatar_emoji ?? '👤',
+        authorAvatarUrl: myProfile?.avatar_url ?? null,
+        text: trimmed,
+        kind: pollId ? 'poll' : (media?.type ?? 'text'),
+        createdAt: new Date().toISOString(),
+        replyToMessageId: replyToMessageId ?? null,
+        replyPreview: replyToMessageId
+          ? {
+              messageId: replyToMessageId,
+              authorId: null,
+              authorName: authorNameFor(rowsRef.current.get(replyToMessageId)?.author_id ?? null),
+              text: rowsRef.current.get(replyToMessageId)?.text ?? '',
+              kind: rowsRef.current.get(replyToMessageId)
+                ? kindFor(rowsRef.current.get(replyToMessageId)!)
+                : 'text',
+              isDeleted: false,
+            }
+          : null,
+        mentions,
+        mentionEveryone,
+        media: media ?? null,
+        stickerId: stickerId ?? null,
+        pollId: pollId ?? null,
+        reactions: [],
+        isMine: true,
+        deliveryStatus: 'sending',
+      };
+
+      setMessages((prev) => [...prev, optimisticMsg]);
       consumeMissedBoundary(groupId, uid);
+
+      const queuedItem: QueuedMessage = {
+        id: clientMessageId,
+        clientMessageId,
+        groupId,
+        authorId: uid,
+        text: trimmed,
+        replyToMessageId: replyToMessageId ?? null,
+        mentions,
+        mentionEveryone,
+        media: media ?? null,
+        aiShare: aiShare ?? null,
+        stickerId: stickerId ?? null,
+        pollId: pollId ?? null,
+        createdAt: optimisticMsg.createdAt,
+        status: 'sending',
+        retryCount: 0,
+      };
+
+      await enqueueOfflineMessage(queuedItem);
+
+      if (!isOnline) {
+        return;
+      }
+
+      try {
+        const { error } = await supabase.from('messages').insert({
+          ai_share: aiShare ?? null,
+          group_id: groupId,
+          author_id: uid,
+          text: trimmed,
+          reply_to_message_id: replyToMessageId ?? null,
+          mentions,
+          mention_everyone: mentionEveryone,
+          media_url: media?.url ?? null,
+          media_thumb_url: media?.thumbUrl ?? null,
+          media_type: media?.type ?? null,
+          media_mime: media?.mime ?? null,
+          media_name: media?.name ?? null,
+          media_size: media?.size ?? null,
+          media_width: media?.width ?? null,
+          media_height: media?.height ?? null,
+          media_duration_ms: media?.durationMs ?? null,
+          media_view_once: media?.viewOnce ?? false,
+          sticker_id: stickerId ?? null,
+          poll_id: pollId ?? null,
+        });
+
+        if (error) {
+          console.warn('[useMessages] sendMessage insert error:', error);
+          await updateQueuedMessageStatus(groupId, clientMessageId, 'failed');
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientMessageId === clientMessageId ? { ...m, deliveryStatus: 'failed' } : m
+            )
+          );
+        } else {
+          await dequeueOfflineMessage(groupId, clientMessageId);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientMessageId === clientMessageId ? { ...m, deliveryStatus: 'sent' } : m
+            )
+          );
+        }
+      } catch (err) {
+        console.warn('[useMessages] sendMessage exception:', err);
+        await updateQueuedMessageStatus(groupId, clientMessageId, 'failed');
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.clientMessageId === clientMessageId ? { ...m, deliveryStatus: 'failed' } : m
+          )
+        );
+      }
+    },
+    [groupId, isOnline, authorNameFor]
+  );
+
+  const retryMessage = useCallback(
+    async (messageId: string) => {
+      const queue = await getOfflineQueue(groupId);
+      const item = queue.find((q) => q.id === messageId || q.clientMessageId === messageId);
+      if (!item) return;
+
+      await updateQueuedMessageStatus(groupId, item.clientMessageId, 'sending');
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId || m.clientMessageId === item.clientMessageId
+            ? { ...m, deliveryStatus: 'sending' }
+            : m
+        )
+      );
+
+      try {
+        const { error } = await supabase.from('messages').insert({
+          ai_share: item.aiShare ?? null,
+          group_id: item.groupId,
+          author_id: item.authorId,
+          text: item.text,
+          reply_to_message_id: item.replyToMessageId ?? null,
+          mentions: item.mentions ?? [],
+          mention_everyone: item.mentionEveryone ?? false,
+          media_url: item.media?.url ?? null,
+          media_thumb_url: item.media?.thumbUrl ?? null,
+          media_type: item.media?.type ?? null,
+          media_mime: item.media?.mime ?? null,
+          media_name: item.media?.name ?? null,
+          media_size: item.media?.size ?? null,
+          media_width: item.media?.width ?? null,
+          media_height: item.media?.height ?? null,
+          media_duration_ms: item.media?.durationMs ?? null,
+          media_view_once: item.media?.viewOnce ?? false,
+          sticker_id: item.stickerId ?? null,
+          poll_id: item.pollId ?? null,
+        });
+
+        if (error) {
+          await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientMessageId === item.clientMessageId
+                ? { ...m, deliveryStatus: 'failed' }
+                : m
+            )
+          );
+        } else {
+          await dequeueOfflineMessage(groupId, item.clientMessageId);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientMessageId === item.clientMessageId
+                ? { ...m, deliveryStatus: 'sent' }
+                : m
+            )
+          );
+        }
+      } catch {
+        await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.clientMessageId === item.clientMessageId
+              ? { ...m, deliveryStatus: 'failed' }
+              : m
+          )
+        );
+      }
     },
     [groupId]
   );
+
+  const retryAllFailed = useCallback(async () => {
+    const queue = await getOfflineQueue(groupId);
+    const failed = queue.filter((q) => q.status === 'failed');
+    for (const item of failed) {
+      await retryMessage(item.clientMessageId);
+    }
+  }, [groupId, retryMessage]);
 
   const editMessage = useCallback(
     async (
@@ -1124,5 +1421,10 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
     reloadMessages: load,
     markMediaViewed,
     toggleReaction,
+    isOnline,
+    isReconnecting,
+    reconnect,
+    retryMessage,
+    retryAllFailed,
   };
 }

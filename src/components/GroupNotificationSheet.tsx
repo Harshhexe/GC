@@ -59,11 +59,32 @@ const MUTE_OPTIONS: {
   key: MuteOption;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  description: string;
 }[] = [
-  { key: '1h', icon: 'time-outline', label: '1 hour' },
-  { key: '8h', icon: 'moon-outline', label: '8 hours' },
-  { key: '1w', icon: 'calendar-outline', label: '1 week' },
-  { key: 'indefinite', icon: 'infinite-outline', label: 'Until I turn it back on' },
+  {
+    key: '1h',
+    icon: 'time-outline',
+    label: '1 hour',
+    description: 'Silence normal messages for 1 hour',
+  },
+  {
+    key: '8h',
+    icon: 'moon-outline',
+    label: '8 hours',
+    description: 'Silence normal messages for 8 hours',
+  },
+  {
+    key: '1w',
+    icon: 'calendar-outline',
+    label: '1 week',
+    description: 'Silence normal messages for 7 days',
+  },
+  {
+    key: 'indefinite',
+    icon: 'infinite-outline',
+    label: 'Until I turn it back on',
+    description: 'Silence normal messages until manually unmuted',
+  },
 ];
 
 export function GroupNotificationSheet({
@@ -90,6 +111,9 @@ export function GroupNotificationSheet({
     setMuteDuration,
   } = externalSettings ?? localSettings;
 
+  const [activeMuteChoice, setActiveMuteChoice] = useState<MuteOption | null>(() =>
+    mutedUntil?.startsWith('2099') ? 'indefinite' : null
+  );
   const [error, setError] = useState<string | null>(null);
 
   async function handleModeSelect(newMode: NotificationMode) {
@@ -105,6 +129,11 @@ export function GroupNotificationSheet({
   async function handleMuteSelect(option: MuteOption) {
     selectFeedback();
     setError(null);
+    if (option === 'unmute') {
+      setActiveMuteChoice(null);
+    } else {
+      setActiveMuteChoice(option);
+    }
     const res = await setMuteDuration(option);
     if (!res.ok && res.error) {
       setError(res.error);
@@ -143,16 +172,24 @@ export function GroupNotificationSheet({
             showsVerticalScrollIndicator={false}
           >
             {/* Status Summary Banner */}
-            <View style={styles.summaryCard}>
+            <View style={[styles.summaryCard, isMuted && styles.summaryCardMuted]}>
               <LinearGradient
-                colors={['rgba(255, 255, 255, 0.06)', 'rgba(255, 255, 255, 0.02)']}
+                colors={
+                  isMuted
+                    ? ['rgba(239, 68, 68, 0.12)', 'rgba(239, 68, 68, 0.03)']
+                    : ['rgba(255, 255, 255, 0.06)', 'rgba(255, 255, 255, 0.02)']
+                }
                 style={[StyleSheet.absoluteFill, { borderRadius: radius.md }]}
               />
               <View style={styles.summaryRow}>
                 <View
                   style={[
                     styles.summaryIconWrap,
-                    { backgroundColor: isMuted ? 'rgba(239, 68, 68, 0.15)' : 'rgba(129, 140, 248, 0.15)' },
+                    {
+                      backgroundColor: isMuted
+                        ? 'rgba(239, 68, 68, 0.18)'
+                        : 'rgba(129, 140, 248, 0.15)',
+                    },
                   ]}
                 >
                   <Ionicons
@@ -189,9 +226,39 @@ export function GroupNotificationSheet({
                       : 'No notifications will be sent for this chat'}
                   </Text>
                 </View>
+
                 {saving && <ActivityIndicator size="small" color={accentColor} />}
               </View>
             </View>
+
+            {/* Quick Unmute Action Card when muted */}
+            {isMuted && (
+              <PressableScale
+                style={[styles.quickUnmuteCard, { borderColor: `${accentColor}55` }]}
+                scaleTo={0.98}
+                haptic="medium"
+                onPress={() => handleMuteSelect('unmute')}
+              >
+                <LinearGradient
+                  colors={[`${accentColor}26`, `${accentColor}0A`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={[styles.quickUnmuteIcon, { backgroundColor: `${accentColor}33` }]}>
+                  <Ionicons name="volume-high" size={19} color={accentColor} />
+                </View>
+                <View style={styles.quickUnmuteCopy}>
+                  <Text style={[styles.quickUnmuteTitle, { color: accentColor }]}>
+                    Unmute Notifications
+                  </Text>
+                  <Text style={styles.quickUnmuteSub}>
+                    Resume normal alerts for this group now
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={17} color={accentColor} />
+              </PressableScale>
+            )}
 
             {/* Section 1: Notification Style */}
             <Text style={styles.sectionLabel}>NOTIFICATION STYLE</Text>
@@ -254,42 +321,71 @@ export function GroupNotificationSheet({
               })}
             </View>
 
-            {/* Section 2: Mute Notifications */}
+            {/* Section 2: Mute Duration Options */}
             <View style={styles.muteSectionHeader}>
               <Text style={styles.sectionLabel}>MUTE NOTIFICATIONS</Text>
-              {isMuted && (
-                <PressableScale
-                  style={styles.unmuteBtn}
-                  onPress={() => handleMuteSelect('unmute')}
-                >
-                  <Ionicons name="volume-high" size={14} color={accentColor} />
-                  <Text style={[styles.unmuteBtnText, { color: accentColor }]}>Unmute</Text>
-                </PressableScale>
-              )}
             </View>
 
             <View style={styles.cardGroup}>
               {MUTE_OPTIONS.map((item, idx) => {
+                const selected =
+                  isMuted &&
+                  (activeMuteChoice === item.key ||
+                    (!activeMuteChoice &&
+                      item.key === 'indefinite' &&
+                      Boolean(mutedUntil?.startsWith('2099'))));
+
                 return (
                   <PressableScale
                     key={item.key}
                     scaleTo={0.98}
                     onPress={() => handleMuteSelect(item.key)}
-                    style={[styles.optionRow, idx > 0 && styles.rowDivider]}
+                    style={[
+                      styles.optionRow,
+                      idx > 0 && styles.rowDivider,
+                      selected && styles.optionRowSelected,
+                    ]}
                   >
-                    <View style={styles.optionIconWrap}>
+                    <View
+                      style={[
+                        styles.optionIconWrap,
+                        selected && { backgroundColor: `${accentColor}22` },
+                      ]}
+                    >
                       <Ionicons
                         name={item.icon}
                         size={18}
-                        color={colors.onSurfaceVariant}
+                        color={selected ? accentColor : colors.onSurfaceVariant}
                       />
                     </View>
 
                     <View style={styles.optionCopy}>
-                      <Text style={styles.optionLabel}>{item.label}</Text>
+                      <Text
+                        style={[
+                          styles.optionLabel,
+                          selected && { color: colors.onSurface, fontWeight: '700' },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                      <Text style={styles.optionDesc}>{item.description}</Text>
                     </View>
 
-                    <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+                    <View
+                      style={[
+                        styles.radioOuter,
+                        selected && { borderColor: accentColor },
+                      ]}
+                    >
+                      {selected && (
+                        <View
+                          style={[
+                            styles.radioInner,
+                            { backgroundColor: accentColor },
+                          ]}
+                        />
+                      )}
+                    </View>
                   </PressableScale>
                 );
               })}
@@ -409,6 +505,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.onSurfaceVariant,
   },
+  summaryCardMuted: {
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  quickUnmuteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    marginBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  quickUnmuteIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickUnmuteCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  quickUnmuteTitle: {
+    ...typography.label,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  quickUnmuteSub: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
   sectionLabel: {
     ...typography.label,
     fontSize: 11,
@@ -423,20 +553,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.md,
     marginBottom: spacing.xs,
-  },
-  unmuteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  unmuteBtnText: {
-    ...typography.caption,
-    fontSize: 12,
-    fontWeight: '700',
   },
   cardGroup: {
     backgroundColor: colors.surfaceHigh,

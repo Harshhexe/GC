@@ -77,11 +77,13 @@ function MessageBubbleImpl({
   onQuotePress,
   onMentionPress,
   onMediaPress,
+  onRetry,
   myId,
 }: {
   message: Message;
   isMessageOfTheDay?: boolean;
   isPinned?: boolean;
+  onRetry?: (message: Message) => void;
   /** False when this message continues a run from the same author. */
   showAuthor?: boolean;
   /** False on every row but the last in a same-author run. */
@@ -518,9 +520,32 @@ function MessageBubbleImpl({
               </Animated.View>
             </PressableScale>
 
-            {!deleted && (showTimestamp || message.reactions.length > 0 || message.editedAt) && (
+            {!deleted && (showTimestamp || message.reactions.length > 0 || message.editedAt || message.deliveryStatus) && (
               <View style={[styles.metaRow, mine && styles.metaRowMine]}>
-                {showTimestamp && (
+                {mine && message.deliveryStatus === 'sending' && (
+                  <View style={styles.deliverySendingWrap}>
+                    <Ionicons name="time-outline" size={11} color={colors.onSurfaceVariant} />
+                    <Text style={[styles.deliveryStatusText, onWallpaper && styles.metaOnWallpaper]}>
+                      Sending…
+                    </Text>
+                  </View>
+                )}
+
+                {mine && message.deliveryStatus === 'failed' && (
+                  <PressableScale
+                    scaleTo={0.92}
+                    haptic="light"
+                    onPress={() => onRetry?.(message)}
+                    style={styles.deliveryFailedWrap}
+                  >
+                    <Ionicons name="alert-circle" size={12} color={colors.error} />
+                    <Text style={styles.deliveryFailedText}>
+                      Failed · Tap to retry
+                    </Text>
+                  </PressableScale>
+                )}
+
+                {showTimestamp && (!mine || !message.deliveryStatus || message.deliveryStatus === 'sent') && (
                   <Text style={[styles.time, onWallpaper && styles.metaOnWallpaper]}>
                     {clockTime(message.createdAt)}
                   </Text>
@@ -810,6 +835,32 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   metaRowMine: { justifyContent: 'flex-end' },
+  deliverySendingWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  deliveryStatusText: {
+    ...typography.micro,
+    fontSize: 11,
+    color: colors.outline,
+    fontStyle: 'italic',
+  },
+  deliveryFailedWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  deliveryFailedText: {
+    ...typography.micro,
+    fontSize: 11,
+    color: colors.error,
+    fontWeight: '700',
+  },
   time: { ...typography.micro, fontSize: 11, color: colors.outline },
   /*
    * The meta row (time, "edited", seen-by) sits *outside* the bubble, so the

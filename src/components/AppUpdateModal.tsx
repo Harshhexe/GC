@@ -16,14 +16,21 @@ import { PressableScale } from './ui/PressableScale';
 
 type Props = {
   visible: boolean;
-  isDownloading: boolean;
-  error: string | null;
+  type?: 'available' | 'whats_new';
+  isDownloading?: boolean;
+  error?: string | null;
   updateMessage?: string | null;
-  onUpdate: () => void;
+  onUpdate?: () => void;
   onDismiss: () => void;
 };
 
 const CHANGELOG_ITEMS = [
+  {
+    icon: 'cloud-offline-outline' as const,
+    color: '#38BDF8',
+    title: 'Offline Mode & Local Message Cache',
+    desc: 'Instant chat loading from local storage, persistent offline sending queue, auto-reconnect syncing, and failure retry controls.',
+  },
   {
     icon: 'notifications-outline' as const,
     color: '#818CF8',
@@ -44,27 +51,24 @@ const CHANGELOG_ITEMS = [
   },
   {
     icon: 'eye-off-outline' as const,
-    color: '#38BDF8',
+    color: '#FFD166',
     title: 'View Once Photos on Mobile & Web',
     desc: 'Self-destructing media with single-view protections and hardware screenshot safeguards.',
-  },
-  {
-    icon: 'sparkles-outline' as const,
-    color: '#FFD166',
-    title: 'Real-time Avatar Read Receipts',
-    desc: 'Instant last-seen avatar indicators under messages without duplicate badges.',
   },
 ];
 
 export function AppUpdateModal({
   visible,
-  isDownloading,
-  error,
+  type = 'available',
+  isDownloading = false,
+  error = null,
   updateMessage,
   onUpdate,
   onDismiss,
 }: Props) {
   if (!visible) return null;
+
+  const isWhatsNew = type === 'whats_new';
 
   return (
     <Modal
@@ -81,7 +85,7 @@ export function AppUpdateModal({
         <Animated.View entering={FadeInUp.duration(300)} style={styles.card}>
           {/* Top Accent Strip */}
           <LinearGradient
-            colors={['#818CF8', '#C084FC', '#F472B6']}
+            colors={isWhatsNew ? ['#10B981', '#38BDF8', '#818CF8'] : ['#818CF8', '#C084FC', '#F472B6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.accentBar}
@@ -93,45 +97,47 @@ export function AppUpdateModal({
               colors={['#1E1B2E', '#161426']}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.iconEmoji}>🚀</Text>
+            <Text style={styles.iconEmoji}>{isWhatsNew ? '✨' : '🚀'}</Text>
           </View>
 
           {/* Title & Subtitle */}
-          <Text style={styles.title}>Update Available!</Text>
+          <Text style={styles.title}>
+            {isWhatsNew ? "What's New in GC" : 'Update Available!'}
+          </Text>
           <Text style={styles.subtitle}>
-            A new version of GC is ready to install with fresh features and improvements.
+            {isWhatsNew
+              ? "Here's what just dropped in this latest version:"
+              : 'A new version of GC is ready to install with fresh features and improvements.'}
           </Text>
 
-          {/* Dynamic Release Note if provided via OTA */}
-          {updateMessage && (
-            <View style={styles.buildNoteBox}>
-              <Ionicons name="sparkles" size={13} color="#818CF8" />
-              <Text style={styles.buildNoteText} numberOfLines={2}>
-                {updateMessage}
+          {/* If Pre-Update: Show dynamic release note from EAS Update */}
+          {!isWhatsNew && (
+            <View style={styles.preUpdateNoteCard}>
+              <Ionicons name="sparkles" size={16} color="#818CF8" />
+              <Text style={styles.preUpdateNoteText}>
+                {updateMessage || 'Includes the latest features, improvements, and performance boosts.'}
               </Text>
             </View>
           )}
 
-          {/* Actual Changelog Section */}
-          <View style={styles.changelogHeader}>
-            <Text style={styles.changelogHeaderText}>WHAT'S NEW IN THIS UPDATE</Text>
-          </View>
-
-          <ScrollView style={styles.changelogScroll} showsVerticalScrollIndicator={false}>
-            <View style={styles.featuresBox}>
-              {CHANGELOG_ITEMS.map((item, idx) => (
-                <View key={idx} style={styles.featureRow}>
-                  <View style={[styles.featureBullet, { backgroundColor: `${item.color}22` }]}>
-                    <Ionicons name={item.icon} size={15} color={item.color} />
+          {/* If Post-Update: Show full changelog */}
+          {isWhatsNew && (
+            <ScrollView style={styles.changelogScroll} showsVerticalScrollIndicator={false}>
+              <View style={styles.featuresBox}>
+                {CHANGELOG_ITEMS.map((item, idx) => (
+                  <View key={idx} style={styles.featureRow}>
+                    <View style={[styles.featureBullet, { backgroundColor: `${item.color}22` }]}>
+                      <Ionicons name={item.icon} size={15} color={item.color} />
+                    </View>
+                    <View style={styles.featureCopy}>
+                      <Text style={styles.featureTitle}>{item.title}</Text>
+                      <Text style={styles.featureDesc}>{item.desc}</Text>
+                    </View>
                   </View>
-                  <View style={styles.featureCopy}>
-                    <Text style={styles.featureTitle}>{item.title}</Text>
-                    <Text style={styles.featureDesc}>{item.desc}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
+                ))}
+              </View>
+            </ScrollView>
+          )}
 
           {/* Error notice if any */}
           {error && (
@@ -143,35 +149,56 @@ export function AppUpdateModal({
 
           {/* Actions */}
           <View style={styles.actionColumn}>
-            <PressableScale
-              style={[styles.updateBtn, isDownloading && styles.updateBtnDisabled]}
-              scaleTo={0.97}
-              disabled={isDownloading}
-              onPress={onUpdate}
-            >
-              <LinearGradient
-                colors={isDownloading ? ['#312E4A', '#242238'] : ['#6366F1', '#8B5CF6']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-              />
-              {isDownloading ? (
+            {isWhatsNew ? (
+              <PressableScale
+                style={styles.updateBtn}
+                scaleTo={0.97}
+                onPress={onDismiss}
+              >
+                <LinearGradient
+                  colors={['#10B981', '#38BDF8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
                 <View style={styles.btnContent}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.btnText}>Updating & Restarting...</Text>
+                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                  <Text style={styles.btnText}>Let's Go! 🚀</Text>
                 </View>
-              ) : (
-                <View style={styles.btnContent}>
-                  <Ionicons name="refresh" size={18} color="#FFFFFF" />
-                  <Text style={styles.btnText}>Update & Restart Now</Text>
-                </View>
-              )}
-            </PressableScale>
-
-            {!isDownloading && (
-              <PressableScale style={styles.laterBtn} scaleTo={0.97} onPress={onDismiss}>
-                <Text style={styles.laterText}>Remind Me Later</Text>
               </PressableScale>
+            ) : (
+              <>
+                <PressableScale
+                  style={[styles.updateBtn, isDownloading && styles.updateBtnDisabled]}
+                  scaleTo={0.97}
+                  disabled={isDownloading}
+                  onPress={onUpdate}
+                >
+                  <LinearGradient
+                    colors={isDownloading ? ['#312E4A', '#242238'] : ['#6366F1', '#8B5CF6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  {isDownloading ? (
+                    <View style={styles.btnContent}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text style={styles.btnText}>Updating & Restarting...</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.btnContent}>
+                      <Ionicons name="refresh" size={18} color="#FFFFFF" />
+                      <Text style={styles.btnText}>Update & Restart Now</Text>
+                    </View>
+                  )}
+                </PressableScale>
+
+                {!isDownloading && (
+                  <PressableScale style={styles.laterBtn} scaleTo={0.97} onPress={onDismiss}>
+                    <Text style={styles.laterText}>Remind Me Later</Text>
+                  </PressableScale>
+                )}
+              </>
             )}
           </View>
         </Animated.View>
@@ -251,40 +278,29 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     paddingHorizontal: spacing.xs,
   },
-  buildNoteBox: {
+  preUpdateNoteCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: 'rgba(129, 140, 248, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(129, 140, 248, 0.3)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginTop: spacing.sm,
-  },
-  buildNoteText: {
-    ...typography.micro,
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#C7D2FE',
-  },
-  changelogHeader: {
-    alignSelf: 'flex-start',
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginTop: spacing.md,
-    marginBottom: spacing.xs,
+    width: '100%',
   },
-  changelogHeaderText: {
-    ...typography.micro,
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.8,
+  preUpdateNoteText: {
+    ...typography.bodyMedium,
+    fontSize: 13,
+    color: '#E0E7FF',
+    flex: 1,
+    lineHeight: 18,
   },
   changelogScroll: {
     width: '100%',
-    maxHeight: 250,
-    marginVertical: spacing.xs,
+    maxHeight: 270,
+    marginTop: spacing.md,
   },
   featuresBox: {
     width: '100%',
