@@ -779,14 +779,21 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
           const newMsg = built[0];
 
           setMessages((prev) => {
-            // Check if this incoming server message matches an optimistic client message
+            // 1. If message already exists by real row id, update in place
+            const existingByIdIndex = prev.findIndex((m) => m.id === row.id);
+            if (existingByIdIndex >= 0) {
+              const next = [...prev];
+              next[existingByIdIndex] = { ...newMsg, deliveryStatus: 'sent' };
+              return next;
+            }
+
+            // 2. If message matches an optimistic client message (temp id or clientMessageId)
             const optimisticIndex = prev.findIndex(
               (m) =>
-                m.id === row.id ||
-                (m.deliveryStatus === 'sending' &&
-                  m.authorId === row.author_id &&
-                  m.text === newMsg.text &&
-                  ((!m.media && !row.media_url) || (m.media?.url === row.media_url)))
+                (m.id.startsWith('temp_') || !!m.clientMessageId) &&
+                m.authorId === row.author_id &&
+                m.text === newMsg.text &&
+                ((!m.media && !row.media_url) || (m.media?.url === row.media_url))
             );
 
             if (optimisticIndex >= 0) {
@@ -795,7 +802,6 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
               return next;
             }
 
-            if (prev.some((m) => m.id === row.id)) return prev;
             return [...prev, newMsg];
           });
           if (row.reply_to_message_id) resolveReplyPreview(row.reply_to_message_id);
@@ -954,54 +960,70 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
 
       for (const item of queue) {
         try {
-          const { error } = await supabase.from('messages').insert({
-            ai_share: item.aiShare ?? null,
-            group_id: item.groupId,
-            author_id: item.authorId,
-            text: item.text,
-            reply_to_message_id: item.replyToMessageId ?? null,
-            mentions: item.mentions ?? [],
-            mention_everyone: item.mentionEveryone ?? false,
-            media_url: item.media?.url ?? null,
-            media_thumb_url: item.media?.thumbUrl ?? null,
-            media_type: item.media?.type ?? null,
-            media_mime: item.media?.mime ?? null,
-            media_name: item.media?.name ?? null,
-            media_size: item.media?.size ?? null,
-            media_width: item.media?.width ?? null,
-            media_height: item.media?.height ?? null,
-            media_duration_ms: item.media?.durationMs ?? null,
-            media_view_once: item.media?.viewOnce ?? false,
-            sticker_id: item.stickerId ?? null,
-            poll_id: item.pollId ?? null,
-          });
+          const { data: insertedRow, error } = await supabase
+            .from('messages')
+            .insert({
+              ai_share: item.aiShare ?? null,
+              group_id: item.groupId,
+              author_id: item.authorId,
+              text: item.text,
+              reply_to_message_id: item.replyToMessageId ?? null,
+              mentions: item.mentions ?? [],
+              mention_everyone: item.mentionEveryone ?? false,
+              media_url: item.media?.url ?? null,
+              media_thumb_url: item.media?.thumbUrl ?? null,
+              media_type: item.media?.type ?? null,
+              media_mime: item.media?.mime ?? null,
+              media_name: item.media?.name ?? null,
+              media_size: item.media?.size ?? null,
+              media_width: item.media?.width ?? null,
+              media_height: item.media?.height ?? null,
+              media_duration_ms: item.media?.durationMs ?? null,
+              media_view_once: item.media?.viewOnce ?? false,
+              sticker_id: item.stickerId ?? null,
+              poll_id: item.pollId ?? null,
+            })
+            .select(MESSAGE_COLUMNS)
+            .single();
 
           if (error) {
             console.warn('[useMessages] drainQueue item error:', error);
             await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
             setMessages((prev) =>
               prev.map((m) =>
-                m.clientMessageId === item.clientMessageId
+                m.clientMessageId === item.clientMessageId || m.id === item.clientMessageId
                   ? { ...m, deliveryStatus: 'failed' }
                   : m
               )
             );
           } else {
             await dequeueOfflineMessage(groupId, item.clientMessageId);
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.clientMessageId === item.clientMessageId
-                  ? { ...m, deliveryStatus: 'sent' }
-                  : m
-              )
-            );
+            if (insertedRow) {
+              const row = insertedRow as MessageRow;
+              rowsRef.current.set(row.id, row);
+              const built = buildMessages([row]);
+              if (built.length > 0) {
+                const realMsg = built[0];
+                setMessages((prev) => {
+                  const hasRealId = prev.some((m) => m.id === realMsg.id);
+                  if (hasRealId) {
+                    return prev.filter((m) => m.id !== item.clientMessageId && m.clientMessageId !== item.clientMessageId);
+                  }
+                  return prev.map((m) =>
+                    m.clientMessageId === item.clientMessageId || m.id === item.clientMessageId
+                      ? { ...realMsg, deliveryStatus: 'sent' }
+                      : m
+                  );
+                });
+              }
+            }
           }
         } catch (err) {
           console.warn('[useMessages] drainQueue exception:', err);
           await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
           setMessages((prev) =>
             prev.map((m) =>
-              m.clientMessageId === item.clientMessageId
+              m.clientMessageId === item.clientMessageId || m.id === item.clientMessageId
                 ? { ...m, deliveryStatus: 'failed' }
                 : m
             )
@@ -1011,7 +1033,7 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
     } finally {
       drainingRef.current = false;
     }
-  }, [groupId, isOnline]);
+  }, [groupId, isOnline, buildMessages]);
 
   useEffect(() => {
     if (isOnline) {
@@ -1093,62 +1115,82 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
         retryCount: 0,
       };
 
-      await enqueueOfflineMessage(queuedItem);
-
       if (!isOnline) {
+        await enqueueOfflineMessage(queuedItem);
         return;
       }
 
       try {
-        const { error } = await supabase.from('messages').insert({
-          ai_share: aiShare ?? null,
-          group_id: groupId,
-          author_id: uid,
-          text: trimmed,
-          reply_to_message_id: replyToMessageId ?? null,
-          mentions,
-          mention_everyone: mentionEveryone,
-          media_url: media?.url ?? null,
-          media_thumb_url: media?.thumbUrl ?? null,
-          media_type: media?.type ?? null,
-          media_mime: media?.mime ?? null,
-          media_name: media?.name ?? null,
-          media_size: media?.size ?? null,
-          media_width: media?.width ?? null,
-          media_height: media?.height ?? null,
-          media_duration_ms: media?.durationMs ?? null,
-          media_view_once: media?.viewOnce ?? false,
-          sticker_id: stickerId ?? null,
-          poll_id: pollId ?? null,
-        });
+        const { data: insertedRow, error } = await supabase
+          .from('messages')
+          .insert({
+            ai_share: aiShare ?? null,
+            group_id: groupId,
+            author_id: uid,
+            text: trimmed,
+            reply_to_message_id: replyToMessageId ?? null,
+            mentions,
+            mention_everyone: mentionEveryone,
+            media_url: media?.url ?? null,
+            media_thumb_url: media?.thumbUrl ?? null,
+            media_type: media?.type ?? null,
+            media_mime: media?.mime ?? null,
+            media_name: media?.name ?? null,
+            media_size: media?.size ?? null,
+            media_width: media?.width ?? null,
+            media_height: media?.height ?? null,
+            media_duration_ms: media?.durationMs ?? null,
+            media_view_once: media?.viewOnce ?? false,
+            sticker_id: stickerId ?? null,
+            poll_id: pollId ?? null,
+          })
+          .select(MESSAGE_COLUMNS)
+          .single();
 
         if (error) {
           console.warn('[useMessages] sendMessage insert error:', error);
-          await updateQueuedMessageStatus(groupId, clientMessageId, 'failed');
+          await enqueueOfflineMessage({ ...queuedItem, status: 'failed' });
           setMessages((prev) =>
             prev.map((m) =>
-              m.clientMessageId === clientMessageId ? { ...m, deliveryStatus: 'failed' } : m
+              m.clientMessageId === clientMessageId || m.id === clientMessageId
+                ? { ...m, deliveryStatus: 'failed' }
+                : m
             )
           );
         } else {
-          await dequeueOfflineMessage(groupId, clientMessageId);
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.clientMessageId === clientMessageId ? { ...m, deliveryStatus: 'sent' } : m
-            )
-          );
+          if (insertedRow) {
+            const row = insertedRow as MessageRow;
+            rowsRef.current.set(row.id, row);
+            const built = buildMessages([row]);
+            if (built.length > 0) {
+              const realMsg = built[0];
+              setMessages((prev) => {
+                const hasRealId = prev.some((m) => m.id === realMsg.id);
+                if (hasRealId) {
+                  return prev.filter((m) => m.id !== clientMessageId && m.clientMessageId !== clientMessageId);
+                }
+                return prev.map((m) =>
+                  m.clientMessageId === clientMessageId || m.id === clientMessageId
+                    ? { ...realMsg, deliveryStatus: 'sent' }
+                    : m
+                );
+              });
+            }
+          }
         }
       } catch (err) {
         console.warn('[useMessages] sendMessage exception:', err);
-        await updateQueuedMessageStatus(groupId, clientMessageId, 'failed');
+        await enqueueOfflineMessage({ ...queuedItem, status: 'failed' });
         setMessages((prev) =>
           prev.map((m) =>
-            m.clientMessageId === clientMessageId ? { ...m, deliveryStatus: 'failed' } : m
+            m.clientMessageId === clientMessageId || m.id === clientMessageId
+              ? { ...m, deliveryStatus: 'failed' }
+              : m
           )
         );
       }
     },
-    [groupId, isOnline, authorNameFor]
+    [groupId, isOnline, authorNameFor, buildMessages]
   );
 
   const retryMessage = useCallback(
@@ -1167,59 +1209,75 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
       );
 
       try {
-        const { error } = await supabase.from('messages').insert({
-          ai_share: item.aiShare ?? null,
-          group_id: item.groupId,
-          author_id: item.authorId,
-          text: item.text,
-          reply_to_message_id: item.replyToMessageId ?? null,
-          mentions: item.mentions ?? [],
-          mention_everyone: item.mentionEveryone ?? false,
-          media_url: item.media?.url ?? null,
-          media_thumb_url: item.media?.thumbUrl ?? null,
-          media_type: item.media?.type ?? null,
-          media_mime: item.media?.mime ?? null,
-          media_name: item.media?.name ?? null,
-          media_size: item.media?.size ?? null,
-          media_width: item.media?.width ?? null,
-          media_height: item.media?.height ?? null,
-          media_duration_ms: item.media?.durationMs ?? null,
-          media_view_once: item.media?.viewOnce ?? false,
-          sticker_id: item.stickerId ?? null,
-          poll_id: item.pollId ?? null,
-        });
+        const { data: insertedRow, error } = await supabase
+          .from('messages')
+          .insert({
+            ai_share: item.aiShare ?? null,
+            group_id: item.groupId,
+            author_id: item.authorId,
+            text: item.text,
+            reply_to_message_id: item.replyToMessageId ?? null,
+            mentions: item.mentions ?? [],
+            mention_everyone: item.mentionEveryone ?? false,
+            media_url: item.media?.url ?? null,
+            media_thumb_url: item.media?.thumbUrl ?? null,
+            media_type: item.media?.type ?? null,
+            media_mime: item.media?.mime ?? null,
+            media_name: item.media?.name ?? null,
+            media_size: item.media?.size ?? null,
+            media_width: item.media?.width ?? null,
+            media_height: item.media?.height ?? null,
+            media_duration_ms: item.media?.durationMs ?? null,
+            media_view_once: item.media?.viewOnce ?? false,
+            sticker_id: item.stickerId ?? null,
+            poll_id: item.pollId ?? null,
+          })
+          .select(MESSAGE_COLUMNS)
+          .single();
 
         if (error) {
           await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
           setMessages((prev) =>
             prev.map((m) =>
-              m.clientMessageId === item.clientMessageId
+              m.clientMessageId === item.clientMessageId || m.id === item.clientMessageId
                 ? { ...m, deliveryStatus: 'failed' }
                 : m
             )
           );
         } else {
           await dequeueOfflineMessage(groupId, item.clientMessageId);
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.clientMessageId === item.clientMessageId
-                ? { ...m, deliveryStatus: 'sent' }
-                : m
-            )
-          );
+          if (insertedRow) {
+            const row = insertedRow as MessageRow;
+            rowsRef.current.set(row.id, row);
+            const built = buildMessages([row]);
+            if (built.length > 0) {
+              const realMsg = built[0];
+              setMessages((prev) => {
+                const hasRealId = prev.some((m) => m.id === realMsg.id);
+                if (hasRealId) {
+                  return prev.filter((m) => m.id !== item.clientMessageId && m.clientMessageId !== item.clientMessageId);
+                }
+                return prev.map((m) =>
+                  m.clientMessageId === item.clientMessageId || m.id === item.clientMessageId
+                    ? { ...realMsg, deliveryStatus: 'sent' }
+                    : m
+                );
+              });
+            }
+          }
         }
       } catch {
         await updateQueuedMessageStatus(groupId, item.clientMessageId, 'failed');
         setMessages((prev) =>
           prev.map((m) =>
-            m.clientMessageId === item.clientMessageId
+            m.clientMessageId === item.clientMessageId || m.id === item.clientMessageId
               ? { ...m, deliveryStatus: 'failed' }
               : m
           )
         );
       }
     },
-    [groupId]
+    [groupId, buildMessages]
   );
 
   const retryAllFailed = useCallback(async () => {
