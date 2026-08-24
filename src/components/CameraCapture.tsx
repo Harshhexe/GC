@@ -146,6 +146,7 @@ export function CameraCapture({
   const [chromeHeight, setChromeHeight] = useState(0);
   /** Captured but not yet sent — drives the review step. */
   const [pending, setPending] = useState<PendingAttachment | null>(null);
+  const [viewOnce, setViewOnce] = useState(false);
 
   const cameraGranted = !!permission?.granted;
   const {
@@ -162,6 +163,7 @@ export function CameraCapture({
       setBusy(false);
       setMode('photo');
       setPending(null);
+      setViewOnce(false);
       // Reopen at 1x on the wide lens rather than wherever it was left.
       setZoom(0);
       setLens(WIDE_LENS);
@@ -381,10 +383,14 @@ export function CameraCapture({
   const confirmSend = useCallback(() => {
     if (!pending) return;
     successFeedback();
-    onCaptured(pending);
+    onCaptured({
+      ...pending,
+      viewOnce,
+    });
     setPending(null);
+    setViewOnce(false);
     onClose();
-  }, [pending, onCaptured, onClose]);
+  }, [pending, viewOnce, onCaptured, onClose]);
 
   // 0.5x is only meaningful where there is an ultra-wide to switch to.
   const hasUltraWide =
@@ -403,45 +409,41 @@ export function CameraCapture({
       // over the chat instead of replacing it, which left the screen showing
       // the transcript above the camera preview.
       presentationStyle="fullScreen"
-      onRequestClose={pending ? () => setPending(null) : onClose}
+      onRequestClose={pending ? () => { setPending(null); setViewOnce(false); } : onClose}
     >
       {/* Gesture handlers do not reach into a Modal's separate view tree
           without their own root here — without this the pinch is silently
           dead, the same way it is in MediaViewerModal. */}
       <GestureHandlerRootView style={styles.root}>
-        {/* On a phone the stage is simply the screen. On desktop web it is a
-            phone-width column instead: a camera stretched across a 2000px
-            window puts the shutter, album and flip buttons an inch from
-            opposite edges of the monitor, and blows the preview up far past
-            the resolution the webcam actually delivers. */}
         <View style={styles.stage}>
+          {/* Permission Gate */}
           {!cameraGranted ? (
-          <View style={styles.permissionRoot}>
-            <Pressable
-              style={[styles.permissionClose, { top: insets.top + spacing.sm }]}
-              onPress={onClose}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Close camera"
-            >
-              <Ionicons name="close" size={26} color="#FFFFFF" />
-            </Pressable>
-            <Ionicons name="camera-outline" size={44} color={accentColor} />
-            <Text style={styles.permissionTitle}>Camera access needed</Text>
-            <Text style={styles.permissionBody}>
-              GC uses your camera only when you choose to take a photo or record a video for the
-              group.
-            </Text>
-            <PressableScale
-              style={[styles.permissionBtn, { backgroundColor: accentColor }]}
-              scaleTo={0.96}
-              haptic="medium"
-              onPress={requestPermission}
-            >
-              <Text style={styles.permissionBtnText}>Allow camera</Text>
-            </PressableScale>
-          </View>
-        ) : pending ? (
+            <View style={styles.permissionRoot}>
+              <Pressable
+                style={[styles.permissionClose, { top: insets.top + spacing.sm }]}
+                onPress={onClose}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close camera"
+              >
+                <Ionicons name="close" size={26} color="#FFFFFF" />
+              </Pressable>
+              <Ionicons name="camera-outline" size={44} color={accentColor} />
+              <Text style={styles.permissionTitle}>Camera access needed</Text>
+              <Text style={styles.permissionBody}>
+                GC uses your camera only when you choose to take a photo or record a video for the
+                group.
+              </Text>
+              <PressableScale
+                style={[styles.permissionBtn, { backgroundColor: accentColor }]}
+                scaleTo={0.96}
+                haptic="medium"
+                onPress={requestPermission}
+              >
+                <Text style={styles.permissionBtnText}>Allow camera</Text>
+              </PressableScale>
+            </View>
+          ) : pending ? (
           /* ── Review ─────────────────────────────────────────────────── */
           <View style={styles.root}>
             <View style={styles.previewFill}>
@@ -460,7 +462,10 @@ export function CameraCapture({
             <View style={[styles.reviewTop, { paddingTop: insets.top + spacing.sm }]}>
               <Pressable
                 style={styles.roundBtn}
-                onPress={() => setPending(null)}
+                onPress={() => {
+                  setPending(null);
+                  setViewOnce(false);
+                }}
                 hitSlop={10}
                 accessibilityRole="button"
                 accessibilityLabel="Retake"
@@ -492,11 +497,42 @@ export function CameraCapture({
                 onPress={() => {
                   tapFeedback();
                   setPending(null);
+                  setViewOnce(false);
                 }}
                 accessibilityLabel="Retake"
               >
                 <Ionicons name="refresh" size={18} color="#FFFFFF" />
                 <Text style={styles.retakeText}>Retake</Text>
+              </PressableScale>
+
+              {/* View Once Toggle Button */}
+              <PressableScale
+                style={[
+                  styles.viewOnceBtn,
+                  viewOnce && { backgroundColor: `${accentColor}26`, borderColor: accentColor },
+                ]}
+                scaleTo={0.94}
+                haptic="light"
+                onPress={() => {
+                  tapFeedback();
+                  setViewOnce((v) => !v);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle View Once"
+              >
+                <View
+                  style={[
+                    styles.viewOnceCircle,
+                    viewOnce
+                      ? { backgroundColor: accentColor, borderColor: accentColor }
+                      : { borderColor: 'rgba(255, 255, 255, 0.45)' },
+                  ]}
+                >
+                  <Text style={[styles.viewOnceDigit, viewOnce && styles.viewOnceDigitActive]}>1</Text>
+                </View>
+                <Text style={[styles.viewOnceLabel, viewOnce && { color: accentColor }]}>
+                  {viewOnce ? 'View once' : 'View once'}
+                </Text>
               </PressableScale>
 
               <PressableScale
@@ -992,4 +1028,38 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   sendText: { ...typography.label, fontSize: 13, color: '#FFFFFF' },
+  viewOnceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: spacing.md + 2,
+    paddingVertical: spacing.sm + 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  viewOnceCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewOnceDigit: {
+    ...typography.label,
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
+  viewOnceDigitActive: {
+    color: '#FFFFFF',
+  },
+  viewOnceLabel: {
+    ...typography.label,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
 });

@@ -1032,7 +1032,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       width: attachment.width,
       height: attachment.height,
       durationMs: attachment.durationMs,
-      viewOnce: false,
+      viewOnce: attachment.viewOnce ?? false,
     };
     sendMessage('', replyTo?.id ?? null, [], false, media);
     setReplyTo(null);
@@ -2590,6 +2590,7 @@ export default function ChatScreen({ route, navigation }: Props) {
           }
           setAttachError(null);
           setPendingAttachment(result.attachment);
+          setPendingViewOnce(result.attachment?.viewOnce ?? false);
           setTimeout(() => inputRef.current?.focus(), 50);
         }}
       />

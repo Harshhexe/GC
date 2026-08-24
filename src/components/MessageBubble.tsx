@@ -560,11 +560,9 @@ function MessageBubbleImpl({
               </Pressable>
             )}
 
-            {/* Seen-by row: filter out message author's own avatar and current user */}
+            {/* Seen-by row: only filter out the logged-in user's own avatar */}
             {(() => {
-              const otherReaders = readers?.filter(
-                (r) => r.id !== message.authorId && (!myId || r.id !== myId)
-              );
+              const otherReaders = readers?.filter((r) => !myId || r.id !== myId);
               if (!otherReaders?.length) return null;
               const names = otherReaders.map((r) => r.displayName).join(', ');
 
@@ -609,10 +607,18 @@ function MessageBubbleImpl({
 
 function areReadersEqual(prev?: any[], next?: any[]) {
   if (prev === next) return true;
+  if (!prev && !next) return true;
   if (!prev || !next) return false;
   if (prev.length !== next.length) return false;
   for (let i = 0; i < prev.length; i++) {
-    if (prev[i].id !== next[i].id) return false;
+    if (
+      prev[i].id !== next[i].id ||
+      prev[i].avatarUrl !== next[i].avatarUrl ||
+      prev[i].avatarEmoji !== next[i].avatarEmoji ||
+      prev[i].avatarColor !== next[i].avatarColor
+    ) {
+      return false;
+    }
   }
   return true;
 }

@@ -50,6 +50,7 @@ export function WebCameraModal({
   const [mirrored, setMirrored] = useState(true);
   const [ringLight, setRingLight] = useState(false);
   const [flashing, setFlashing] = useState(false);
+  const [viewOnce, setViewOnce] = useState(false);
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -91,6 +92,7 @@ export function WebCameraModal({
     if (visible) {
       setShot(null);
       setRingLight(false);
+      setViewOnce(false);
       start(null);
     } else {
       stop();
@@ -125,11 +127,12 @@ export function WebCameraModal({
     // Draw unmirrored so any real world text/objects stay upright
     ctx.drawImage(video, 0, 0, width, height);
     setShot({ dataUrl: canvas.toDataURL('image/jpeg', JPEG_QUALITY), width, height });
+    setViewOnce(false);
   }
 
   function usePhoto() {
     if (!shot) return;
-    onCapture(fromWebCapture(shot.dataUrl, shot.width, shot.height));
+    onCapture(fromWebCapture(shot.dataUrl, shot.width, shot.height, viewOnce));
     stop();
     onClose();
   }
@@ -340,9 +343,29 @@ export function WebCameraModal({
           <View style={styles.controls}>
             {shot ? (
               <View style={styles.reviewControls}>
-                <PressableScale style={styles.secondaryBtn} scaleTo={0.96} onPress={() => setShot(null)}>
+                <PressableScale
+                  style={styles.secondaryBtn}
+                  scaleTo={0.96}
+                  onPress={() => {
+                    setShot(null);
+                    setViewOnce(false);
+                  }}
+                >
                   <Ionicons name="refresh" size={17} color={colors.onSurface} />
                   <Text style={styles.secondaryText}>Retake</Text>
+                </PressableScale>
+
+                <PressableScale
+                  style={[styles.viewOnceBtn, viewOnce && styles.viewOnceBtnActive]}
+                  scaleTo={0.96}
+                  onPress={() => setViewOnce((prev) => !prev)}
+                >
+                  <View style={[styles.viewOnceCircle, viewOnce && styles.viewOnceCircleActive]}>
+                    <Text style={[styles.viewOnceCircleText, viewOnce && styles.viewOnceCircleTextActive]}>1</Text>
+                  </View>
+                  <Text style={[styles.viewOnceText, viewOnce && styles.viewOnceTextActive]}>
+                    {viewOnce ? 'View Once On' : 'View Once'}
+                  </Text>
                 </PressableScale>
 
                 <PressableScale style={styles.primaryBtnWrap} scaleTo={0.96} haptic="medium" onPress={usePhoto}>
@@ -828,6 +851,53 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  viewOnceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md - 2,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  viewOnceBtnActive: {
+    backgroundColor: 'rgba(129, 140, 248, 0.22)',
+    borderColor: '#818CF8',
+  },
+  viewOnceCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewOnceCircleActive: {
+    backgroundColor: '#818CF8',
+    borderColor: '#818CF8',
+  },
+  viewOnceCircleText: {
+    ...typography.label,
+    fontSize: 10,
+    color: colors.onSurfaceVariant,
+    fontWeight: '800',
+  },
+  viewOnceCircleTextActive: {
+    color: '#FFFFFF',
+  },
+  viewOnceText: {
+    ...typography.label,
+    color: colors.onSurface,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  viewOnceTextActive: {
+    color: '#A5B4FC',
     fontWeight: '700',
   },
 });

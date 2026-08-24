@@ -28,6 +28,7 @@ export type PendingAttachment = {
   /** Videos only: a local poster frame grabbed from the clip, uploaded
    *  alongside it so the bubble has something to draw. */
   thumbUri: string | null;
+  viewOnce?: boolean;
 };
 
 export type PickResult = { attachment: PendingAttachment; error: null } | { attachment: null; error: string };
@@ -519,7 +520,12 @@ export async function fromClipboardImage(data: string, name?: string): Promise<P
  * The canvas already emits a sized, compressed JPEG, so this skips
  * compressImage() and only has to re-check the size limit.
  */
-export function fromWebCapture(dataUrl: string, width: number, height: number): PickResult {
+export function fromWebCapture(
+  dataUrl: string,
+  width: number,
+  height: number,
+  viewOnce: boolean = false
+): PickResult {
   const comma = dataUrl.indexOf(',');
   const semi = dataUrl.indexOf(';');
   if (comma < 0 || semi < 0) return { attachment: null, error: 'Couldn’t read that photo — try again.' };
@@ -545,6 +551,7 @@ export function fromWebCapture(dataUrl: string, width: number, height: number): 
       height,
       durationMs: null,
       thumbUri: null,
+      viewOnce,
     },
     error: null,
   };

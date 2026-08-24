@@ -91,6 +91,7 @@
         }
       ],
       "./plugins/withPushEntitlement",
+      "./plugins/withAndroidForegroundServiceFix",
       [
         "expo-notifications",
         {

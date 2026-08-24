@@ -73,7 +73,7 @@ export function useReadReceipts(groupId: string, myUserId: string | undefined) {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'group_members',
           filter: `group_id=eq.${groupId}`,
@@ -100,12 +100,25 @@ export function useReadersByMessage(messages: Message[], readers: Reader[]) {
     if (messages.length === 0 || readers.length === 0) return map;
 
     for (const reader of readers) {
-      const readUntil = new Date(reader.lastReadAt).getTime();
+      // If a member authored a message, they have seen at least up to their own latest message.
+      let authoredUntil = 0;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].authorId === reader.id) {
+          authoredUntil = new Date(messages[i].createdAt).getTime();
+          break;
+        }
+      }
+
+      const rawReadTime = reader.lastReadAt ? new Date(reader.lastReadAt).getTime() : 0;
+      const readUntil = Math.max(isNaN(rawReadTime) ? 0 : rawReadTime, authoredUntil);
+
+      if (readUntil <= 0) continue;
 
       // Messages are ordered oldest → newest, so walk back for the first hit.
       let landedOn: string | null = null;
       for (let i = messages.length - 1; i >= 0; i--) {
-        if (new Date(messages[i].createdAt).getTime() <= readUntil) {
+        const msgTime = new Date(messages[i].createdAt).getTime();
+        if (!isNaN(msgTime) && msgTime <= readUntil) {
           landedOn = messages[i].id;
           break;
         }
