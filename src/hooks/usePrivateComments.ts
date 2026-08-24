@@ -161,6 +161,12 @@ export function usePrivateCommentsForMe(groupId: string, since?: string | null) 
     let cancelled = false;
     (async () => {
       if (!groupId || !myId) return;
+      // Default to 24h rolling window ("Today") so stale comments expire
+      const effectiveSince =
+        since !== undefined
+          ? since
+          : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
       let q = supabase
         .from('private_comments')
         .select(PRIVATE_COMMENT_COLUMNS)
@@ -169,7 +175,7 @@ export function usePrivateCommentsForMe(groupId: string, since?: string | null) 
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(30);
-      if (since) q = q.gte('created_at', since);
+      if (effectiveSince) q = q.gte('created_at', effectiveSince);
       const { data } = await q;
       if (!cancelled) {
         setItems(((data ?? []) as PrivateCommentRow[]).map(toPrivateComment));

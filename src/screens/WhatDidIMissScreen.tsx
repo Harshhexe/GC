@@ -408,9 +408,19 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
   const { profile } = useAuth();
   const { messages, loading } = useMessages(groupId);
   const { members } = useGroupMembers(groupId);
-  // Private comments addressed to me. RLS means this can only ever return
-  // threads I'm part of, so nothing here can surface someone else's.
-  const privateForMe = usePrivateCommentsForMe(groupId);
+  // Private comments addressed to me within today's 24h window.
+  const since24h = useMemo(() => new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), []);
+  const rawPrivateForMe = usePrivateCommentsForMe(groupId, since24h);
+
+  const privateForMe = useMemo(() => {
+    const messageMap = new Map(messages.map((m) => [m.id, m]));
+    return rawPrivateForMe.filter((c) => {
+      if (new Date(c.createdAt).getTime() < Date.now() - 24 * 60 * 60 * 1000) return false;
+      const parentMsg = messageMap.get(c.messageId);
+      if (parentMsg && parentMsg.isDeleted) return false;
+      return true;
+    });
+  }, [rawPrivateForMe, messages]);
   const recap = useGroupRecap(
     messages,
     {
