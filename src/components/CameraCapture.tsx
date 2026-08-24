@@ -20,6 +20,7 @@ import Animated, { FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration as motionDuration, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
+import { WebCameraModal } from './WebCameraModal';
 import { useRecentMedia, type RecentAsset } from '../hooks/useRecentMedia';
 import {
   fromCameraCapture,
@@ -99,6 +100,22 @@ export function CameraCapture({
   onError: (message: string) => void;
   accentColor: string;
 }) {
+  if (Platform.OS === 'web') {
+    return (
+      <WebCameraModal
+        visible={visible}
+        onClose={onClose}
+        onCapture={(result) => {
+          if (result.error || !result.attachment) {
+            onError(result.error ?? 'Couldn’t use that capture.');
+            return;
+          }
+          onCaptured(result.attachment);
+        }}
+      />
+    );
+  }
+
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
 
@@ -600,7 +617,7 @@ export function CameraCapture({
 
               {/* Filmstrip. Hidden while recording so it can't be tapped
                   mid-clip. */}
-              {!recording && Platform.OS !== 'web' && (
+              {!recording && (
                 <View style={styles.stripWrap}>
                   {!mediaGranted ? (
                     <PressableScale

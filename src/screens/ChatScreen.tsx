@@ -2346,9 +2346,13 @@ export default function ChatScreen({ route, navigation }: Props) {
                   style={styles.plusButton}
                   scaleTo={0.85}
                   haptic="medium"
-                  disabled={uploading}
-                  onPress={() => setCameraVisible(true)}
-                  accessibilityLabel="Open camera"
+                  onPress={() => {
+                    if (Platform.OS === 'web' || supportsWebCamera()) {
+                      setWebCameraVisible(true);
+                      return;
+                    }
+                    setCameraVisible(true);
+                  }}
                 >
                   <Ionicons
                     name="camera"
