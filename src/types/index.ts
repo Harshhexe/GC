@@ -92,6 +92,9 @@ export type Message = {
   authorColor: string;
   authorEmoji?: string;
   authorAvatarUrl?: string | null;
+  /** Sent with /anon — the message genuinely has no author, and the sender is
+   *  recorded only in a table no client can read. */
+  isAnonymous?: boolean;
   isDeletedAuthor?: boolean;
   text: string;
   kind: MessageKind;

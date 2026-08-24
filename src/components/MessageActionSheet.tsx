@@ -23,6 +23,9 @@ export type MessageActionTarget = {
   isMine: boolean;
   /** A tombstoned message — no private comment can be started on it. */
   isDeleted?: boolean;
+  /** No author to address, so no private comment either — the database
+   *  refuses it anyway, and offering the option would just fail. */
+  isAnonymous?: boolean;
   /** Owner/admin moderation rights, independent of authorship. */
   canModerate: boolean;
   isPinned: boolean;

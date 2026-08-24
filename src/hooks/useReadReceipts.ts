@@ -94,18 +94,57 @@ export function useReadReceipts(groupId: string, myUserId: string | undefined) {
  * Bucket each reader under the newest message they've seen.
  * Returns messageId -> readers, so a bubble can render its own avatar row.
  */
-export function useReadersByMessage(messages: Message[], readers: Reader[]) {
+export function useReadersByMessage(
+  messages: Message[],
+  readers: Reader[],
+  myUserId?: string
+) {
   return useMemo(() => {
     const map = new Map<string, Reader[]>();
-    if (messages.length === 0 || readers.length === 0) return map;
+    if (messages.length === 0) return map;
 
-    for (const reader of readers) {
+    // Collect all members from readers list + any authors present in messages
+    const allReadersMap = new Map<string, Reader>();
+
+    // 1. Add known readers from group_members
+    for (const r of readers) {
+      if (!myUserId || r.id !== myUserId) {
+        allReadersMap.set(r.id, r);
+      }
+    }
+
+    // 2. Discover any message authors from messages (in case group_members hasn't loaded or member has no last_read_at)
+    for (const msg of messages) {
+      if (msg.authorId && (!myUserId || msg.authorId !== myUserId)) {
+        const existing = allReadersMap.get(msg.authorId);
+        if (!existing) {
+          allReadersMap.set(msg.authorId, {
+            id: msg.authorId,
+            displayName: msg.authorName || 'someone',
+            avatarEmoji: msg.authorEmoji || '👤',
+            avatarColor: msg.authorColor || '#d0bcff',
+            avatarUrl: msg.authorAvatarUrl || null,
+            lastReadAt: msg.createdAt,
+          });
+        } else {
+          // Enrich profile if needed
+          if (!existing.avatarUrl && msg.authorAvatarUrl) existing.avatarUrl = msg.authorAvatarUrl;
+          if (existing.avatarEmoji === '👤' && msg.authorEmoji) existing.avatarEmoji = msg.authorEmoji;
+        }
+      }
+    }
+
+    const allReaders = Array.from(allReadersMap.values());
+
+    for (const reader of allReaders) {
       // If a member authored a message, they have seen at least up to their own latest message.
       let authoredUntil = 0;
       for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].authorId === reader.id) {
-          authoredUntil = new Date(messages[i].createdAt).getTime();
-          break;
+          const t = new Date(messages[i].createdAt).getTime();
+          if (!isNaN(t) && t > authoredUntil) {
+            authoredUntil = t;
+          }
         }
       }
 
@@ -131,5 +170,5 @@ export function useReadersByMessage(messages: Message[], readers: Reader[]) {
     }
 
     return map;
-  }, [messages, readers]);
+  }, [messages, readers, myUserId]);
 }

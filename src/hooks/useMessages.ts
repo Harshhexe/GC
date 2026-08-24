@@ -27,6 +27,7 @@ type MessageRow = {
   deleted_by: string | null;
   mentions: Mention[] | null;
   mention_everyone: boolean;
+  is_anonymous?: boolean | null;
   media_url: string | null;
   media_thumb_url: string | null;
   media_type: MediaType | null;
@@ -43,7 +44,7 @@ type MessageRow = {
 };
 
 const MESSAGE_COLUMNS =
-  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once, sticker_id, poll_id, ai_share';
+  'id, group_id, author_id, text, created_at, reply_to_message_id, edited_at, is_deleted, deleted_by, mentions, mention_everyone, media_url, media_thumb_url, media_type, media_mime, media_name, media_size, media_width, media_height, media_duration_ms, media_view_once, sticker_id, poll_id, ai_share, is_anonymous';
 
 /** A shared AI answer, but only on a message that still exists — deleting a
  *  shared answer should blank it like any other message, not leave the AI
@@ -93,6 +94,15 @@ const DELETED_AUTHOR = {
   name: 'Deleted User',
   color: '#5C5670',
   emoji: '👻',
+} as const;
+
+/** An anonymous message has no author on purpose, which looks identical in the
+ *  row to an account that was deleted. They must not render the same: one says
+ *  "somebody here chose not to sign this", the other says "this person left". */
+const ANONYMOUS_AUTHOR = {
+  name: 'Anonymous',
+  color: '#9CA3AF',
+  emoji: '🎭',
 } as const;
 
 function aggregateReactions(rows: ReactionRow[], messageId: string, myUserId: string): Reaction[] {
@@ -181,7 +191,12 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
       return {
         messageId: target.id,
         authorId: target.author_id,
-        authorName: authorNameFor(target.author_id),
+        // An anonymous message has a null author, which authorNameFor reads as
+        // a deleted account — quoting it would mislabel it rather than leak
+        // anything, but mislabelling is still wrong.
+        authorName: target.is_anonymous
+          ? ANONYMOUS_AUTHOR.name
+          : authorNameFor(target.author_id),
         text: target.is_deleted ? '' : target.media_name && kindFor(target) === 'file' ? target.media_name : target.text,
         kind: target.is_deleted ? 'text' : kindFor(target),
         isDeleted: target.is_deleted,
@@ -230,6 +245,41 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
         const reactions = aggregateReactions(reactionRowsRef.current, row.id, myIdRef.current);
         const replyPreview = buildReplyPreview(row.reply_to_message_id);
         const displayText = row.is_deleted ? '' : row.text;
+
+        // Checked before the deleted-account branch below, which is the other
+        // reason author_id is null. Order matters: an anonymous message would
+        // otherwise be labelled as coming from a deleted account.
+        if (row.is_anonymous) {
+          const message: Message = {
+            id: row.id,
+            groupId: row.group_id,
+            authorId: null,
+            authorName: ANONYMOUS_AUTHOR.name,
+            authorColor: ANONYMOUS_AUTHOR.color,
+            authorEmoji: ANONYMOUS_AUTHOR.emoji,
+            isAnonymous: true,
+            text: displayText,
+            kind: row.is_deleted ? 'text' : kindFor(row),
+            createdAt: row.created_at,
+            editedAt: row.edited_at,
+            isDeleted: row.is_deleted,
+            deletedByAdmin: deletedByAdminFor(row),
+            replyToMessageId: row.reply_to_message_id,
+            replyPreview,
+            mentions: row.mentions ?? [],
+            mentionEveryone: row.mention_everyone,
+            media: null,
+            stickerId: null,
+            pollId: null,
+            // Never "mine", even to the person who sent it: a bubble aligned
+            // to the right would tell everyone looking over your shoulder
+            // exactly who wrote it.
+            isMine: false,
+            reactions,
+            aiShare: undefined,
+          };
+          return message;
+        }
 
         // author_id goes null when that account is deleted (ON DELETE SET
         // NULL) — the message stays, attributed to a fixed "Deleted User"

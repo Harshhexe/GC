@@ -60,6 +60,7 @@ import type { Sticker } from '../types';
 import { AttachmentPreview } from '../components/AttachmentPreview';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { CameraCapture } from '../components/CameraCapture';
+import { sendAnonymousMessage, ANON_DAILY_LIMIT } from '../lib/anonymous';
 import { useDailyNameMap } from '../hooks/useDailyNames';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { EmptyState } from '../components/EmptyState';
@@ -100,6 +101,8 @@ import {
   matchesWordyIntent,
   parseGCCommand,
   parseSlashCommand,
+  parseAnonymousCommand,
+  isBareAnonymousCommand,
   matchesPollIntent,
   type SlashCommandDef,
 } from '../lib/gcCommand';
@@ -402,7 +405,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   }, [groupId]);
 
   const readers = useReadReceipts(groupId, session?.user.id);
-  const readersByMessage = useReadersByMessage(messages, readers);
+  const readersByMessage = useReadersByMessage(messages, readers, session?.user.id);
 
   // Which of this device's messages have already been saved — purely local,
   // loaded once so the "Saved" pill survives navigating away and back.
@@ -836,6 +839,33 @@ export default function ChatScreen({ route, navigation }: Props) {
     // nothing to reroute.
     // Checked before @gc and before anything is sent: a slash command is a
     // navigation, not a message, so it must never reach the transcript.
+    // Before parseSlashCommand: that matches a whole-string command and would
+    // never recognise "/anon hello", which carries its message inline.
+    if (!editingMessage) {
+      const anon = parseAnonymousCommand(draft);
+      if (anon) {
+        setDraft('');
+        const res = await sendAnonymousMessage(groupId, anon.body);
+        if (!res.ok) {
+          setAttachError(res.error);
+        } else {
+          successFeedback();
+          setAttachError(
+            res.remaining > 0
+              ? `Sent anonymously · ${res.remaining} left today`
+              : 'Sent anonymously · that was your last one today'
+          );
+        }
+        return;
+      }
+      if (isBareAnonymousCommand(draft)) {
+        setAttachError(
+          `Type your message after the command, like "/anon i broke the toaster" (${ANON_DAILY_LIMIT} a day).`
+        );
+        return;
+      }
+    }
+
     const slash = editingMessage ? null : parseSlashCommand(draft);
     if (slash) {
       setDraft('');
@@ -2470,6 +2500,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             text: actionTarget.text,
             isMine: actionTarget.isMine,
             isDeleted: actionTarget.isDeleted,
+            isAnonymous: actionTarget.isAnonymous,
             canModerate,
             isPinned: pinnedIds.has(actionTarget.id),
             media: actionTarget.media,

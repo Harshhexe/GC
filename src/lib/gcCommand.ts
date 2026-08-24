@@ -38,7 +38,8 @@ export type SlashCommandFeature =
   | 'awards'
   | 'pinned'
   | 'media'
-  | 'clear';
+  | 'clear'
+  | 'anonymous';
 
 export type SlashCommand = {
   feature: SlashCommandFeature;
@@ -57,6 +58,15 @@ export type SlashCommandDef = {
 };
 
 export const SLASH_COMMAND_DEFS: SlashCommandDef[] = [
+  {
+    command: '/anon',
+    aliases: ['/anonymous'],
+    feature: 'anonymous',
+    title: 'Send Anonymously',
+    subtitle: 'Type your message after the command — nobody sees who sent it',
+    emoji: '🎭',
+    color: '#9CA3AF',
+  },
   {
     command: '/poll',
     aliases: ['/p'],
@@ -152,6 +162,30 @@ for (const def of SLASH_COMMAND_DEFS) {
 export function parseSlashCommand(text: string): SlashCommand | null {
   const trimmed = text.trim().toLowerCase();
   return SLASH_COMMANDS_MAP.get(trimmed) ?? null;
+}
+
+/**
+ * Splits "/anon <message>" into the command and its text.
+ *
+ * Every other slash command is a navigation with nothing after it, so
+ * parseSlashCommand only matches an exact whole-string command. This one
+ * carries the message itself, which means matching a prefix instead — and
+ * matching it here rather than in the composer so the command spellings stay
+ * in one place.
+ *
+ * Returns null for a bare "/anon" with no text: that should open the hint,
+ * not send an empty message.
+ */
+export function parseAnonymousCommand(text: string): { body: string } | null {
+  const match = text.trim().match(/^\/(anon|anonymous)\s+([\s\S]+)$/i);
+  if (!match) return null;
+  const body = match[2].trim();
+  return body ? { body } : null;
+}
+
+/** True for a bare "/anon" with nothing after it. */
+export function isBareAnonymousCommand(text: string): boolean {
+  return /^\/(anon|anonymous)\s*$/i.test(text.trim());
 }
 
 export type ActiveSlashQuery = { query: string };
