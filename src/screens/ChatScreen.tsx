@@ -1379,7 +1379,14 @@ export default function ChatScreen({ route, navigation }: Props) {
       // command that takes a message: picking it has to leave the composer
       // ready to type into, not wipe it and close.
       if (cmd.feature === 'anonymous') {
-        setDraft(`${cmd.command} `);
+        const next = `${cmd.command} `;
+        setDraft(next);
+        // `selection` is a controlled prop, so without moving it too it keeps
+        // pinning the caret wherever it was when the picker opened — right
+        // after the "/" — and typing lands in the middle of the command.
+        // applyMentionInsert has to do the same thing for the same reason.
+        setSelection({ start: next.length, end: next.length });
+        if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
         inputRef.current?.focus();
         return;
       }
