@@ -25,6 +25,7 @@ type Props = {
   groupName?: string;
   userId?: string | null;
   accentColor?: string;
+  settings?: ReturnType<typeof useGroupNotificationSettings>;
   onClose: () => void;
 };
 
@@ -71,8 +72,14 @@ export function GroupNotificationSheet({
   groupName = 'this group',
   userId,
   accentColor = colors.primary,
+  settings: externalSettings,
   onClose,
 }: Props) {
+  const localSettings = useGroupNotificationSettings(
+    externalSettings ? '' : groupId,
+    externalSettings ? null : userId
+  );
+
   const {
     mode,
     mutedUntil,
@@ -81,7 +88,7 @@ export function GroupNotificationSheet({
     saving,
     setNotificationMode,
     setMuteDuration,
-  } = useGroupNotificationSettings(groupId, userId);
+  } = externalSettings ?? localSettings;
 
   const [error, setError] = useState<string | null>(null);
 

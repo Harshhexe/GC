@@ -213,11 +213,8 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   const [themeSheetVisible, setThemeSheetVisible] = useState(false);
   const [notifSheetVisible, setNotifSheetVisible] = useState(false);
 
-  const {
-    mode: notifMode,
-    isMuted,
-    muteStatusText,
-  } = useGroupNotificationSettings(groupId, session?.user.id);
+  const notifSettings = useGroupNotificationSettings(groupId, session?.user.id);
+  const { mode: notifMode, isMuted, muteStatusText } = notifSettings;
 
   function handleAppearanceChange(patch: Partial<ChatAppearance>) {
     successFeedback();
@@ -614,6 +611,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
         groupName={group?.name}
         userId={session?.user.id}
         accentColor={activeTheme.accent}
+        settings={notifSettings}
         onClose={() => setNotifSheetVisible(false)}
       />
 

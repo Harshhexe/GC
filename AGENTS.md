@@ -27,3 +27,8 @@ It handles both:
 1. `UIApplicationSceneManifest` in `Info.plist` & `SceneDelegate` window binding.
 2. Keeping `appDelegate.window` initialized during `didFinishLaunchingWithOptions` for `expo-dev-launcher`.
 
+## Keyword: `CHANGELOG_UPDATE`
+Every time you make a big feature change or ship a major update:
+Always refresh `CHANGELOG_ITEMS` in `src/components/AppUpdateModal.tsx` with the new changes and remove older, stale entries so the update modal always highlights what is actually new.
+
+

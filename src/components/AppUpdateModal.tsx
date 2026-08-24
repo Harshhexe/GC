@@ -25,34 +25,34 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'search-outline' as const,
+    icon: 'notifications-outline' as const,
     color: '#818CF8',
-    title: 'Image Pinch-to-Zoom & Pan',
-    desc: 'Zoom in up to 5x with smooth 2-finger pinch gestures or double-tap any photo in chat.',
+    title: 'Per-Group Notification Controls & Mute',
+    desc: 'Customize notifications per GC (All messages, Mentions & replies only, or Off) and set flexible mute timers (1h, 8h, 1w, or Indefinite).',
   },
   {
-    icon: 'shield-checkmark-outline' as const,
+    icon: 'at-outline' as const,
     color: '#F472B6',
-    title: 'View Once Privacy & Screenshot Guard',
-    desc: 'Hardware screen capture protection on mobile and desktop view-once privacy guards.',
+    title: 'Translucent Mentions & /anon Pills',
+    desc: 'Chic interactive glass pills for @members, @everyone, and anonymous mode with one-tap removal.',
   },
   {
-    icon: 'grid-outline' as const,
+    icon: 'camera-outline' as const,
     color: '#10B981',
-    title: 'Wordy 17,200+ Words & Full Leaderboard',
-    desc: 'Expanded dictionary with common words (bikes, vibes) and complete attempt rows.',
+    title: 'Dynamic Composer Controls',
+    desc: 'Camera and mic automatically hide while typing to maximize space and cleanly return when empty.',
   },
   {
-    icon: 'desktop-outline' as const,
+    icon: 'eye-off-outline' as const,
     color: '#38BDF8',
-    title: 'Web Desktop Modal Experience',
-    desc: 'Centered modal cards for Daily Stats & What I Missed with group theme glows.',
+    title: 'View Once Photos on Mobile & Web',
+    desc: 'Self-destructing media with single-view protections and hardware screenshot safeguards.',
   },
   {
-    icon: 'hardware-chip-outline' as const,
+    icon: 'sparkles-outline' as const,
     color: '#FFD166',
-    title: 'Performance & Keyboard Optimizations',
-    desc: 'Fast disk caching, compressed avatars, and 120fps hardware-accelerated keyboard insets.',
+    title: 'Real-time Avatar Read Receipts',
+    desc: 'Instant last-seen avatar indicators under messages without duplicate badges.',
   },
 ];
 

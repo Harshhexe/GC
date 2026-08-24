@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { errorFeedback, successFeedback } from '../utils/haptics';
 
@@ -53,6 +53,7 @@ export function useGroupNotificationSettings(groupId: string, userId?: string | 
   const [mutedUntil, setMutedUntilState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const channelId = useRef(Math.random().toString(36).slice(2, 7));
 
   const isMuted = useMemo(() => isCurrentlyMuted(mutedUntil), [mutedUntil]);
 
@@ -95,8 +96,9 @@ export function useGroupNotificationSettings(groupId: string, userId?: string | 
   useEffect(() => {
     if (!groupId || !userId) return;
 
+    const channelName = `group-notif-${groupId}-${userId}-${channelId.current}`;
     const channel = supabase
-      .channel(`group_notif_${groupId}_${userId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
