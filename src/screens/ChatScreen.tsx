@@ -683,6 +683,17 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [pendingViewOnce, setPendingViewOnce] = useState(false);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
+  /** Neutral confirmations (e.g. an anonymous send) — attachError is styled as
+   *  an error, so reusing it made a success look like a failure. */
+  const [composerNotice, setComposerNotice] = useState<string | null>(null);
+
+  // Confirmations are transient by nature; one left sitting above the composer
+  // reads as persistent state rather than as something that just happened.
+  useEffect(() => {
+    if (!composerNotice) return;
+    const t = setTimeout(() => setComposerNotice(null), 4000);
+    return () => clearTimeout(t);
+  }, [composerNotice]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
@@ -850,7 +861,7 @@ export default function ChatScreen({ route, navigation }: Props) {
           setAttachError(res.error);
         } else {
           successFeedback();
-          setAttachError(
+          setComposerNotice(
             res.remaining > 0
               ? `Sent anonymously · ${res.remaining} left today`
               : 'Sent anonymously · that was your last one today'
@@ -859,8 +870,8 @@ export default function ChatScreen({ route, navigation }: Props) {
         return;
       }
       if (isBareAnonymousCommand(draft)) {
-        setAttachError(
-          `Type your message after the command, like "/anon i broke the toaster" (${ANON_DAILY_LIMIT} a day).`
+        setComposerNotice(
+          `Type your message after the command — "/anon i broke the toaster". ${ANON_DAILY_LIMIT} a day.`
         );
         return;
       }
@@ -1363,6 +1374,16 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const handleSelectSlashCommand = useCallback(
     (cmd: SlashCommandDef) => {
+      // Every other command is a navigation that fires on tap, so clearing the
+      // draft and dismissing the keyboard is right for them. /anon is the one
+      // command that takes a message: picking it has to leave the composer
+      // ready to type into, not wipe it and close.
+      if (cmd.feature === 'anonymous') {
+        setDraft(`${cmd.command} `);
+        inputRef.current?.focus();
+        return;
+      }
+
       setDraft('');
       if (inputRef.current) inputRef.current.blur();
 
@@ -2283,6 +2304,13 @@ export default function ChatScreen({ route, navigation }: Props) {
               </Animated.View>
             )}
 
+            {!!composerNotice && !attachError && (
+              <Animated.View entering={FadeIn.duration(duration.fast)} style={styles.attachErrorRow}>
+                <Ionicons name="eye-off" size={14} color={colors.onSurfaceVariant} />
+                <Text style={styles.composerNoticeText}>{composerNotice}</Text>
+              </Animated.View>
+            )}
+
             <SlashCommandSuggestions
               visible={!!activeSlashQuery}
               commands={slashMatches}
@@ -2798,6 +2826,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   attachErrorText: { ...typography.caption, fontSize: 12.5, color: colors.error, flexShrink: 1 },
+  composerNoticeText: {
+    ...typography.caption,
+    fontSize: 12.5,
+    color: colors.onSurfaceVariant,
+    flexShrink: 1,
+  },
   composerPreviewClose: {
     width: 26,
     height: 26,
