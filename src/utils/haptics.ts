@@ -24,3 +24,8 @@ export function warningFeedback() {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
 }
 
+export function errorFeedback() {
+  if (!enabled) return;
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+}
+

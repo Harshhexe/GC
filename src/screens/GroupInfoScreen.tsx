@@ -28,6 +28,8 @@ import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { MemberActionSheet, MemberActionTarget } from '../components/MemberActionSheet';
 import { ChatThemeSheet } from '../components/ChatThemeSheet';
+import { GroupNotificationSheet } from '../components/GroupNotificationSheet';
+import { useGroupNotificationSettings } from '../hooks/useGroupNotificationSettings';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { successFeedback } from '../utils/haptics';
@@ -209,6 +211,13 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     theme: activePersonalTheme,
   } = useChatAppearance(groupId, group?.theme);
   const [themeSheetVisible, setThemeSheetVisible] = useState(false);
+  const [notifSheetVisible, setNotifSheetVisible] = useState(false);
+
+  const {
+    mode: notifMode,
+    isMuted,
+    muteStatusText,
+  } = useGroupNotificationSettings(groupId, session?.user.id);
 
   function handleAppearanceChange(patch: Partial<ChatAppearance>) {
     successFeedback();
@@ -360,6 +369,73 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                 }
               />
             </GlassPanel>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(STAGGER_MS + 6)
+              .duration(duration.slow)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
+            style={styles.notifBlock}
+          >
+            <View style={styles.notifHeaderRow}>
+              <Text style={styles.notifSectionTitle}>Notifications</Text>
+            </View>
+
+            <PressableScale
+              scaleTo={0.98}
+              haptic="light"
+              onPress={() => setNotifSheetVisible(true)}
+              style={styles.notifRow}
+            >
+              <View
+                style={[
+                  styles.notifIconWrap,
+                  {
+                    backgroundColor: isMuted
+                      ? 'rgba(239, 68, 68, 0.15)'
+                      : notifMode === 'off'
+                      ? 'rgba(255, 255, 255, 0.06)'
+                      : `${activePersonalTheme.accent}22`,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    isMuted
+                      ? 'volume-mute'
+                      : notifMode === 'off'
+                      ? 'notifications-off'
+                      : notifMode === 'mentions_replies'
+                      ? 'at'
+                      : 'notifications'
+                  }
+                  size={18}
+                  color={
+                    isMuted
+                      ? colors.error
+                      : notifMode === 'off'
+                      ? colors.onSurfaceVariant
+                      : activePersonalTheme.accent
+                  }
+                />
+              </View>
+
+              <View style={styles.notifCopy}>
+                <Text style={styles.notifRowTitle}>Notifications</Text>
+                <Text style={styles.notifRowSub}>
+                  {isMuted
+                    ? muteStatusText
+                    : notifMode === 'all'
+                    ? 'All messages'
+                    : notifMode === 'mentions_replies'
+                    ? 'Mentions & replies'
+                    : 'Off'}
+                </Text>
+              </View>
+
+              <Ionicons name="chevron-forward" size={17} color={colors.textFaint} />
+            </PressableScale>
           </Animated.View>
 
           <Animated.View
@@ -532,6 +608,15 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
         onClose={() => setThemeSheetVisible(false)}
       />
 
+      <GroupNotificationSheet
+        visible={notifSheetVisible}
+        groupId={groupId}
+        groupName={group?.name}
+        userId={session?.user.id}
+        accentColor={activeTheme.accent}
+        onClose={() => setNotifSheetVisible(false)}
+      />
+
       <MemberActionSheet
         visible={actionTarget !== null}
         target={actionTargetView}
@@ -596,6 +681,33 @@ const styles = StyleSheet.create({
   copyButton: { marginTop: spacing.md },
   quickLinks: { overflow: 'hidden' },
   quickLinkDivider: { height: StyleSheet.hairlineWidth, backgroundColor: glass.stroke, marginLeft: spacing.lg + 18 + spacing.md },
+  notifBlock: { gap: spacing.sm },
+  notifHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notifSectionTitle: { ...typography.headline, fontSize: 20, color: colors.onSurface },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceHigh,
+  },
+  notifIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifCopy: { flex: 1, gap: 1 },
+  notifRowTitle: { ...typography.label, fontSize: 14, color: colors.onSurface },
+  notifRowSub: { ...typography.caption, fontSize: 12, color: colors.onSurfaceVariant },
   themeBlock: { gap: spacing.sm },
   themeHeaderRow: {
     flexDirection: 'row',

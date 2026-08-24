@@ -111,6 +111,9 @@ Deno.serve(async (req) => {
     // ==========================================
     // CASE 1.5: Private comment — one recipient, never the group
     // ==========================================
+    // ==========================================
+    // CASE 1.5: Private comment — one recipient, never the group
+    // ==========================================
     if (eventType === 'private_comment' && body.commentId) {
       // Service role reads the comment; the database only ever sent us an id,
       // so no comment text crossed the wire from Postgres.
@@ -122,20 +125,32 @@ Deno.serve(async (req) => {
 
       if (!comment || comment.deleted_at) return json({ ok: true, sent: 0, skipped: 'gone' });
 
-      const [{ data: author }, { data: group }, { data: origin }] = await Promise.all([
-        db.from('profiles').select('display_name, avatar_url').eq('id', comment.author_id).maybeSingle(),
-        db.from('groups').select('name, avatar_url').eq('id', comment.group_id).maybeSingle(),
-        db.from('messages').select('author_id').eq('id', comment.message_id).maybeSingle(),
-      ]);
+      const [{ data: author }, { data: group }, { data: origin }, { data: membership }, { data: notifSetting }] =
+        await Promise.all([
+          db.from('profiles').select('display_name, avatar_url').eq('id', comment.author_id).maybeSingle(),
+          db.from('groups').select('name, avatar_url').eq('id', comment.group_id).maybeSingle(),
+          db.from('messages').select('author_id').eq('id', comment.message_id).maybeSingle(),
+          db
+            .from('group_members')
+            .select('muted')
+            .eq('group_id', comment.group_id)
+            .eq('user_id', comment.recipient_id)
+            .maybeSingle(),
+          db
+            .from('group_notification_settings')
+            .select('notification_mode, muted_until')
+            .eq('group_id', comment.group_id)
+            .eq('user_id', comment.recipient_id)
+            .maybeSingle(),
+        ]);
 
-      // Muting the GC mutes its private comments too.
-      const { data: membership } = await db
-        .from('group_members')
-        .select('muted')
-        .eq('group_id', comment.group_id)
-        .eq('user_id', comment.recipient_id)
-        .maybeSingle();
-      if (membership?.muted) return json({ ok: true, sent: 0, skipped: 'muted' });
+      const mode = notifSetting?.notification_mode ?? 'all';
+      const isMuted = notifSetting?.muted_until
+        ? new Date(notifSetting.muted_until).getTime() > Date.now()
+        : membership?.muted === true;
+
+      // Off completely disables notifications; if muted, follow existing mute policy
+      if (mode === 'off' || isMuted) return json({ ok: true, sent: 0, skipped: isMuted ? 'muted' : 'off' });
 
       const who = author?.display_name ?? 'Someone';
       // The message's own author being the commenter means this is a reply
@@ -191,21 +206,32 @@ Deno.serve(async (req) => {
     // CASE 2: Tea Started in a Group
     // ==========================================
     if (eventType === 'tea_started' && body.groupId) {
-      const [{ data: group }, { data: starter }, { data: members }] = await Promise.all([
+      const [{ data: group }, { data: starter }, { data: members }, { data: notifSettings }] = await Promise.all([
         db.from('groups').select('name, emoji, avatar_url').eq('id', body.groupId).maybeSingle(),
         body.userId
           ? db.from('profiles').select('display_name, avatar_emoji').eq('id', body.userId).maybeSingle()
           : Promise.resolve({ data: null }),
-        db.from('group_members').select('user_id').eq('group_id', body.groupId).eq('muted', false),
+        db.from('group_members').select('user_id, muted').eq('group_id', body.groupId),
+        db.from('group_notification_settings').select('user_id, notification_mode, muted_until').eq('group_id', body.groupId),
       ]);
 
+      const settingsMap = new Map((notifSettings ?? []).map((s: any) => [s.user_id, s]));
       const groupName = group?.name ?? 'your GC';
       const groupEmoji = group?.emoji ? `${group.emoji} ` : '';
       const starterName = starter?.display_name ?? 'Someone';
 
       const recipientIds = (members ?? [])
-        .map((m) => m.user_id as string)
-        .filter((id) => id !== body.userId);
+        .filter((m: any) => {
+          if (m.user_id === body.userId) return false;
+          const s = settingsMap.get(m.user_id);
+          const mode = s?.notification_mode ?? 'all';
+          const isMuted = s?.muted_until
+            ? new Date(s.muted_until).getTime() > Date.now()
+            : m.muted === true;
+          return mode !== 'off' && !isMuted;
+        })
+        .map((m: any) => m.user_id as string);
+
       if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
 
       const { data: tokens } = await db
@@ -252,14 +278,26 @@ Deno.serve(async (req) => {
     // CASE 3: Weekly Awards Ready
     // ==========================================
     if (eventType === 'awards' && body.groupId) {
-      const [{ data: group }, { data: members }] = await Promise.all([
+      const [{ data: group }, { data: members }, { data: notifSettings }] = await Promise.all([
         db.from('groups').select('name, emoji, avatar_url').eq('id', body.groupId).maybeSingle(),
-        db.from('group_members').select('user_id').eq('group_id', body.groupId).eq('muted', false),
+        db.from('group_members').select('user_id, muted').eq('group_id', body.groupId),
+        db.from('group_notification_settings').select('user_id, notification_mode, muted_until').eq('group_id', body.groupId),
       ]);
 
+      const settingsMap = new Map((notifSettings ?? []).map((s: any) => [s.user_id, s]));
       const groupName = group?.name ?? 'your GC';
       const groupEmoji = group?.emoji ? `${group.emoji} ` : '';
-      const recipientIds = (members ?? []).map((m) => m.user_id as string);
+      const recipientIds = (members ?? [])
+        .filter((m: any) => {
+          const s = settingsMap.get(m.user_id);
+          const mode = s?.notification_mode ?? 'all';
+          const isMuted = s?.muted_until
+            ? new Date(s.muted_until).getTime() > Date.now()
+            : m.muted === true;
+          return mode !== 'off' && !isMuted;
+        })
+        .map((m: any) => m.user_id as string);
+
       if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
 
       const { data: tokens } = await db
@@ -306,15 +344,27 @@ Deno.serve(async (req) => {
     // CASE 3.5: Group Stats (Today's One Word)
     // ==========================================
     if ((eventType === 'group_stats' || eventType === 'daily_stats') && body.groupId) {
-      const [{ data: group }, { data: members }] = await Promise.all([
+      const [{ data: group }, { data: members }, { data: notifSettings }] = await Promise.all([
         db.from('groups').select('name, emoji, avatar_url').eq('id', body.groupId).maybeSingle(),
-        db.from('group_members').select('user_id').eq('group_id', body.groupId).eq('muted', false),
+        db.from('group_members').select('user_id, muted').eq('group_id', body.groupId),
+        db.from('group_notification_settings').select('user_id, notification_mode, muted_until').eq('group_id', body.groupId),
       ]);
 
+      const settingsMap = new Map((notifSettings ?? []).map((s: any) => [s.user_id, s]));
       const groupName = group?.name ?? 'your GC';
       const groupEmoji = group?.emoji ? `${group.emoji} ` : '';
       const oneWord = (body as any).oneWord || 'chaotic';
-      const recipientIds = (members ?? []).map((m) => m.user_id as string);
+      const recipientIds = (members ?? [])
+        .filter((m: any) => {
+          const s = settingsMap.get(m.user_id);
+          const mode = s?.notification_mode ?? 'all';
+          const isMuted = s?.muted_until
+            ? new Date(s.muted_until).getTime() > Date.now()
+            : m.muted === true;
+          return mode !== 'off' && !isMuted;
+        })
+        .map((m: any) => m.user_id as string);
+
       if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
 
       const { data: tokens } = await db
@@ -368,7 +418,7 @@ Deno.serve(async (req) => {
 
     const { data: message, error: messageError } = await db
       .from('messages')
-      .select('id, group_id, author_id, text, media_type, is_deleted, mention_everyone')
+      .select('id, group_id, author_id, text, media_type, is_deleted, mention_everyone, reply_to_message_id')
       .eq('id', messageId)
       .maybeSingle();
 
@@ -380,7 +430,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, sent: 0, skipped: 'gone' });
     }
 
-    const [{ data: group }, { data: author }, { data: members }] = await Promise.all([
+    const [{ data: group }, { data: author }, { data: members }, { data: notifSettings }] = await Promise.all([
       db.from('groups').select('name, emoji, avatar_url').eq('id', message.group_id).maybeSingle(),
       message.author_id
         ? db
@@ -391,14 +441,70 @@ Deno.serve(async (req) => {
         : Promise.resolve({ data: null }),
       db
         .from('group_members')
-        .select('user_id')
-        .eq('group_id', message.group_id)
-        .eq('muted', false),
+        .select('user_id, muted')
+        .eq('group_id', message.group_id),
+      db
+        .from('group_notification_settings')
+        .select('user_id, notification_mode, muted_until')
+        .eq('group_id', message.group_id),
     ]);
 
+    const settingsMap = new Map((notifSettings ?? []).map((s: any) => [s.user_id, s]));
+
+    // Check notifications table for mentions and replies
+    const { data: notifRows } = await db
+      .from('notifications')
+      .select('user_id, kind')
+      .eq('message_id', message.id);
+
+    const mentionedIds = new Set<string>();
+    const repliedIds = new Set<string>();
+    for (const r of notifRows ?? []) {
+      if (r.kind === 'mention' || r.kind === 'mention_everyone') {
+        mentionedIds.add(r.user_id as string);
+      } else if (r.kind === 'reply') {
+        repliedIds.add(r.user_id as string);
+      }
+    }
+
+    // Direct reply check fallback
+    if (message.reply_to_message_id) {
+      const { data: origMsg } = await db
+        .from('messages')
+        .select('author_id')
+        .eq('id', message.reply_to_message_id)
+        .maybeSingle();
+      if (origMsg?.author_id && origMsg.author_id !== message.author_id) {
+        repliedIds.add(origMsg.author_id);
+      }
+    }
+
+    // Filter recipients based on group_notification_settings and mute rules:
+    // 1. Never notify the author of the message.
+    // 2. 'off' mode: Never notify.
+    // 3. Muted: Suppress normal messages. Direct mentions & replies break through if mode != 'off'.
+    // 4. 'mentions_replies' mode: Only notify for direct mentions or replies.
+    // 5. 'all' mode: Notify for all messages unless muted.
     const recipientIds = (members ?? [])
-      .map((m) => m.user_id as string)
-      .filter((id) => id !== message.author_id);
+      .filter((m: any) => {
+        if (m.user_id === message.author_id) return false;
+        const s = settingsMap.get(m.user_id);
+        const mode = s?.notification_mode ?? 'all';
+        const isMuted = s?.muted_until
+          ? new Date(s.muted_until).getTime() > Date.now()
+          : m.muted === true;
+        const isDirect = mentionedIds.has(m.user_id) || repliedIds.has(m.user_id);
+
+        if (mode === 'off') return false;
+        if (isMuted) {
+          return isDirect;
+        }
+        if (mode === 'mentions_replies') {
+          return isDirect;
+        }
+        return true;
+      })
+      .map((m: any) => m.user_id as string);
 
     if (recipientIds.length === 0) return json({ ok: true, sent: 0 });
 
@@ -407,52 +513,25 @@ Deno.serve(async (req) => {
       .select('token, user_id')
       .in('user_id', recipientIds);
 
-    // No early-exit on an empty tokenRows here (unlike the other cases) — a
-    // group whose members only have web push subscriptions, no Expo tokens
-    // at all, must still fall through to the coalescing + web push logic
-    // below rather than short-circuit before it's ever reached.
     const tokenRows = (tokens ?? []) as TokenRow[];
-
-    const { data: mentionRows } = await db
-      .from('notifications')
-      .select('user_id')
-      .eq('message_id', message.id)
-      .in('kind', ['mention', 'mention_everyone']);
-    const mentionedIds = new Set((mentionRows ?? []).map((r) => r.user_id as string));
 
     // Plain names, no emoji prefixes: the card reads
     //   <group avatar>  Group Name
     //                   Member Name: message
-    // so the group's identity comes from the avatar + title, and the body is
-    // only ever "who said what".
     const groupName = group?.name ?? 'your GC';
     const authorName = author?.display_name ?? 'Someone';
     const preview = previewFor(message.text, message.media_type);
 
-    // Coalesce per recipient. Expo's push API has no Android grouping flag
-    // (threadId below is iOS-only), so every push becomes its own card in the
-    // shade — which is why a burst of eight messages produced eight
-    // notifications. Sending one per conversation per window is the part of
-    // WhatsApp's behaviour reachable without native MessagingStyle code.
-    //
-    // Decided per recipient, not per message: each member has their own
-    // window, and someone who just read the chat should be notified
-    // immediately while someone who hasn't stays coalesced.
-    // Over every recipient, not just those with an Expo token — a member who
-    // only ever registered a web push subscription still needs a decision
-    // made for them, or they'd never be notified on any channel at all.
     const coalesceByUser = new Map<string, number>();
-    // A mention always breaks through — being tagged is the case where a
-    // delayed or suppressed notification is genuinely costly — so those never
-    // consult the window at all.
     const windowed: string[] = [];
     for (const userId of new Set(recipientIds)) {
-      if (mentionedIds.has(userId)) coalesceByUser.set(userId, 1);
-      else windowed.push(userId);
+      if (mentionedIds.has(userId) || repliedIds.has(userId)) {
+        coalesceByUser.set(userId, 1);
+      } else {
+        windowed.push(userId);
+      }
     }
 
-    // One round trip for every remaining recipient rather than one each: a
-    // 50-member group used to mean 50 sequential RPCs per message.
     if (windowed.length > 0) {
       const { data: decisions } = await db.rpc('push_should_notify_batch', {
         p_user_ids: windowed,
@@ -463,67 +542,68 @@ Deno.serve(async (req) => {
         coalesceByUser.set(row.user_id, typeof row.pending === 'number' ? row.pending : 1);
         seen.add(row.user_id);
       }
-      // Fail open: if the batch call errored or skipped someone, notify rather
-      // than silently swallowing their message.
       for (const userId of windowed) if (!seen.has(userId)) coalesceByUser.set(userId, 1);
     }
 
     const messages = tokenRows
       .filter((row) => (coalesceByUser.get(row.user_id) ?? 1) > 0)
       .map((row) => {
-      const mentioned = mentionedIds.has(row.user_id);
-      const pending = coalesceByUser.get(row.user_id) ?? 1;
-      // Always show the actual message content so the user sees what was said
-      const bodyText = `${authorName}: ${preview}`;
+        const isReplied = repliedIds.has(row.user_id);
+        const isMentioned = mentionedIds.has(row.user_id);
+        const isDirect = isReplied || isMentioned;
+        const bodyText = `${authorName}: ${preview}`;
+        const title = isReplied
+          ? `${authorName} replied to you in ${groupName}`
+          : isMentioned
+          ? `${authorName} mentioned you in ${groupName}`
+          : groupName;
+
+        return {
+          to: row.token,
+          title,
+          body: bodyText,
+          sound: 'default',
+          categoryId: 'gc_message',
+          threadId: message.group_id,
+          data: {
+            type: 'message',
+            groupId: message.group_id,
+            messageId: message.id,
+            groupName,
+            groupEmoji: group?.emoji ?? '💬',
+            groupAvatarUrl: group?.avatar_url ?? null,
+            authorName,
+            authorEmoji: author?.avatar_emoji ?? null,
+            authorColor: author?.avatar_color ?? '#818CF8',
+            authorAvatarUrl: author?.avatar_url ?? null,
+            text: preview,
+          },
+          priority: isDirect ? 'high' : 'default',
+        };
+      });
+
+    const webItems: WebPushItem[] = recipientIds.map((userId) => {
+      const isReplied = repliedIds.has(userId);
+      const isMentioned = mentionedIds.has(userId);
+      const title = isReplied
+        ? `${authorName} replied to you in ${groupName}`
+        : isMentioned
+        ? `${authorName} mentioned you in ${groupName}`
+        : groupName;
+
       return {
-        to: row.token,
-        title: mentioned ? `${authorName} mentioned you in ${groupName}` : groupName,
-        body: bodyText,
-        sound: 'default',
-        categoryId: 'gc_message',
-        threadId: message.group_id,
+        userId,
+        title,
+        body: `${authorName}: ${preview}`,
+        tag: message.group_id,
+        icon: group?.avatar_url ?? null,
         data: {
           type: 'message',
           groupId: message.group_id,
           messageId: message.id,
-          groupName,
-          groupEmoji: group?.emoji ?? '💬',
-          groupAvatarUrl: group?.avatar_url ?? null,
-          authorName,
-          authorEmoji: author?.avatar_emoji ?? null,
-          authorColor: author?.avatar_color ?? '#818CF8',
-          authorAvatarUrl: author?.avatar_url ?? null,
-          text: preview,
         },
-        priority: mentioned ? 'high' : 'default',
       };
     });
-
-    // Web push deliberately skips the coalescing window — every message goes
-    // out the moment it lands.
-    //
-    // The window exists because Expo's push API has no way to group or replace
-    // an Android notification, so the only way to avoid a wall of cards is to
-    // send fewer of them — at the cost of the recipient waiting. Web Push has
-    // no such limitation: the service worker sets `tag` to the group id, and a
-    // notification with an existing tag *replaces* the one already showing for
-    // that conversation. That is the same "one card per chat" outcome the
-    // window is buying on native, except immediate, so paying the delay here
-    // would be cost without benefit.
-    const webItems: WebPushItem[] = recipientIds.map((userId) => ({
-      userId,
-      title: mentionedIds.has(userId)
-        ? `${authorName} mentioned you in ${groupName}`
-        : groupName,
-      body: `${authorName}: ${preview}`,
-      tag: message.group_id,
-      icon: group?.avatar_url ?? null,
-      data: {
-        type: 'message',
-        groupId: message.group_id,
-        messageId: message.id,
-      },
-    }));
 
     const [sent, webSent] = await Promise.all([sendToExpo(messages, db), sendToWebPush(webItems, db)]);
     return json({ ok: true, sent: sent + webSent });
