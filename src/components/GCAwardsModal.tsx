@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -564,6 +564,233 @@ export function GCAwardsModal({
     return 0;
   });
 
+  const modalBody = (
+    <>
+      {/* Ceremony Hero */}
+      <Animated.View
+        entering={FadeIn.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
+        style={styles.hero}
+      >
+        {/* Glowing Trophy Crest */}
+        <View style={styles.crestWrapper}>
+          <LinearGradient
+            colors={['#FDE047', '#F59E0B', '#D97706']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.crestBorder}
+          >
+            <View style={styles.crestInner}>
+              <Text style={styles.crestEmoji}>🏆</Text>
+            </View>
+          </LinearGradient>
+          <View style={styles.crestBackGlow} />
+        </View>
+
+        <Text style={styles.ceremonyEyebrow}>WEEKLY WRAPPED & HONORS</Text>
+        <Text style={styles.dateRange}>
+          {dateLabel(result.weekStart)} — {dateLabel(result.weekEnd)}
+        </Text>
+
+        {!generating && !failed && (
+          <View style={styles.statsRow}>
+            <View style={styles.statPill}>
+              <Ionicons name="chatbubbles" size={13} color={colors.primary} />
+              <Text style={styles.statPillText}>
+                {result.messageCount.toLocaleString()} messages judged
+              </Text>
+            </View>
+            <View style={styles.statPill}>
+              <Ionicons name="ribbon" size={13} color="#FBBF24" />
+              <Text style={styles.statPillText}>
+                {result.awards.length} title{result.awards.length === 1 ? '' : 's'} awarded
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {!generating && !failed && result.awards.length > 0 && (
+          <Text style={styles.heroSubtitle}>
+            The receipts have been audited. The verdicts are final. 💀
+          </Text>
+        )}
+      </Animated.View>
+
+      {/* GC AI's overall take on the week — separate from any one
+          category, the way a Tea Report's title sits above its receipts. */}
+      {!generating && !failed && !!result.title && (
+        <Animated.View
+          entering={FadeInDown.delay(40)
+            .duration(duration.slow)
+            .easing(easing.out)
+            .reduceMotion(reduceMotion)}
+          style={styles.verdictCard}
+        >
+          <View style={styles.verdictHead}>
+            <Ionicons name="sparkles" size={13} color="#FDE047" />
+            <Text style={styles.verdictEyebrow}>GC AI'S VERDICT</Text>
+          </View>
+          <Text style={styles.verdictTitle}>{result.title}</Text>
+          {!!result.summary && <Text style={styles.verdictSummary}>{result.summary}</Text>}
+        </Animated.View>
+      )}
+
+      {/* Generating State */}
+      {generating && (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={styles.stateBox}
+        >
+          <AIThinking tint="#FDE047" />
+          <Text style={styles.stateSubtitle}>
+            The jury is calculating who yapped the most and who started the drama...
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* Failed State */}
+      {failed && (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={styles.stateBox}
+        >
+          <View style={styles.errorIconWrap}>
+            <Ionicons name="skull-outline" size={32} color={colors.error} />
+          </View>
+          <Text style={styles.stateTitle}>Jury Deliberation Error 💀</Text>
+          <Text style={styles.stateSubtitle}>
+            GC AI could not finalize the verdicts this week. It will automatically retry on the next schedule!
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* Empty Activity State */}
+      {!generating && !failed && result.awards.length === 0 && (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={styles.stateBox}
+        >
+          <View style={styles.quietIconWrap}>
+            <Ionicons name="moon-outline" size={32} color={colors.outline} />
+          </View>
+          <Text style={styles.stateTitle}>Quiet Week in the GC</Text>
+          <Text style={styles.stateSubtitle}>
+            Not enough happened to hand out trophies. Be louder this week to unlock next Sunday at noon! 🏆
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* Award Cards List */}
+      {!generating &&
+        !failed &&
+        sortedAwards.map((award, i) => {
+          const isYapper =
+            award.type === 'professional_yapper' ||
+            award.title.toLowerCase().includes('yapper');
+
+          if (isYapper) {
+            return (
+              <YapperChampionCard
+                key={`${award.type}-${i}`}
+                award={award}
+                onJump={jump}
+              />
+            );
+          }
+
+          return (
+            <AwardCard
+              key={`${award.type}-${i}`}
+              award={award}
+              index={i}
+              onJump={jump}
+            />
+          );
+        })}
+
+      {/* Ceremony Footer */}
+      {!generating && !failed && result.awards.length > 0 && (
+        <Animated.View
+          entering={FadeInUp.delay(result.awards.length * 70 + 80)
+            .duration(duration.page)
+            .reduceMotion(reduceMotion)}
+          style={styles.footerWrap}
+        >
+          <View style={styles.footerCard}>
+            <Ionicons name="calendar-outline" size={16} color={colors.onSurfaceVariant} />
+            <Text style={styles.footerNote}>
+              Awards refresh automatically every Sunday at noon.
+            </Text>
+          </View>
+
+          <GCButton
+            label="Close Awards"
+            variant="ghost"
+            onPress={onClose}
+            style={styles.doneBtn}
+          />
+        </Animated.View>
+      )}
+    </>
+  );
+
+  // Web rendering: Centered floating card with What I Missed desktop styling
+  if (Platform.OS === 'web') {
+    return (
+      <Modal
+        visible={visible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <View style={styles.webModalLayer}>
+          <Pressable style={styles.webBackdrop} onPress={onClose} />
+
+          <View style={styles.webCard}>
+            <GoldenAwardsBackground />
+
+            {/* Web Header */}
+            <View style={styles.webHeader}>
+              <View style={styles.webHeaderLeft}>
+                <PressableScale
+                  style={styles.closeBtn}
+                  scaleTo={0.9}
+                  onPress={onClose}
+                  hitSlop={10}
+                >
+                  <Ionicons name="close" size={20} color="#FFFFFF" />
+                </PressableScale>
+                <View style={styles.webHeaderTitles}>
+                  <Text style={styles.webHeaderTitle}>GC Awards</Text>
+                  <Text style={styles.webHeaderSub}>Weekly Wrapped & Honors</Text>
+                </View>
+              </View>
+
+              <View style={styles.headerBadge}>
+                <LinearGradient
+                  colors={['rgba(253, 224, 71, 0.35)', 'rgba(245, 158, 11, 0.18)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.headerBadgeGradient}
+                >
+                  <Ionicons name="trophy" size={14} color="#FDE047" />
+                  <Text style={styles.headerBadgeText}>HONORS</Text>
+                </LinearGradient>
+              </View>
+            </View>
+
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.webScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              {modalBody}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       visible={visible}
@@ -609,170 +836,7 @@ export function GCAwardsModal({
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Ceremony Hero */}
-          <Animated.View
-            entering={FadeIn.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
-            style={styles.hero}
-          >
-            {/* Glowing Trophy Crest */}
-            <View style={styles.crestWrapper}>
-              <LinearGradient
-                colors={['#FDE047', '#F59E0B', '#D97706']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.crestBorder}
-              >
-                <View style={styles.crestInner}>
-                  <Text style={styles.crestEmoji}>🏆</Text>
-                </View>
-              </LinearGradient>
-              <View style={styles.crestBackGlow} />
-            </View>
-
-            <Text style={styles.ceremonyEyebrow}>WEEKLY WRAPPED & HONORS</Text>
-            <Text style={styles.dateRange}>
-              {dateLabel(result.weekStart)} — {dateLabel(result.weekEnd)}
-            </Text>
-
-            {!generating && !failed && (
-              <View style={styles.statsRow}>
-                <View style={styles.statPill}>
-                  <Ionicons name="chatbubbles" size={13} color={colors.primary} />
-                  <Text style={styles.statPillText}>
-                    {result.messageCount.toLocaleString()} messages judged
-                  </Text>
-                </View>
-                <View style={styles.statPill}>
-                  <Ionicons name="ribbon" size={13} color="#FBBF24" />
-                  <Text style={styles.statPillText}>
-                    {result.awards.length} title{result.awards.length === 1 ? '' : 's'} awarded
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {!generating && !failed && result.awards.length > 0 && (
-              <Text style={styles.heroSubtitle}>
-                The receipts have been audited. The verdicts are final. 💀
-              </Text>
-            )}
-          </Animated.View>
-
-          {/* GC AI's overall take on the week — separate from any one
-              category, the way a Tea Report's title sits above its receipts. */}
-          {!generating && !failed && !!result.title && (
-            <Animated.View
-              entering={FadeInDown.delay(40)
-                .duration(duration.slow)
-                .easing(easing.out)
-                .reduceMotion(reduceMotion)}
-              style={styles.verdictCard}
-            >
-              <View style={styles.verdictHead}>
-                <Ionicons name="sparkles" size={13} color="#FDE047" />
-                <Text style={styles.verdictEyebrow}>GC AI'S VERDICT</Text>
-              </View>
-              <Text style={styles.verdictTitle}>{result.title}</Text>
-              {!!result.summary && <Text style={styles.verdictSummary}>{result.summary}</Text>}
-            </Animated.View>
-          )}
-
-          {/* Generating State */}
-          {generating && (
-            <Animated.View
-              entering={FadeIn.duration(300)}
-              style={styles.stateBox}
-            >
-              <AIThinking tint="#FDE047" />
-              <Text style={styles.stateSubtitle}>
-                The jury is calculating who yapped the most and who started the drama...
-              </Text>
-            </Animated.View>
-          )}
-
-          {/* Failed State */}
-          {failed && (
-            <Animated.View
-              entering={FadeIn.duration(300)}
-              style={styles.stateBox}
-            >
-              <View style={styles.errorIconWrap}>
-                <Ionicons name="skull-outline" size={32} color={colors.error} />
-              </View>
-              <Text style={styles.stateTitle}>Jury Deliberation Error 💀</Text>
-              <Text style={styles.stateSubtitle}>
-                GC AI could not finalize the verdicts this week. It will automatically retry on the next schedule!
-              </Text>
-            </Animated.View>
-          )}
-
-          {/* Empty Activity State */}
-          {!generating && !failed && result.awards.length === 0 && (
-            <Animated.View
-              entering={FadeIn.duration(300)}
-              style={styles.stateBox}
-            >
-              <View style={styles.quietIconWrap}>
-                <Ionicons name="moon-outline" size={32} color={colors.outline} />
-              </View>
-              <Text style={styles.stateTitle}>Quiet Week in the GC</Text>
-              <Text style={styles.stateSubtitle}>
-                Not enough happened to hand out trophies. Be louder this week to unlock next Sunday at noon! 🏆
-              </Text>
-            </Animated.View>
-          )}
-
-          {/* Award Cards List */}
-          {!generating &&
-            !failed &&
-            sortedAwards.map((award, i) => {
-              const isYapper =
-                award.type === 'professional_yapper' ||
-                award.title.toLowerCase().includes('yapper');
-
-              if (isYapper) {
-                return (
-                  <YapperChampionCard
-                    key={`${award.type}-${i}`}
-                    award={award}
-                    onJump={jump}
-                  />
-                );
-              }
-
-              return (
-                <AwardCard
-                  key={`${award.type}-${i}`}
-                  award={award}
-                  index={i}
-                  onJump={jump}
-                />
-              );
-            })}
-
-          {/* Ceremony Footer */}
-          {!generating && !failed && result.awards.length > 0 && (
-            <Animated.View
-              entering={FadeInUp.delay(result.awards.length * 70 + 80)
-                .duration(duration.page)
-                .reduceMotion(reduceMotion)}
-              style={styles.footerWrap}
-            >
-              <View style={styles.footerCard}>
-                <Ionicons name="calendar-outline" size={16} color={colors.onSurfaceVariant} />
-                <Text style={styles.footerNote}>
-                  Awards refresh automatically every Sunday at noon.
-                </Text>
-              </View>
-
-              <GCButton
-                label="Close Awards"
-                variant="ghost"
-                onPress={onClose}
-                style={styles.doneBtn}
-              />
-            </Animated.View>
-          )}
+          {modalBody}
         </ScrollView>
       </View>
     </Modal>
@@ -890,6 +954,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_MARGIN,
     paddingTop: spacing.xs,
     gap: spacing.lg,
+  },
+  webModalLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    zIndex: 1000,
+  },
+  webBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  webCard: {
+    width: '100%',
+    maxWidth: 1040,
+    maxHeight: 780,
+    flex: 1,
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+    shadowOffset: { width: 0, height: 20 },
+  },
+  webHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    zIndex: 10,
+  },
+  webHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  webHeaderTitles: {
+    gap: 2,
+  },
+  webHeaderTitle: {
+    ...typography.headline,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  webHeaderSub: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
+  webScroll: {
+    padding: CONTAINER_MARGIN,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl + 20,
+    gap: spacing.lg,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   hero: {
     alignItems: 'center',
