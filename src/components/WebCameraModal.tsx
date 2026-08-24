@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, typography } from '../theme/theme';
@@ -146,30 +146,31 @@ export function WebCameraModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-      <View style={[styles.backdrop, ringLight && styles.backdropRingLight]}>
-        {/* Ambient atmospheric spotlight washes behind modal */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <LinearGradient
-            colors={['#181028', '#0C0A14', '#050409']}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <LinearGradient
-            colors={['rgba(129, 140, 248, 0.22)', 'rgba(192, 132, 252, 0.12)', 'transparent']}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 0.6 }}
-            style={styles.topSpotlight}
-          />
-          <LinearGradient
-            colors={['rgba(244, 114, 182, 0.14)', 'transparent']}
-            start={{ x: 1, y: 1 }}
-            end={{ x: 0.4, y: 0.4 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
+      <View style={[styles.webModalLayer, ringLight && styles.webModalLayerRingLight]}>
+        <Pressable style={styles.webBackdrop} onPress={close} />
 
-        <View style={[styles.card, ringLight && styles.cardRingLight]}>
+        <View style={[styles.webCard, ringLight && styles.cardRingLight]}>
+          {/* Ambient atmospheric spotlight washes inside card */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <LinearGradient
+              colors={['#181028', '#0C0A14', '#050409']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <LinearGradient
+              colors={['rgba(129, 140, 248, 0.22)', 'rgba(192, 132, 252, 0.12)', 'transparent']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 0.6 }}
+              style={styles.topSpotlight}
+            />
+            <LinearGradient
+              colors={['rgba(244, 114, 182, 0.14)', 'transparent']}
+              start={{ x: 1, y: 1 }}
+              end={{ x: 0.4, y: 0.4 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
           {/* Header Bar */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -405,15 +406,19 @@ export function WebCameraModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 4, 10, 0.85)',
+  webModalLayer: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
+    padding: spacing.xl,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    zIndex: 1000,
   },
-  backdropRingLight: {
-    backgroundColor: 'rgba(255, 248, 235, 0.15)',
+  webModalLayerRingLight: {
+    backgroundColor: 'rgba(255, 248, 235, 0.22)',
+  },
+  webBackdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
   topSpotlight: {
     position: 'absolute',
@@ -422,17 +427,25 @@ const styles = StyleSheet.create({
     right: 0,
     height: '60%',
   },
-  card: {
+  webCard: {
     width: '100%',
-    maxWidth: 720,
-    backgroundColor: 'rgba(18, 16, 28, 0.88)',
-    borderRadius: 24,
+    maxWidth: 780,
+    maxHeight: 740,
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.outlineVariant,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+    shadowOffset: { width: 0, height: 20 },
   },
   cardRingLight: {
     borderColor: 'rgba(255, 245, 220, 0.65)',
+    shadowColor: '#FDE047',
+    shadowOpacity: 0.35,
+    shadowRadius: 50,
   },
   header: {
     flexDirection: 'row',
