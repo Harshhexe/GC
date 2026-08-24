@@ -560,9 +560,11 @@ function MessageBubbleImpl({
               </Pressable>
             )}
 
-            {/* Seen-by row: only filter out the logged-in user's own avatar */}
+            {/* Seen-by row: only show readers who are neither the viewer nor the author of this message */}
             {(() => {
-              const otherReaders = readers?.filter((r) => !myId || r.id !== myId);
+              const otherReaders = readers?.filter(
+                (r) => (!myId || r.id !== myId) && r.id !== message.authorId
+              );
               if (!otherReaders?.length) return null;
               const names = otherReaders.map((r) => r.displayName).join(', ');
 

@@ -163,6 +163,18 @@ const UNREAD_DIVIDER_ID = 'gc-unread-divider';
 
 const CHAT_BG = require('../../assets/ChatBG.png');
 
+const ANON_PLACEHOLDERS = [
+  'Roast Them...',
+  'Take Revenge...',
+  'Spill...',
+  'Anonymous Message...',
+  'What you never said...',
+];
+
+function getRandomAnonPlaceholder() {
+  return ANON_PLACEHOLDERS[Math.floor(Math.random() * ANON_PLACEHOLDERS.length)];
+}
+
 export default function ChatScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const isDesktopWeb = useIsDesktopWeb();
@@ -461,6 +473,13 @@ export default function ChatScreen({ route, navigation }: Props) {
   };
   const [draft, setDraft] = useState('');
   const [isAnonMode, setIsAnonMode] = useState(false);
+  const [anonPlaceholder, setAnonPlaceholder] = useState(getRandomAnonPlaceholder);
+
+  const enterAnonMode = useCallback(() => {
+    setAnonPlaceholder(getRandomAnonPlaceholder());
+    setIsAnonMode(true);
+  }, []);
+
   const [stagedMentions, setStagedMentions] = useState<StagedMention[]>([]);
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -925,7 +944,7 @@ export default function ChatScreen({ route, navigation }: Props) {
         return;
       }
       if (isBareAnonymousCommand(draft)) {
-        setIsAnonMode(true);
+        enterAnonMode();
         setDraft('');
         maintainComposerFocus();
         return;
@@ -1450,7 +1469,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       // command that takes a message: picking it has to leave the composer
       // ready to type into, not wipe it and close.
       if (cmd.feature === 'anonymous') {
-        setIsAnonMode(true);
+        enterAnonMode();
         setDraft('');
         if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
         setTimeout(() => inputRef.current?.focus(), 50);
@@ -2522,8 +2541,8 @@ export default function ChatScreen({ route, navigation }: Props) {
                           m.type === 'everyone'
                             ? '#FBBF24'
                             : m.type === 'gc'
-                            ? '#C084FC'
-                            : m.color || theme.accent
+                              ? '#C084FC'
+                              : m.color || theme.accent
                         }
                       />
                     </Pressable>
@@ -2537,7 +2556,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                     value={draft}
                     onChangeText={(t) => {
                       if (!isAnonMode && (t.startsWith('/anon ') || t.startsWith('/anonymous '))) {
-                        setIsAnonMode(true);
+                        enterAnonMode();
                         const remaining = t.replace(/^\/(anon|anonymous)\s+/, '');
                         setDraft(remaining);
                         return;
@@ -2565,12 +2584,12 @@ export default function ChatScreen({ route, navigation }: Props) {
                     }}
                     placeholder={
                       isAnonMode
-                        ? 'Type anonymous message...'
+                        ? anonPlaceholder
                         : stagedMentions.length > 0
-                        ? 'Message...'
-                        : editingMessage
-                        ? 'Edit your message...'
-                        : 'Cook Something...'
+                          ? 'Message...'
+                          : editingMessage
+                            ? 'Edit your message...'
+                            : 'Cook Something...'
                     }
                     placeholderTextColor={colors.outline}
                     multiline
@@ -2599,27 +2618,28 @@ export default function ChatScreen({ route, navigation }: Props) {
               {/* Camera sits beside the mic rather than buried in the
                   attachment sheet: taking a photo for the group is a
                   first-class action, not a rarely-used attachment type.
-                  Hidden while recording or editing, where it has nothing to
-                  do and would only crowd the row. */}
-              {!isRecordingVoice && !editingMessage && (
-                <PressableScale
-                  style={styles.plusButton}
-                  scaleTo={0.85}
-                  haptic="medium"
-                  onPress={() => {
-                    if (Platform.OS === 'web' || supportsWebCamera()) {
-                      setWebCameraVisible(true);
-                      return;
-                    }
-                    setCameraVisible(true);
-                  }}
-                >
-                  <Ionicons
-                    name="camera"
-                    size={22}
-                    color={uploading ? colors.outline : colors.onSurfaceVariant}
-                  />
-                </PressableScale>
+                  Hidden while typing, recording or editing. */}
+              {!isRecordingVoice && !editingMessage && !canSend && (
+                <Animated.View entering={FadeIn.duration(160).reduceMotion(reduceMotion)}>
+                  <PressableScale
+                    style={styles.plusButton}
+                    scaleTo={0.85}
+                    haptic="medium"
+                    onPress={() => {
+                      if (Platform.OS === 'web' || supportsWebCamera()) {
+                        setWebCameraVisible(true);
+                        return;
+                      }
+                      setCameraVisible(true);
+                    }}
+                  >
+                    <Ionicons
+                      name="camera"
+                      size={22}
+                      color={uploading ? colors.outline : colors.onSurfaceVariant}
+                    />
+                  </PressableScale>
+                </Animated.View>
               )}
 
               {/* The mic takes the send button's place when there's nothing
