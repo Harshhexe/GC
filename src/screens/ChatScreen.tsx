@@ -122,7 +122,7 @@ import { PollComposer } from '../components/PollComposer';
 import { usePolls } from '../hooks/usePolls';
 import { createPoll, type PollDraft } from '../lib/polls';
 import { dayLabel } from '../utils/time';
-import { successFeedback, warningFeedback } from '../utils/haptics';
+import { successFeedback, warningFeedback, tapFeedback } from '../utils/haptics';
 import {
   EVERYONE_TOKEN,
   deriveMentionsFromText,
@@ -451,7 +451,17 @@ export default function ChatScreen({ route, navigation }: Props) {
     () => (tea.isActive ? TEA_THEME : personalTheme),
     [tea.isActive, personalTheme]
   );
+  type StagedMention = {
+    id: string;
+    name: string;
+    type: 'member' | 'everyone' | 'gc';
+    color?: string;
+    avatarUrl?: string | null;
+    avatarEmoji?: string;
+  };
   const [draft, setDraft] = useState('');
+  const [isAnonMode, setIsAnonMode] = useState(false);
+  const [stagedMentions, setStagedMentions] = useState<StagedMention[]>([]);
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -836,6 +846,24 @@ export default function ChatScreen({ route, navigation }: Props) {
     ]);
   }, [clearChatForMe]);
 
+  const maintainComposerFocus = useCallback(() => {
+    if (Platform.OS === 'web') {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        if (typeof document !== 'undefined') {
+          const el = document.querySelector('[data-gccomposer]') as HTMLTextAreaElement | null;
+          el?.focus();
+        }
+      });
+      setTimeout(() => {
+        if (typeof document !== 'undefined') {
+          const el = document.querySelector('[data-gccomposer]') as HTMLTextAreaElement | null;
+          el?.focus();
+        }
+      }, 40);
+    }
+  }, []);
+
   // Refreshed every render so the keydown listener above always calls the
   // current closure (handleSend captures `draft`).
   handleSendRef.current = () => { void handleSend(); };
@@ -852,10 +880,36 @@ export default function ChatScreen({ route, navigation }: Props) {
     // navigation, not a message, so it must never reach the transcript.
     // Before parseSlashCommand: that matches a whole-string command and would
     // never recognise "/anon hello", which carries its message inline.
+    if (!editingMessage && isAnonMode) {
+      const body = draft.trim();
+      if (!body) {
+        setComposerNotice(`Type your message after /anon. ${ANON_DAILY_LIMIT} a day.`);
+        return;
+      }
+      setDraft('');
+      setIsAnonMode(false);
+      setStagedMentions([]);
+      const res = await sendAnonymousMessage(groupId, body);
+      if (!res.ok) {
+        setAttachError(res.error);
+      } else {
+        successFeedback();
+        setComposerNotice(
+          res.remaining > 0
+            ? `Sent anonymously · ${res.remaining} left today`
+            : 'Sent anonymously · that was your last one today'
+        );
+      }
+      maintainComposerFocus();
+      return;
+    }
+
     if (!editingMessage) {
       const anon = parseAnonymousCommand(draft);
       if (anon) {
         setDraft('');
+        setIsAnonMode(false);
+        setStagedMentions([]);
         const res = await sendAnonymousMessage(groupId, anon.body);
         if (!res.ok) {
           setAttachError(res.error);
@@ -867,12 +921,13 @@ export default function ChatScreen({ route, navigation }: Props) {
               : 'Sent anonymously · that was your last one today'
           );
         }
+        maintainComposerFocus();
         return;
       }
       if (isBareAnonymousCommand(draft)) {
-        setComposerNotice(
-          `Type your message after the command — "/anon i broke the toaster". ${ANON_DAILY_LIMIT} a day.`
-        );
+        setIsAnonMode(true);
+        setDraft('');
+        maintainComposerFocus();
         return;
       }
     }
@@ -880,6 +935,8 @@ export default function ChatScreen({ route, navigation }: Props) {
     const slash = editingMessage ? null : parseSlashCommand(draft);
     if (slash) {
       setDraft('');
+      setIsAnonMode(false);
+      setStagedMentions([]);
       switch (slash.feature) {
         case 'wordy':
           navigation.navigate('Wordy', { groupId });
@@ -912,85 +969,92 @@ export default function ChatScreen({ route, navigation }: Props) {
       return;
     }
 
-    const gcCommand = editingMessage ? null : parseGCCommand(draft);
-    // "@gc wordy" is a navigation, not a question. Handled before the AI
-    // call so it costs nothing — and so the model is never asked to play,
-    // which it would happily fake a board for.
-    if (gcCommand && matchesWordyIntent(gcCommand.question)) {
-      setDraft('');
-      setReplyTo(null);
-      navigation.navigate('Wordy', { groupId });
-      return;
-    }
-    // "@gc make a poll ..." drafts rather than answers. The draft opens in
-    // the normal poll editor and is created by the normal poll API only once
-    // the user presses send — the AI never posts to the group itself.
-    if (gcCommand && matchesPollIntent(gcCommand.question)) {
-      const request = gcCommand.question;
-      setDraft('');
-      setDraftingPoll(true);
-      const response = await invokeGCAI<PollDraftResult>(groupId, 'poll_draft', { request });
-      setDraftingPoll(false);
-
-      if (!response.ok) {
-        Alert.alert('GC AI', aiErrorMessage(response.error));
-        return;
-      }
-      if (response.result.needsClarification) {
-        // Opening an empty editor beats inventing a poll nobody asked for.
-        Alert.alert('Need a bit more', response.result.clarification);
-        openPollComposer(null);
-        return;
-      }
-      openPollComposer({
-        question: response.result.question,
-        options: response.result.options,
-        allowMultiple: response.result.allowMultiple,
-        anonymous: false,
-      });
-      return;
-    }
-
-    if (gcCommand) {
-      // Swiping to reply and then asking @gc means "about this message" — the
-      // reply is the subject, so it anchors the context server-side instead
-      // of being dropped along with the unsent draft.
-      const gcReplyTo = replyTo
-        ? {
-          id: replyTo.id,
-          authorName: replyTo.authorName,
-          preview: replyTo.text || describeMedia(replyTo.media?.type ?? 'file').label,
+    const gcCmd = editingMessage ? null : parseGCCommand(draft);
+    const hasGC = stagedMentions.some((m) => m.type === 'gc') || !!gcCmd;
+    if (!editingMessage && hasGC) {
+      const question = stagedMentions.some((m) => m.type === 'gc')
+        ? draft.trim()
+        : parseGCCommand(draft)?.question;
+      if (question) {
+        if (matchesWordyIntent(question)) {
+          setDraft('');
+          setIsAnonMode(false);
+          setStagedMentions([]);
+          setReplyTo(null);
+          navigation.navigate('Wordy', { groupId });
+          return;
         }
-        : undefined;
 
-      // A bare "@gc" on its own is nothing to ask — unless it's replying to
-      // something, in which case pointing at a message and saying nothing
-      // clearly means "explain this one".
-      const question = gcCommand.question || (gcReplyTo ? 'explain this message' : '');
-      if (!question) return;
+        if (matchesPollIntent(question)) {
+          setDraft('');
+          setIsAnonMode(false);
+          setStagedMentions([]);
+          setDraftingPoll(true);
+          const response = await invokeGCAI<PollDraftResult>(groupId, 'poll_draft', { request: question });
+          setDraftingPoll(false);
+          if (!response.ok) {
+            Alert.alert('GC AI', aiErrorMessage(response.error));
+            return;
+          }
+          if (response.result.needsClarification) {
+            Alert.alert('Need a bit more', response.result.clarification);
+            openPollComposer(null);
+            return;
+          }
+          openPollComposer({
+            question: response.result.question,
+            options: response.result.options,
+            allowMultiple: response.result.allowMultiple,
+            anonymous: false,
+          });
+          return;
+        }
 
-      gcCommands.ask(question, gcReplyTo);
-      setDraft('');
-      setMentionCandidates(new Map());
-      setSelection(undefined);
-      setReplyTo(null);
-      // Jump to the newest entry the same way sending a message does.
-      requestAnimationFrame(() =>
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
-      );
-      return;
+        const gcReplyTo = replyTo
+          ? {
+            id: replyTo.id,
+            authorName: replyTo.authorName,
+            preview: replyTo.text || describeMedia(replyTo.media?.type ?? 'file').label,
+          }
+          : undefined;
+
+        gcCommands.ask(question, gcReplyTo);
+        setDraft('');
+        setIsAnonMode(false);
+        setStagedMentions([]);
+        setMentionCandidates(new Map());
+        setSelection(undefined);
+        setReplyTo(null);
+        maintainComposerFocus();
+        requestAnimationFrame(() =>
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+        );
+        return;
+      }
     }
 
-    const { mentions, mentionEveryone } = deriveMentionsFromText(draft, [...mentionCandidates.values()]);
+    const mentionPrefix = stagedMentions
+      .map((m) => (m.type === 'everyone' ? '@everyone' : m.type === 'gc' ? '@gc' : `@${m.name}`))
+      .join(' ');
+    const fullText = mentionPrefix ? `${mentionPrefix} ${draft.trim()}` : draft.trim();
+
+    const allCandidates = [...mentionCandidates.values()];
+    for (const m of stagedMentions) {
+      if (m.type === 'member') {
+        allCandidates.push({ userId: m.id, username: m.name });
+      }
+    }
+    const { mentions, mentionEveryone } = deriveMentionsFromText(fullText, allCandidates);
 
     if (editingMessage) {
-      // Edits never touch media — the attachment picker is disabled while
-      // editing, so pendingAttachment can't be set here anyway.
-      editMessage(editingMessage.id, draft, mentions, mentionEveryone);
+      editMessage(editingMessage.id, fullText, mentions, mentionEveryone);
       setEditingMessage(null);
       setDraft('');
+      setIsAnonMode(false);
+      setStagedMentions([]);
       setMentionCandidates(new Map());
       setSelection(undefined);
+      maintainComposerFocus();
       return;
     }
 
@@ -1006,7 +1070,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       setUploading(false);
       if (!url) {
         setAttachError(error ?? 'Upload failed — try again.');
-        return; // keep draft + attachment so the user can just retry
+        return;
       }
       const media: MessageMedia = {
         url,
@@ -1020,17 +1084,20 @@ export default function ChatScreen({ route, navigation }: Props) {
         durationMs: pendingAttachment.durationMs,
         viewOnce: pendingViewOnce,
       };
-      sendMessage(draft, replyTo?.id ?? null, mentions, mentionEveryone, media);
+      sendMessage(fullText, replyTo?.id ?? null, mentions, mentionEveryone, media);
       setPendingAttachment(null);
       setPendingViewOnce(false);
     } else {
-      sendMessage(draft, replyTo?.id ?? null, mentions, mentionEveryone);
+      sendMessage(fullText, replyTo?.id ?? null, mentions, mentionEveryone);
     }
 
-    setReplyTo(null);
     setDraft('');
+    setIsAnonMode(false);
+    setStagedMentions([]);
     setMentionCandidates(new Map());
     setSelection(undefined);
+    setReplyTo(null);
+    maintainComposerFocus();
 
     if (Platform.OS === 'web') {
       requestAnimationFrame(() => {
@@ -1079,7 +1146,11 @@ export default function ChatScreen({ route, navigation }: Props) {
     setReplyTo(null);
   }, [groupId, replyTo, sendMessage]);
 
-  const canSend = draft.trim().length > 0 || !!pendingAttachment;
+  const canSend =
+    draft.trim().length > 0 ||
+    !!pendingAttachment ||
+    (stagedMentions.length > 0 && draft.trim().length > 0) ||
+    (isAnonMode && draft.trim().length > 0);
 
   function openAttachmentSheet() {
     if (editingMessage) return; // can't add media to an edit
@@ -1379,15 +1450,10 @@ export default function ChatScreen({ route, navigation }: Props) {
       // command that takes a message: picking it has to leave the composer
       // ready to type into, not wipe it and close.
       if (cmd.feature === 'anonymous') {
-        const next = `${cmd.command} `;
-        setDraft(next);
-        // `selection` is a controlled prop, so without moving it too it keeps
-        // pinning the caret wherever it was when the picker opened — right
-        // after the "/" — and typing lands in the middle of the command.
-        // applyMentionInsert has to do the same thing for the same reason.
-        setSelection({ start: next.length, end: next.length });
+        setIsAnonMode(true);
+        setDraft('');
         if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-        inputRef.current?.focus();
+        setTimeout(() => inputRef.current?.focus(), 50);
         return;
       }
 
@@ -1464,21 +1530,67 @@ export default function ChatScreen({ route, navigation }: Props) {
   );
 
   const selectMentionMember = useCallback(
-    (member: GroupMember) => applyMentionInsert(member.displayName, { userId: member.id, username: member.displayName }),
-    [applyMentionInsert]
+    (member: GroupMember) => {
+      setStagedMentions((prev) => {
+        if (prev.some((m) => m.id === member.id)) return prev;
+        return [
+          ...prev,
+          {
+            id: member.id,
+            name: member.displayName,
+            type: 'member',
+            color: member.avatarColor,
+            avatarUrl: member.avatarUrl,
+            avatarEmoji: member.avatarEmoji,
+          },
+        ];
+      });
+      setMentionCandidates((prev) => {
+        const next = new Map(prev);
+        next.set(member.id, { userId: member.id, username: member.displayName });
+        return next;
+      });
+      if (activeMentionQuery) {
+        setDraft((prev) => {
+          const before = prev.slice(0, activeMentionQuery.start);
+          const after = prev.slice(activeMentionQuery.start + activeMentionQuery.query.length + 1);
+          return `${before}${after}`.trimStart();
+        });
+      }
+      setTimeout(() => inputRef.current?.focus(), 50);
+    },
+    [activeMentionQuery]
   );
 
-  const selectMentionEveryone = useCallback(
-    () => applyMentionInsert(EVERYONE_TOKEN),
-    [applyMentionInsert]
-  );
+  const selectMentionEveryone = useCallback(() => {
+    setStagedMentions((prev) => {
+      if (prev.some((m) => m.type === 'everyone')) return prev;
+      return [...prev, { id: 'everyone', name: 'everyone', type: 'everyone' }];
+    });
+    if (activeMentionQuery) {
+      setDraft((prev) => {
+        const before = prev.slice(0, activeMentionQuery.start);
+        const after = prev.slice(activeMentionQuery.start + activeMentionQuery.query.length + 1);
+        return `${before}${after}`.trimStart();
+      });
+    }
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [activeMentionQuery]);
 
-  // No candidate passed: @gc is not a member, so deriveMentionsFromText must
-  // never turn it into a mention.
-  const selectMentionGC = useCallback(
-    () => applyMentionInsert(GC_TOKEN),
-    [applyMentionInsert]
-  );
+  const selectMentionGC = useCallback(() => {
+    setStagedMentions((prev) => {
+      if (prev.some((m) => m.type === 'gc')) return prev;
+      return [...prev, { id: 'gc', name: 'gc', type: 'gc' }];
+    });
+    if (activeMentionQuery) {
+      setDraft((prev) => {
+        const before = prev.slice(0, activeMentionQuery.start);
+        const after = prev.slice(activeMentionQuery.start + activeMentionQuery.query.length + 1);
+        return `${before}${after}`.trimStart();
+      });
+    }
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [activeMentionQuery]);
 
   const canDeleteMessage = useCallback(
     (m: Message) => m.isMine || canModerate,
@@ -2350,56 +2462,139 @@ export default function ChatScreen({ route, navigation }: Props) {
                 />
               </PressableScale>
 
-              {!isRecordingVoice && (
-                <TextInput
-                  ref={inputRef}
-                  style={styles.input}
-                  value={draft}
-                  onChangeText={(t) => {
-                    setDraft(t);
-                    if (t.trim()) notifyTyping();
-                  }}
-                  onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
-                  selection={selection}
-                  onFocus={() => {
-                    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-                    setComposerFocused(true);
-                  }}
-                  onBlur={() => {
-                    blurTimeoutRef.current = setTimeout(() => setComposerFocused(false), 150);
-                  }}
-                  placeholder={editingMessage ? 'Edit your message...' : 'Cook Something...'}
-                  placeholderTextColor={colors.outline}
-                  multiline
-                  // Without these iOS runs its own heuristics on the field and
-                  // decides it is a contact form — that is the "AutoFill Contact"
-                  // bar and the phone-number suggestion above the keyboard. This
-                  // is a chat composer; there is nothing here to autofill.
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                  autoCorrect
-                  spellCheck
-                  {...(Platform.OS === 'web'
-                    ? ({
-                      // "search" in the name is load-bearing: Safari regex-matches
-                      // the field name and skips AutoFill for anything it reads as
-                      // a search box. `autocomplete="off"` alone does nothing —
-                      // iOS has ignored it outright since 7.1, which is why the
-                      // AutoFill Contact bar kept appearing.
-                      name: 'gc_message_search',
-                      id: 'gc_message_search',
-                      inputMode: 'text',
-                      enterKeyHint: 'send',
-                      'data-form-type': 'other',
-                      'data-lpignore': 'true',
-                      'aria-autocomplete': 'none',
-                      dataSet: { gccomposer: '1' },
-                    } as any)
-                    : {})}
-                />
-              )}
-              {isRecordingVoice && <View style={styles.input} />}
+              <View style={styles.inputWrapper}>
+                {isAnonMode && (
+                  <View style={styles.translucentPillAnon}>
+                    <Ionicons name="eye-off" size={12} color="#F472B6" />
+                    <Text style={styles.translucentPillAnonText}>/anon</Text>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => {
+                        tapFeedback();
+                        setIsAnonMode(false);
+                      }}
+                      style={styles.pillCloseBtn}
+                    >
+                      <Ionicons name="close" size={10} color="#F472B6" />
+                    </Pressable>
+                  </View>
+                )}
+
+                {stagedMentions.map((m) => (
+                  <View
+                    key={m.id}
+                    style={[
+                      styles.translucentPillMention,
+                      m.type === 'everyone' && styles.translucentPillEveryone,
+                      m.type === 'gc' && styles.translucentPillGC,
+                    ]}
+                  >
+                    {m.type === 'everyone' ? (
+                      <Ionicons name="megaphone" size={11} color="#FBBF24" />
+                    ) : m.type === 'gc' ? (
+                      <Ionicons name="sparkles" size={11} color="#C084FC" />
+                    ) : (
+                      <Ionicons name="at" size={11} color={m.color || theme.accent} />
+                    )}
+                    <Text
+                      style={[
+                        styles.translucentPillText,
+                        m.type === 'everyone' && { color: '#FBBF24' },
+                        m.type === 'gc' && { color: '#C084FC' },
+                        m.type === 'member' && { color: m.color || theme.accent },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {m.type === 'everyone' ? '@everyone' : m.type === 'gc' ? '@gc' : `@${m.name}`}
+                    </Text>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => {
+                        tapFeedback();
+                        setStagedMentions((prev) => prev.filter((item) => item.id !== m.id));
+                      }}
+                      style={styles.pillCloseBtn}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={10}
+                        color={
+                          m.type === 'everyone'
+                            ? '#FBBF24'
+                            : m.type === 'gc'
+                            ? '#C084FC'
+                            : m.color || theme.accent
+                        }
+                      />
+                    </Pressable>
+                  </View>
+                ))}
+
+                {!isRecordingVoice && (
+                  <TextInput
+                    ref={inputRef}
+                    style={styles.input}
+                    value={draft}
+                    onChangeText={(t) => {
+                      if (!isAnonMode && (t.startsWith('/anon ') || t.startsWith('/anonymous '))) {
+                        setIsAnonMode(true);
+                        const remaining = t.replace(/^\/(anon|anonymous)\s+/, '');
+                        setDraft(remaining);
+                        return;
+                      }
+                      setDraft(t);
+                      if (t.trim()) notifyTyping();
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.nativeEvent.key === 'Backspace' && draft === '') {
+                        if (stagedMentions.length > 0) {
+                          setStagedMentions((prev) => prev.slice(0, -1));
+                        } else if (isAnonMode) {
+                          setIsAnonMode(false);
+                        }
+                      }
+                    }}
+                    onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
+                    selection={selection}
+                    onFocus={() => {
+                      if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+                      setComposerFocused(true);
+                    }}
+                    onBlur={() => {
+                      blurTimeoutRef.current = setTimeout(() => setComposerFocused(false), 150);
+                    }}
+                    placeholder={
+                      isAnonMode
+                        ? 'Type anonymous message...'
+                        : stagedMentions.length > 0
+                        ? 'Message...'
+                        : editingMessage
+                        ? 'Edit your message...'
+                        : 'Cook Something...'
+                    }
+                    placeholderTextColor={colors.outline}
+                    multiline
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    autoCorrect
+                    spellCheck
+                    {...(Platform.OS === 'web'
+                      ? ({
+                        name: 'gc_message_search',
+                        id: 'gc_message_search',
+                        inputMode: 'text',
+                        enterKeyHint: 'send',
+                        'data-form-type': 'other',
+                        'data-lpignore': 'true',
+                        'aria-autocomplete': 'none',
+                        dataSet: { gccomposer: '1' },
+                      } as any)
+                      : {})}
+                  />
+                )}
+                {isRecordingVoice && <View style={styles.input} />}
+              </View>
 
               {/* Camera sits beside the mic rather than buried in the
                   attachment sheet: taking a photo for the group is a
@@ -2907,14 +3102,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 2,
+    minHeight: 34,
+  },
   input: {
     flex: 1,
+    minWidth: 80,
     ...typography.body,
     color: colors.onSurface,
     maxHeight: 110,
-    paddingVertical: 10,
+    paddingVertical: 6,
     textAlignVertical: 'center',
-    paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.xs,
+    paddingHorizontal: Platform.OS === 'web' ? 4 : spacing.xs,
     fontSize: Platform.OS === 'web' ? 14.5 : 15,
     lineHeight: Platform.OS === 'web' ? 20 : undefined,
     alignSelf: 'center',
@@ -2931,6 +3136,57 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
       } as any)
       : {}),
+  },
+  translucentPillAnon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(236, 72, 153, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(236, 72, 153, 0.45)',
+  },
+  translucentPillAnonText: {
+    ...typography.label,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F472B6',
+  },
+  translucentPillMention: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(129, 140, 248, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.4)',
+  },
+  translucentPillEveryone: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+  },
+  translucentPillGC: {
+    backgroundColor: 'rgba(168, 85, 247, 0.18)',
+    borderColor: 'rgba(168, 85, 247, 0.45)',
+  },
+  translucentPillText: {
+    ...typography.label,
+    fontSize: 12,
+    fontWeight: '700',
+    maxWidth: 130,
+  },
+  pillCloseBtn: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    marginLeft: 2,
   },
   sendWrap: { borderRadius: radius.pill },
   sendButton: {

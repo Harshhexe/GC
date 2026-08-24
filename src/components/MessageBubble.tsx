@@ -651,7 +651,8 @@ function arePropsEqual(prev: any, next: any) {
     prev.onSwipeReply === next.onSwipeReply &&
     prev.onQuotePress === next.onQuotePress &&
     prev.onMentionPress === next.onMentionPress &&
-    prev.onMediaPress === next.onMediaPress
+    prev.onMediaPress === next.onMediaPress &&
+    prev.myId === next.myId
   );
 }
 

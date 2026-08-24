@@ -109,7 +109,7 @@ export function useReadersByMessage(
     // 1. Add known readers from group_members
     for (const r of readers) {
       if (!myUserId || r.id !== myUserId) {
-        allReadersMap.set(r.id, r);
+        allReadersMap.set(r.id, { ...r });
       }
     }
 
@@ -130,6 +130,7 @@ export function useReadersByMessage(
           // Enrich profile if needed
           if (!existing.avatarUrl && msg.authorAvatarUrl) existing.avatarUrl = msg.authorAvatarUrl;
           if (existing.avatarEmoji === '👤' && msg.authorEmoji) existing.avatarEmoji = msg.authorEmoji;
+          if (!existing.lastReadAt) existing.lastReadAt = msg.createdAt;
         }
       }
     }
@@ -137,13 +138,17 @@ export function useReadersByMessage(
     const allReaders = Array.from(allReadersMap.values());
 
     for (const reader of allReaders) {
-      // If a member authored a message, they have seen at least up to their own latest message.
+      // Find the newest message authored by this reader
+      let latestAuthoredMsgId: string | null = null;
       let authoredUntil = 0;
       for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].authorId === reader.id) {
           const t = new Date(messages[i].createdAt).getTime();
           if (!isNaN(t) && t > authoredUntil) {
             authoredUntil = t;
+            if (!latestAuthoredMsgId) {
+              latestAuthoredMsgId = messages[i].id;
+            }
           }
         }
       }
@@ -151,21 +156,28 @@ export function useReadersByMessage(
       const rawReadTime = reader.lastReadAt ? new Date(reader.lastReadAt).getTime() : 0;
       const readUntil = Math.max(isNaN(rawReadTime) ? 0 : rawReadTime, authoredUntil);
 
-      if (readUntil <= 0) continue;
-
-      // Messages are ordered oldest → newest, so walk back for the first hit.
       let landedOn: string | null = null;
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const msgTime = new Date(messages[i].createdAt).getTime();
-        if (!isNaN(msgTime) && msgTime <= readUntil) {
-          landedOn = messages[i].id;
-          break;
+      if (readUntil > 0) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msgTime = new Date(messages[i].createdAt).getTime();
+          if (!isNaN(msgTime) && msgTime <= readUntil) {
+            landedOn = messages[i].id;
+            break;
+          }
         }
       }
+
+      // Fallback: If no landed message found via timestamp, land on their latest authored message
+      if (!landedOn && latestAuthoredMsgId) {
+        landedOn = latestAuthoredMsgId;
+      }
+
       if (!landedOn) continue;
 
       const list = map.get(landedOn) ?? [];
-      list.push(reader);
+      if (!list.some((r) => r.id === reader.id)) {
+        list.push(reader);
+      }
       map.set(landedOn, list);
     }
 
