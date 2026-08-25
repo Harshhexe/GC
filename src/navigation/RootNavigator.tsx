@@ -105,7 +105,20 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef} theme={navTheme} onReady={flushPendingTap}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navTheme}
+      onReady={flushPendingTap}
+      documentTitle={{
+        formatter: (options, route) => {
+          if (!route || route.name === 'MainTabs' || route.name === 'Auth' || route.name === 'Welcome') {
+            return 'GC';
+          }
+          if (options?.title) return `${options.title} • GC`;
+          return 'GC';
+        },
+      }}
+    >
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Navigator
           initialRouteName={session ? (justSignedUp ? 'Welcome' : 'MainTabs') : 'Auth'}

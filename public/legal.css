@@ -1,0 +1,262 @@
+/*
+ * Shared styling for GC's public legal pages (privacy, account deletion,
+ * child safety).
+ *
+ * One stylesheet rather than three copies on purpose. The app itself had two
+ * competing neutral families living in parallel precisely because the same
+ * values were pasted into many files and then drifted; three legal pages that
+ * each carry their own copy of this CSS would go the same way.
+ */
+
+/* Dark is locked deliberately: the app is dark-only, and a legal page
+   that renders in a different mode than the product reads as a
+   different site. */
+:root {
+  color-scheme: dark;
+
+  /* Same slate ramp as the app, so the policy page and the product are
+     visibly the same brand rather than two neighbouring greys. */
+  --bg: #030206;
+  --surface: rgba(255, 255, 255, 0.028);
+  --stroke: rgba(255, 255, 255, 0.08);
+  --stroke-bright: rgba(255, 255, 255, 0.14);
+  --text: #F1F5F9;
+  --text-body: #CBD5E1;
+  --text-muted: #94A3B8;
+  --accent: #818CF8;
+
+  /* One radius, used everywhere on the page. */
+  --r: 16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-body);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  /* ~65ch measure. The old 720px at 15px ran to roughly 78 characters,
+     which is past the point where the eye starts losing the line. */
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 40px 22px 96px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 40px;
+  font-weight: 650;
+  font-size: 14px;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.brand:hover { text-decoration: underline; }
+
+h1 {
+  font-size: clamp(30px, 6vw, 40px);
+  /* Large type reads too loose at default tracking, so it tightens as
+     it grows. */
+  letter-spacing: -0.032em;
+  line-height: 1.1;
+  margin: 0 0 10px;
+  color: var(--text);
+  font-weight: 750;
+}
+
+.updated {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin: 0 0 44px;
+}
+
+h2 {
+  font-size: 20px;
+  letter-spacing: -0.018em;
+  color: var(--text);
+  font-weight: 680;
+  margin: 52px 0 14px;
+}
+
+p { margin: 0 0 16px; }
+strong { color: var(--text); font-weight: 620; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+ul {
+  padding-left: 0;
+  margin: 0 0 16px;
+  list-style: none;
+}
+li {
+  position: relative;
+  padding-left: 20px;
+  margin: 0 0 10px;
+}
+/* A hairline marker rather than a bullet glyph: quieter, and it lines up
+   with the card rules below instead of introducing a second dot shape. */
+li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 12px;
+  width: 8px;
+  height: 1px;
+  background: var(--text-muted);
+}
+
+/*
+ * What GC collects.
+ *
+ * This was a seven-row table with a hairline under every single row,
+ * which is the least scannable way to present it: seven equal-weight
+ * rules and no indication that some rows are about your account and
+ * others are about your phone's hardware. Grouping the same seven items
+ * into three labelled cards means one divider per group instead of
+ * seven, and the grouping itself now carries meaning.
+ */
+.group {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 4px 20px;
+  margin: 0 0 12px;
+}
+.group-label {
+  font-size: 12px;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 16px 0 4px;
+}
+.item {
+  padding: 14px 0;
+  border-top: 1px solid var(--stroke);
+}
+.item:first-of-type { border-top: none; }
+.item dt {
+  color: var(--text);
+  font-weight: 620;
+  font-size: 15px;
+  margin-bottom: 3px;
+}
+.item dd {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--text-body);
+  line-height: 1.6;
+}
+
+dl { margin: 0; }
+
+.note {
+  border-left: 2px solid var(--accent);
+  padding: 2px 0 2px 16px;
+  margin: 24px 0;
+  color: var(--text-body);
+}
+
+footer {
+  margin-top: 64px;
+  padding-top: 20px;
+  border-top: 1px solid var(--stroke);
+  font-size: 14px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+@media (max-width: 480px) {
+  .wrap { padding: 32px 18px 72px; }
+  .group { padding: 4px 16px; }
+}
+
+/* ---- Elements specific to the safety + deletion pages ---- */
+
+/*
+ * The standing policy statement at the top of the child-safety page. Given a
+ * tinted panel rather than a plain paragraph because it is the one claim a
+ * reviewer or a worried parent is looking for, and it should be findable
+ * without reading the document.
+ */
+.callout {
+  background: rgba(129, 140, 248, 0.07);
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  border-radius: var(--r);
+  padding: 18px 20px;
+  margin: 0 0 40px;
+  color: var(--text-body);
+  font-size: 15px;
+}
+.callout strong { color: var(--text); }
+
+/* A destructive-action counterpart, for the deletion page's warning. */
+.callout.danger {
+  background: rgba(248, 113, 113, 0.07);
+  border-color: rgba(248, 113, 113, 0.24);
+}
+
+/*
+ * Support hotlines.
+ *
+ * These used to be single lines in the shape "Name - url | phone", which put
+ * two different separators inside one line and made the phone number hard to
+ * pick out at a glance. Someone reading this page may be in an emergency, so
+ * the number gets its own line and its own weight.
+ */
+.resources { display: grid; gap: 10px; margin: 0 0 16px; padding: 0; list-style: none; }
+.resource {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 14px 18px;
+}
+.resource::before { content: none; }
+.resource .region {
+  font-size: 12px;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.resource .org { color: var(--text); font-weight: 620; font-size: 15px; }
+.resource .contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin-top: 6px;
+  font-size: 14.5px;
+}
+.resource .tel { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Sub-sections inside a numbered clause. */
+h3 {
+  font-size: 16px;
+  font-weight: 660;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+
+/* A plain grouping panel, for clauses that hold a sub-list. */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 18px 20px;
+  margin: 0 0 12px;
+}
+.card ul:last-child, .card p:last-child { margin-bottom: 0; }
+.callout h3 { margin-bottom: 8px; }
+.callout p:last-child { margin-bottom: 0; }

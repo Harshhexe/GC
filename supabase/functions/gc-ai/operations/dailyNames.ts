@@ -82,6 +82,23 @@ export const dailyNamesOperation: AIOperation<DailyNamesResult> = {
   // the same instant, before the first upsert has landed.
   cacheTtlSeconds: 24 * 3600,
 
+  // Output scales with roster size — a name, emoji, reason, and citations per
+  // member — and the global 4000-token default was observed truncating a
+  // real 11-member group's response mid-JSON (thinking + output both draw
+  // from this budget). Doubled so a larger group still fits.
+  maxOutputTokens: 8000,
+
+  // A silent day's names ARE the ghost rows below — that emptyResult is the
+  // real answer for the day, not a fallback, so it has to be saved the same
+  // way a real generation is. See AIOperation.persistEmptyResult.
+  persistEmptyResult: true,
+
+  // The cache is keyed by content hash, not by whether daily_gc_names has
+  // the day's row yet — two members opening the tab moments apart can hit
+  // fresh-generation for one and a cache hit for the other, and the cache
+  // hit still needs to reach the table. See AIOperation.persistOnCacheHit.
+  persistOnCacheHit: true,
+
   /**
    * Everyone in the group, not just whoever spoke.
    *
@@ -260,6 +277,8 @@ export const dailyNamesOperation: AIOperation<DailyNamesResult> = {
       }
       return null;
     };
+
+    const byUser = new Map<string, DailyName>();
 
     for (const entry of Array.isArray(v.names) ? v.names : []) {
       const e = entry as Record<string, unknown>;

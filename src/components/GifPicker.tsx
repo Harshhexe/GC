@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -20,6 +19,7 @@ import { duration, easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { AmbientBackground } from './ui/AmbientBackground';
 import { WebModalCard } from './ui/WebModalCard';
+import { DismissibleModalPage } from './ui/DismissibleModalPage';
 import { searchGifs, type GifResult } from '../lib/giphy';
 
 const COLUMNS = 3;
@@ -220,15 +220,9 @@ export function GifPicker({
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      statusBarTranslucent={true}
-      onRequestClose={onClose}
-    >
+    <DismissibleModalPage visible={visible} onClose={onClose}>
       {content}
-    </Modal>
+    </DismissibleModalPage>
   );
 }
 

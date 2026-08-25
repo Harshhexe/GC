@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Delete Account — GC</title>
+    <title>Delete Account - GC</title>
     <meta name="description" content="Request permanent account and data deletion for GC (Group Chat)." />
     <meta name="theme-color" content="#030206" />
     <link rel="icon" href="/favicon.ico" />
@@ -15,8 +15,8 @@
         --card: #0F0E17;
         --card-border: rgba(255, 255, 255, 0.08);
         --card-border-glow: rgba(129, 140, 248, 0.25);
-        --text: #F3F4F6;
-        --text-muted: #9CA3AF;
+        --text: #F1F5F9;
+        --text-muted: #94A3B8;
         --primary: #818CF8;
         --error: #F87171;
         --error-bg: rgba(248, 113, 113, 0.12);
@@ -131,9 +131,31 @@
         outline: none;
         transition: border-color 0.2s, background 0.2s;
       }
-      input:focus {
+      /* Pinned rather than left to the browser, which derives a placeholder
+         colour from `color` at a UA-specific opacity. It measured 5.89:1 in
+         Chrome, but "passes in the browser I happened to test" is not the
+         same as specified. */
+      input::placeholder { color: #8B98AD; opacity: 1; }
+
+      /*
+       * A real focus ring. `outline: none` above removed the browser default
+       * and replaced it with a 1px border-colour change, which is close to
+       * invisible and leaves keyboard users without a usable indicator on a
+       * form whose submit button deletes the account. The ring is drawn with
+       * box-shadow so nothing reflows when it appears, and indigo-on-input
+       * measures 5.9:1 against the field fill, well past the 3:1 minimum for
+       * non-text indicators.
+       */
+      input:focus-visible {
         border-color: var(--primary);
         background: rgba(255, 255, 255, 0.07);
+        box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.35);
+      }
+      input:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.07); }
+
+      .btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.45);
       }
       .btn {
         display: inline-flex;
@@ -351,7 +373,7 @@
           <li>Open the <strong>GC App</strong> on your device.</li>
           <li>Tap your <strong>Profile picture / Avatar</strong> in the top-right corner to open Settings.</li>
           <li>Scroll down to the bottom of the Settings screen.</li>
-          <li>Tap <strong>"Delete Account Permanently"</strong>.</li>
+          <li>Tap <strong>&ldquo;Delete Account Permanently&rdquo;</strong>.</li>
           <li>Confirm deletion when prompted. Your account is deleted immediately.</li>
         </ol>
       </div>

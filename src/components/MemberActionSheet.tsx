@@ -1,11 +1,9 @@
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, glass, radius, spacing, typography } from '../theme/theme';
-import { duration, easing, reduceMotion } from '../theme/motion';
 import { Avatar } from './ui/Avatar';
 import { PressableScale } from './ui/PressableScale';
+import { DraggableSheet } from './ui/DraggableSheet';
 
 export type MemberActionTarget = {
   id: string;
@@ -49,26 +47,7 @@ export function MemberActionSheet({
   const canRemove = (myRole === 'owner' || myRole === 'admin') && target.role !== 'owner';
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <View style={styles.sheetAnchor}>
-        <Animated.View
-          entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
-          exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
-          style={StyleSheet.absoluteFill}
-        >
-          <Pressable style={styles.backdrop} onPress={onClose}>
-            {Platform.OS !== 'web' && (
-              <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
-            )}
-          </Pressable>
-        </Animated.View>
-
-        <Animated.View
-          entering={SlideInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-          exiting={SlideOutDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-          style={styles.sheet}
-        >
-          <View style={styles.grabber} />
+    <DraggableSheet visible={visible} onClose={onClose} style={styles.sheet}>
 
           <View style={styles.header}>
             <Avatar
@@ -116,9 +95,7 @@ export function MemberActionSheet({
               <Text style={styles.noneText}>Nothing to do here.</Text>
             )}
           </View>
-        </Animated.View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 
@@ -144,25 +121,10 @@ function ActionRow({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: colors.scrim },
-  sheetAnchor: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.bgElevated,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingTop: spacing.md,
     paddingBottom: spacing.xxl + spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
     borderColor: colors.border,
-  },
-  grabber: {
-    width: 40,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.borderBright,
-    alignSelf: 'center',
-    marginBottom: spacing.lg,
   },
   header: {
     flexDirection: 'row',

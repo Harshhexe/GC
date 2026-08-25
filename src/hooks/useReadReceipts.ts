@@ -52,7 +52,7 @@ export function useReadReceipts(groupId: string, myUserId: string | undefined) {
           id: o.user_id,
           displayName: p?.display_name ?? 'someone',
           avatarEmoji: p?.avatar_emoji ?? '👤',
-          avatarColor: p?.avatar_color ?? '#d0bcff',
+          avatarColor: p?.avatar_color ?? '#818CF8',
           avatarUrl: p?.avatar_url ?? null,
           lastReadAt: o.last_read_at,
         };
@@ -122,7 +122,7 @@ export function useReadersByMessage(
             id: msg.authorId,
             displayName: msg.authorName || 'someone',
             avatarEmoji: msg.authorEmoji || '👤',
-            avatarColor: msg.authorColor || '#d0bcff',
+            avatarColor: msg.authorColor || '#818CF8',
             avatarUrl: msg.authorAvatarUrl || null,
             lastReadAt: msg.createdAt,
           });

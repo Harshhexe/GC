@@ -65,7 +65,7 @@ export const SLASH_COMMAND_DEFS: SlashCommandDef[] = [
     title: 'Send Anonymously',
     subtitle: 'Type your message after the command — nobody sees who sent it',
     emoji: '🎭',
-    color: '#9CA3AF',
+    color: '#94A3B8',
   },
   {
     command: '/poll',

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
 import { AmbientBackground } from './ui/AmbientBackground';
 import { WebModalCard } from './ui/WebModalCard';
+import { DismissibleModalPage } from './ui/DismissibleModalPage';
 import { useStickers } from '../hooks/useStickers';
 import type { Sticker } from '../types';
 
@@ -110,9 +111,9 @@ export function StickerPicker({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
+    <DismissibleModalPage visible={visible} onClose={onClose}>
       {content}
-    </Modal>
+    </DismissibleModalPage>
   );
 }
 

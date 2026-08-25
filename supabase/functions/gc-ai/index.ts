@@ -142,6 +142,22 @@ Deno.serve(async (req) => {
           if (daily) await upsertDailyRecap(clients.asService, groupId, daily);
         }
 
+        // Opt-in only — see AIOperation.persistEmptyResult. Without it, a
+        // silent group's day was recomputed fresh (for free — no provider
+        // call either way) but never actually saved, so the cron's own
+        // "not exists" dedupe saw it as still unnamed and would call it
+        // again every single night, and the app would never render anything
+        // for that day no matter how many times someone opened the tab.
+        if (operation.persistResult && operation.persistEmptyResult) {
+          await operation.persistResult({
+            db: clients.asService,
+            groupId,
+            userId: clients.userId,
+            params,
+            result: emptyResult,
+          });
+        }
+
         await recordUsage(clients.asService, {
           userId: clients.userId,
           groupId,
@@ -212,6 +228,20 @@ Deno.serve(async (req) => {
         latencyMs: Date.now() - startedAt,
       });
 
+      // Opt-in only — see AIOperation.persistOnCacheHit. Without it, a cache
+      // hit for a result whose durable home is a different table than the
+      // cache (daily_gc_names) would return the right answer to this caller
+      // while never actually reaching that table.
+      if (operation.persistResult && operation.persistOnCacheHit) {
+        await operation.persistResult({
+          db: clients.asService,
+          groupId,
+          userId: clients.userId,
+          params,
+          result: cached.result,
+        });
+      }
+
       return jsonResponse({
         ok: true,
         cached: true,
@@ -241,7 +271,7 @@ Deno.serve(async (req) => {
       system: operation.buildSystemPrompt(),
       prompt: operation.buildPrompt(ctx, promptParams),
       schema: operation.schema,
-      maxOutputTokens: config.limits.maxOutputTokens,
+      maxOutputTokens: operation.maxOutputTokens ?? config.limits.maxOutputTokens,
     });
 
     let result: unknown;

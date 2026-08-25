@@ -29,18 +29,33 @@ export const colors = {
   surfaceHigh: '#1C1C2C',
   surfaceHighest: '#242438',
 
-  onSurface: '#F3F4F6',
-  onSurfaceVariant: '#9CA3AF',
+  /**
+   * The neutral ramp is *slate* (cool, blue-tinted), not neutral gray.
+   *
+   * This was the app's single biggest palette inconsistency: these tokens used
+   * to hold the gray family (#9CA3AF, #6B7280, #374151) while the screens
+   * themselves overwhelmingly hardcoded the slate family (#94A3B8 alone
+   * appeared 46 times against 4 uses of the gray token literal). Two neutral
+   * families were being used for the same roles, which is what made muted text
+   * look subtly different from screen to screen.
+   *
+   * Slate is the side worth keeping: the brand accent is indigo, and a cool
+   * neutral is what harmonises with a cool accent. Every value below was
+   * contrast-checked against all six app surfaces before the swap — the muted
+   * text token actually gained contrast in the move (4.84:1 to 5.20:1).
+   */
+  onSurface: '#F1F5F9',
+  onSurfaceVariant: '#94A3B8',
   /**
    * Muted body text that still clears WCAG AA (4.5:1) on every surface in the
    * app. `outline` is dimmer and reads as the natural choice for de-emphasised
-   * copy, but it measures ~3.3-3.8:1 against the card fills these screens use —
+   * copy, but it measures ~3.2:1 against the card fills these screens use —
    * the gray-on-gray trap. Reach for this for secondary *text*; keep `outline`
    * for borders, dividers and disabled states, where the rule doesn't apply.
    */
-  textMuted: '#8A92A0',
-  outline: '#6B7280',
-  outlineVariant: '#374151',
+  textMuted: '#8B98AD',
+  outline: '#64748B',
+  outlineVariant: '#334155',
 
   // Brand — Refined Indigo identity, Rose counterpart, Sky for functional accents.
   primary: '#818CF8',
@@ -62,9 +77,13 @@ export const colors = {
   onError: '#FFFFFF',
 
   // Aliases kept so existing screens keep compiling while they're reworked.
-  textPrimary: '#F3F4F6',
-  textSecondary: '#9CA3AF',
-  textFaint: '#6B7280',
+  // These name the same roles as onSurface/onSurfaceVariant/outline above, so
+  // they carry the same slate values — an alias that resolved to the old gray
+  // family would quietly reintroduce the exact two-palette split the ramp
+  // above exists to remove.
+  textPrimary: '#F1F5F9',
+  textSecondary: '#94A3B8',
+  textFaint: '#64748B',
   accent: '#818CF8',
   accentStrong: '#6366F1',
   accentSoft: 'rgba(129, 140, 248, 0.14)',

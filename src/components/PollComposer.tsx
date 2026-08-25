@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -22,6 +21,7 @@ import { PressableScale } from './ui/PressableScale';
 import { GCButton } from './ui/Buttons';
 import { GlassPanel } from './ui/Glass';
 import { WebModalCard } from './ui/WebModalCard';
+import { DismissibleModalPage } from './ui/DismissibleModalPage';
 import { MAX_OPTIONS, MIN_OPTIONS, normalizeDraft, type PollDraft } from '../lib/polls';
 
 /**
@@ -438,15 +438,9 @@ export function PollComposer({
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
+    <DismissibleModalPage visible={visible} onClose={onClose}>
       {content}
-    </Modal>
+    </DismissibleModalPage>
   );
 }
 

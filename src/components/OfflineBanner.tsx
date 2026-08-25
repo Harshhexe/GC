@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
+import { reduceMotion } from '../theme/motion';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
@@ -17,7 +18,7 @@ export function OfflineBanner({ isOnline, isReconnecting = false, onRetry }: Pro
 
   return (
     <Animated.View
-      entering={SlideInUp.duration(260)}
+      entering={SlideInUp.duration(260).reduceMotion(reduceMotion)}
       exiting={SlideOutUp.duration(220)}
       style={styles.container}
     >
@@ -90,12 +91,12 @@ const styles = StyleSheet.create({
     ...typography.label,
     fontSize: 12.5,
     fontWeight: '800',
-    color: '#F3F4F6',
+    color: '#F1F5F9',
   },
   subtitle: {
     ...typography.caption,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: '#94A3B8',
   },
   retryBtn: {
     flexDirection: 'row',

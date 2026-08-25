@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, glass, radius, shadows, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
+import { DraggableSheet } from './ui/DraggableSheet';
 import {
   type MuteOption,
   type NotificationMode,
@@ -141,17 +140,7 @@ export function GroupNotificationSheet({
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <Pressable style={styles.backdropFill} onPress={onClose} />
-
-        <View style={styles.sheet}>
-          <View style={styles.grabber} />
+    <DraggableSheet visible={visible} onClose={onClose} dragHandleOnly style={styles.sheet}>
 
           <View style={styles.header}>
             <View style={styles.headerCopy}>
@@ -398,38 +387,20 @@ export function GroupNotificationSheet({
               </View>
             )}
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.scrim,
-  },
-  backdropFill: {
-    ...StyleSheet.absoluteFillObject,
-  },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: colors.border,
     paddingBottom: spacing.xl,
+    // Rows supply their own horizontal padding so the scroll area runs edge
+    // to edge; the sheet must not add a second inset on top.
+    paddingHorizontal: 0,
     maxHeight: '88%',
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 38,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.outlineVariant,
-    marginTop: spacing.sm + 2,
   },
   header: {
     flexDirection: 'row',

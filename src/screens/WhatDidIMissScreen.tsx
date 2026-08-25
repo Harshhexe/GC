@@ -767,7 +767,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 {/* 1. If catching up / regenerating, new loading card appears on TOP */}
                 {ai.loading && (
                   <Animated.View
-                    entering={FadeInDown.duration(300)}
+                    entering={FadeInDown.duration(300).reduceMotion(reduceMotion)}
                     style={[styles.newCatchUpLoadingCard, { borderColor: `${activeTheme.accent}40` }]}
                   >
                     <AIThinking tint={activeTheme.accent} />

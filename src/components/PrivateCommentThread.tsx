@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -21,6 +20,7 @@ import { clockTime } from '../utils/time';
 import { PressableScale } from './ui/PressableScale';
 import { Avatar } from './ui/Avatar';
 import { WebModalCard } from './ui/WebModalCard';
+import { DismissibleModalPage } from './ui/DismissibleModalPage';
 import { useAndroidModalKeyboard } from '../hooks/useAndroidModalKeyboard';
 import { usePrivateComments } from '../hooks/usePrivateComments';
 import { sendPrivateComment, type PrivateComment } from '../lib/privateComments';
@@ -313,9 +313,9 @@ export function PrivateCommentThread({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
+    <DismissibleModalPage visible={visible} onClose={onClose}>
       {content}
-    </Modal>
+    </DismissibleModalPage>
   );
 }
 

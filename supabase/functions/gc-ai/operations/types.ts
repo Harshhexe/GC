@@ -40,6 +40,17 @@ export type AIOperation<TResult = unknown> = {
   readonly cacheTtlSeconds?: number;
 
   /**
+   * Overrides the global `config.limits.maxOutputTokens` budget for this
+   * operation. The global default (4000) is sized for a typical single-focus
+   * result; an operation whose output scales with roster size — one name,
+   * emoji, reason, and up to 4 citation ids per member, plus Gemini's own
+   * thinking tokens drawn from the same budget — can exhaust it on a large
+   * enough group and come back truncated (`incomplete`) rather than invalid.
+   * Omit to use the global default.
+   */
+  readonly maxOutputTokens?: number;
+
+  /**
    * Per-user hourly ceiling for this operation specifically. Omit to use the
    * global default. The per-group ceiling always applies on top.
    */
@@ -123,7 +134,8 @@ export type AIOperation<TResult = unknown> = {
    * write to itself — a Tea report must come from the server that generated
    * it, never from whoever happened to ask for it.
    *
-   * Called only on a freshly generated result, never on a cache hit.
+   * Called only on a freshly generated result, never on a cache hit, and not
+   * on the empty-window path unless `persistEmptyResult` opts in below.
    */
   persistResult?(args: {
     db: SupabaseClient;
@@ -132,6 +144,42 @@ export type AIOperation<TResult = unknown> = {
     params: OperationParams;
     result: TResult;
   }): Promise<void>;
+
+  /**
+   * Extends `persistResult` to the empty-window path too — an emptyResult is
+   * otherwise computed for free but never saved, which is invisible for most
+   * operations (there is nothing to persist) but a real gap for one whose
+   * "empty" answer is itself the durable artefact: daily_names' emptyResult
+   * is a full set of ghost names for a silent day, and without this a silent
+   * group's day was recomputed from scratch — for free, but never stored —
+   * every single time anything asked for it, including a nightly cron
+   * checking whether that day still needed generating.
+   *
+   * Off by default so this cannot silently change an existing operation's
+   * behaviour. whatDidIMiss also implements both emptyResult and
+   * persistResult, and its persistResult consumes the caller's missed-content
+   * boundary — deciding whether that should also fire on the empty path is a
+   * product question about that feature, not a side effect of fixing this one.
+   */
+  readonly persistEmptyResult?: boolean;
+
+  /**
+   * Extends `persistResult` to a cache hit too.
+   *
+   * A cache hit normally means "this exact window was already stacked once",
+   * so skipping persistence avoids duplicating a personal history row. But
+   * daily_names' cache is keyed by content hash, not by whether the day's row
+   * was ever written to `daily_gc_names` — two members opening the tab
+   * moments apart can produce a fresh generation for the first and a cache
+   * hit for the second, and without this flag the second's valid result is
+   * simply thrown away instead of reaching the table the app actually reads
+   * from. `persistResult`'s own `ignoreDuplicates` upsert makes calling it
+   * twice for the same day harmless, so this is safe to enable wherever the
+   * cache and the durable store can otherwise drift apart.
+   *
+   * Off by default for the same reason as `persistEmptyResult` above.
+   */
+  readonly persistOnCacheHit?: boolean;
 
   /**
    * Record that generation failed, so a failure is a state the feature can

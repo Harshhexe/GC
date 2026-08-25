@@ -111,7 +111,7 @@ const DELETED_AUTHOR = {
  *  "somebody here chose not to sign this", the other says "this person left". */
 const ANONYMOUS_AUTHOR = {
   name: 'Anonymous',
-  color: '#9CA3AF',
+  color: '#94A3B8',
   emoji: '🎭',
 } as const;
 

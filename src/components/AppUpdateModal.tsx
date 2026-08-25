@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { reduceMotion } from '../theme/motion';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
 
@@ -26,34 +27,40 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'camera-outline' as const,
-    color: '#10B981',
-    title: 'In-App Camera with Zoom',
-    desc: 'Shoot photos and videos without leaving GC — 0.5x/1x/2x/4x presets, pinch-to-zoom, and a filmstrip of your recent shots to send instantly.',
+    icon: 'trophy-outline' as const,
+    color: '#FBBF24',
+    title: "This Week's Claimed Awards",
+    desc: 'The awards screen now shows only the titles you currently hold. Top three get gold, silver and bronze, and everything hands over automatically when your GC runs its next Sunday ceremony.',
   },
   {
-    icon: 'eye-off-outline' as const,
-    color: '#9CA3AF',
-    title: 'Anonymous Messages',
-    desc: 'Type /anon before a message to send it with no name attached — up to 3 a day, and nobody in the GC can trace it back to you.',
+    icon: 'hand-left-outline' as const,
+    color: '#38BDF8',
+    title: 'Swipe Anything Away',
+    desc: 'Every sheet and full-screen panel (GIFs, stickers, polls, comments) can now be dragged down to close. Flick it and it goes, catch it mid-slide and it follows your finger. Taps feel springier everywhere too.',
   },
   {
     icon: 'pricetag-outline' as const,
     color: '#F472B6',
-    title: 'Daily GC Names',
-    desc: "Every member gets an AI-picked title each day based on what they actually said — even the ones who said nothing. Check What Did I Miss → Names.",
+    title: 'Daily GC Names, Now Automatic',
+    desc: "Names sync for the whole group at midnight, no need to open the tab. Every member gets one, including the ones who said nothing, and it shows next to their name in chat too.",
   },
   {
-    icon: 'headset-outline' as const,
-    color: '#38BDF8',
-    title: 'Voice Notes Keep Playing',
-    desc: 'Locking your screen or switching apps no longer cuts a voice note off mid-sentence.',
+    icon: 'bug-outline' as const,
+    color: '#F87171',
+    title: 'Fixed "GC AI said something incoherent"',
+    desc: "Daily Names was crashing on every generation. Also fixed larger groups getting cut off mid-response.",
   },
   {
-    icon: 'shield-checkmark-outline' as const,
-    color: '#818CF8',
-    title: 'Reliability Fixes',
-    desc: "Fixed the chat randomly jumping back to the top when a notification came in, and squashed a batch of camera and media bugs.",
+    icon: 'eye-off-outline' as const,
+    color: '#94A3B8',
+    title: 'Anonymous Messages',
+    desc: 'Type /anon before a message to send it with no name attached. Up to 3 a day, and nobody in the GC can trace it back to you.',
+  },
+  {
+    icon: 'camera-outline' as const,
+    color: '#10B981',
+    title: 'In-App Camera with Zoom',
+    desc: 'Shoot photos and videos without leaving GC: 0.5x/1x/2x/4x presets, pinch-to-zoom, and a filmstrip of your recent shots to send instantly.',
   },
 ];
 
@@ -82,7 +89,7 @@ export function AppUpdateModal({
         {/* Dark Backing */}
         <View style={StyleSheet.absoluteFill} />
 
-        <Animated.View entering={FadeInUp.duration(300)} style={styles.card}>
+        <Animated.View entering={FadeInUp.duration(300).reduceMotion(reduceMotion)} style={styles.card}>
           {/* Top Accent Strip */}
           <LinearGradient
             colors={isWhatsNew ? ['#10B981', '#38BDF8', '#818CF8'] : ['#818CF8', '#C084FC', '#F472B6']}

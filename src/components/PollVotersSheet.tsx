@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/theme';
-import { duration, easing, reduceMotion } from '../theme/motion';
 import { Avatar } from './ui/Avatar';
 import { PressableScale } from './ui/PressableScale';
+import { DraggableSheet } from './ui/DraggableSheet';
 import { fetchPollVoters, type Poll, type PollVoter } from '../lib/polls';
 
 /**
@@ -57,22 +56,12 @@ export function PollVotersSheet({
   const total = Object.values(poll.voteCounts).reduce((a, b) => a + b, 0);
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.anchor}>
-        <Animated.View
-          entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
-          exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
-          style={StyleSheet.absoluteFill}
-        >
-          <Pressable style={styles.backdrop} onPress={onClose} />
-        </Animated.View>
-
-        <Animated.View
-          entering={SlideInDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-          exiting={SlideOutDown.duration(duration.base).easing(easing.out).reduceMotion(reduceMotion)}
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}
-        >
-          <View style={styles.grabber} />
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      dragHandleOnly
+      style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}
+    >
 
           <View style={styles.header}>
             <Ionicons name="people" size={16} color={tint} />
@@ -130,32 +119,15 @@ export function PollVotersSheet({
           <PressableScale style={styles.doneBtn} scaleTo={0.97} onPress={onClose}>
             <Text style={styles.doneText}>Done</Text>
           </PressableScale>
-        </Animated.View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  anchor: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { flex: 1, backgroundColor: colors.scrim },
   sheet: {
     backgroundColor: colors.bgElevated,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
     borderColor: colors.border,
     maxHeight: '78%',
-  },
-  grabber: {
-    width: 40,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.borderBright,
-    alignSelf: 'center',
-    marginBottom: spacing.md,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
   title: { ...typography.titleMd, fontSize: 16, color: colors.onSurface, flex: 1 },

@@ -26,6 +26,7 @@ import { GlassPanel } from '../components/ui/Glass';
 import { AppHeader } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
+import { AwardCard } from '../components/AwardCard';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { groupTheme } from '../theme/groupThemes';
@@ -180,9 +181,29 @@ export default function ExploreScreen({ navigation }: Props) {
           )
         `)
         .eq('status', 'completed')
-        .order('generated_at', { ascending: false });
+        .order('week_end', { ascending: false });
 
       if (error) throw error;
+
+      /*
+       * Only the newest ceremony per group survives.
+       *
+       * The awards a group hands out are for one week, and the moment that
+       * group holds its next ceremony the previous week's titles stop being
+       * current. Expiry is scoped per group rather than globally because the
+       * groups run on their own schedules: a quiet chat that has not held a
+       * ceremony in a fortnight should still show the last titles it actually
+       * awarded, instead of being blanked because a busier chat moved on.
+       *
+       * Rows arrive newest-week-first, so the first week_end seen for a group
+       * is that group's current one and every older row is dropped.
+       */
+      const currentWeekByGroup = new Map<string, string>();
+      for (const row of rows ?? []) {
+        if (!currentWeekByGroup.has(row.group_id)) {
+          currentWeekByGroup.set(row.group_id, row.week_end);
+        }
+      }
 
       const claimed: ClaimedAwardItem[] = [];
       const myId = profile.id;
@@ -190,6 +211,9 @@ export default function ExploreScreen({ navigation }: Props) {
       const myUsername = (profile.username ?? '').trim().toLowerCase();
 
       for (const row of rows ?? []) {
+        // Superseded by a newer ceremony in this same group.
+        if (currentWeekByGroup.get(row.group_id) !== row.week_end) continue;
+
         const groupData = Array.isArray(row.groups) ? row.groups[0] : row.groups;
         const groupName = groupData?.name ?? 'Group Chat';
         const groupAvatarUrl = groupData?.avatar_url ?? null;
@@ -261,79 +285,46 @@ export default function ExploreScreen({ navigation }: Props) {
     return set.size;
   }, [claimedAwards]);
 
-  const renderAwardCard = ({ item, index }: { item: ClaimedAwardItem; index: number }) => {
-    const theme = groupTheme(item.groupThemeKey);
+  /**
+   * The week the visible titles belong to. Taken from the awards themselves
+   * rather than from today's date, because a group that has not run a
+   * ceremony in a while is still showing an older week and the label has to
+   * say so honestly instead of claiming to be the current calendar week.
+   */
+  const currentWeekLabel = useMemo(() => {
+    if (filteredAwards.length === 0) return null;
+    const ends = filteredAwards.map((a) => a.weekEnd).filter(Boolean).sort();
+    const newest = ends[ends.length - 1];
+    if (!newest) return null;
+    const start = filteredAwards.find((a) => a.weekEnd === newest)?.weekStart;
+    // An unparseable date does not throw here — toLocaleDateString happily
+    // returns the string "Invalid Date" — so the guard has to be explicit or
+    // a malformed row renders as "from Invalid Date to Invalid Date".
+    const fmt = (d: string): string | null => {
+      const parsed = new Date(d);
+      if (Number.isNaN(parsed.getTime())) return null;
+      return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    };
+    const endLabel = fmt(newest);
+    if (!endLabel) return null;
+    const startLabel = start ? fmt(start) : null;
+    return startLabel ? `${startLabel} to ${endLabel}` : endLabel;
+  }, [filteredAwards]);
 
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 50 + 80)
-          .duration(duration.base)
-          .easing(easing.out)
-          .reduceMotion(reduceMotion)}
-      >
-        <PressableScale
-          style={styles.cardWrap}
-          scaleTo={0.98}
-          haptic="light"
-          onPress={() => navigation.navigate('Chat', { groupId: item.groupId })}
-        >
-          <GlassPanel borderRadius={radius.xl} style={styles.awardCard}>
-            {/* 1. Header Row: Emoji Badge, Title, Value tag & Date */}
-            <View style={styles.awardTopRow}>
-              <View style={styles.awardEmojiOrb}>
-                <Text style={styles.awardEmoji}>{item.award.emoji}</Text>
-              </View>
-
-              <View style={styles.awardTitleCol}>
-                <View style={styles.awardTitleRow}>
-                  <Text style={styles.awardTitle} numberOfLines={1}>
-                    {item.award.title}
-                  </Text>
-                  {!!item.award.value && (
-                    <View style={styles.valuePill}>
-                      <Text style={styles.valuePillText}>{item.award.value}</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Date Tag */}
-                <View style={styles.dateRow}>
-                  <Ionicons name="calendar-outline" size={11} color="#94A3B8" />
-                  <Text style={styles.dateText}>
-                    {formatAwardDate(item.generatedAt, item.weekEnd)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 2. From Group Chat Info Row */}
-            <View style={styles.gcSourceRow}>
-              <View style={[styles.gcSourcePill, { borderColor: `${theme.accent}35`, backgroundColor: `${theme.accent}12` }]}>
-                <Avatar
-                  imageUrl={item.groupAvatarUrl}
-                  label={item.groupName}
-                  size={20}
-                  ringColors={theme.colors}
-                />
-                <Text style={[styles.gcSourceName, { color: theme.accent }]} numberOfLines={1}>
-                  {item.groupName}
-                </Text>
-                <Ionicons name="chevron-forward" size={12} color={theme.accent} />
-              </View>
-            </View>
-
-            {/* 3. Roasty AI Justification Quote */}
-            {!!item.award.reason && (
-              <View style={styles.reasonBox}>
-                <Ionicons name="sparkles" size={12} color="#FBBF24" style={styles.reasonIcon} />
-                <Text style={styles.reasonText}>"{item.award.reason}"</Text>
-              </View>
-            )}
-          </GlassPanel>
-        </PressableScale>
-      </Animated.View>
-    );
-  };
+  const renderAwardCard = ({ item, index }: { item: ClaimedAwardItem; index: number }) => (
+    <Animated.View
+      entering={FadeInDown.delay(index * 50 + 80)
+        .duration(duration.base)
+        .easing(easing.out)
+        .reduceMotion(reduceMotion)}
+    >
+      <AwardCard
+        item={item}
+        rank={index}
+        onPress={() => navigation.navigate('Chat', { groupId: item.groupId })}
+      />
+    </Animated.View>
+  );
 
   return (
     <View style={styles.root}>
@@ -370,11 +361,13 @@ export default function ExploreScreen({ navigation }: Props) {
               <View style={styles.titleBlock}>
                 <View style={styles.titleBadge}>
                   <Ionicons name="trophy" size={13} color="#FBBF24" />
-                  <Text style={styles.titleBadgeText}>TROPHY ROOM</Text>
+                  <Text style={styles.titleBadgeText}>THIS WEEK</Text>
                 </View>
-                <Text style={styles.mainTitle}>Claimed Awards</Text>
+                <Text style={styles.mainTitle}>This Week's Claimed Awards</Text>
                 <Text style={styles.subtitle}>
-                  Every title, accolade & roast earned across your group chats.
+                  {currentWeekLabel
+                    ? `Titles you hold right now, from ${currentWeekLabel}. They hand over when the next ceremony runs.`
+                    : 'Titles you hold right now. They hand over when the next ceremony runs.'}
                 </Text>
               </View>
 
@@ -387,7 +380,7 @@ export default function ExploreScreen({ navigation }: Props) {
                     </View>
                     <View>
                       <Text style={styles.showcaseStatValue}>{claimedAwards.length}</Text>
-                      <Text style={styles.showcaseStatLabel}>TITLES WON</Text>
+                      <Text style={styles.showcaseStatLabel}>TITLES HELD</Text>
                     </View>
                   </View>
 
@@ -399,7 +392,7 @@ export default function ExploreScreen({ navigation }: Props) {
                     </View>
                     <View>
                       <Text style={styles.showcaseStatValue}>{uniqueGCsCount}</Text>
-                      <Text style={styles.showcaseStatLabel}>GCS WON IN</Text>
+                      <Text style={styles.showcaseStatLabel}>GCS</Text>
                     </View>
                   </View>
                 </View>
@@ -408,7 +401,7 @@ export default function ExploreScreen({ navigation }: Props) {
                   <View style={styles.showcaseFooter}>
                     <Ionicons name="sparkles" size={13} color="#FBBF24" />
                     <Text style={styles.showcaseFooterText}>
-                      Latest: <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{claimedAwards[0].award.title}</Text> {claimedAwards[0].award.emoji}
+                      Top title: <Text style={styles.showcaseFooterStrong}>{claimedAwards[0].award.title}</Text> {claimedAwards[0].award.emoji}
                     </Text>
                   </View>
                 )}
@@ -477,9 +470,10 @@ export default function ExploreScreen({ navigation }: Props) {
                 <View style={styles.emptyIconOrb}>
                   <Ionicons name="trophy-outline" size={36} color="#F59E0B" />
                 </View>
-                <Text style={styles.emptyTitle}>No Awards Claimed Yet</Text>
+                <Text style={styles.emptyTitle}>Nothing claimed this week</Text>
                 <Text style={styles.emptySubtitle}>
-                  Yap, start some drama, or drop unhinged messages in your group chats to win titles in Sunday's GC Awards!
+                  Titles reset every ceremony. Yap, start some drama, or drop
+                  unhinged takes in your group chats to claim one in Sunday's GC Awards.
                 </Text>
                 <PressableScale
                   style={styles.emptyCTA}
@@ -622,6 +616,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
+  showcaseFooterStrong: { color: colors.onSurface, fontWeight: '700' },
   showcaseFooterText: {
     ...typography.micro,
     fontSize: 11.5,
@@ -659,117 +654,10 @@ const styles = StyleSheet.create({
   },
 
   // Award Card
-  cardWrap: {
-    width: '100%',
-  },
-  awardCard: {
-    padding: spacing.lg,
-    gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-  },
-  awardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  awardEmojiOrb: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(245, 158, 11, 0.30)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  awardEmoji: {
-    fontSize: 22,
-  },
-  awardTitleCol: {
-    flex: 1,
-    gap: 3,
-  },
-  awardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  awardTitle: {
-    ...typography.title,
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  valuePill: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-  },
-  valuePillText: {
-    ...typography.micro,
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#FBBF24',
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  dateText: {
-    ...typography.micro,
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
 
   // From GC Source Pill
-  gcSourceRow: {
-    flexDirection: 'row',
-  },
-  gcSourcePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  gcSourceName: {
-    ...typography.micro,
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
 
   // Reason Box
-  reasonBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.025)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  reasonIcon: {
-    marginTop: 2,
-  },
-  reasonText: {
-    ...typography.body,
-    fontSize: 12.5,
-    color: colors.onSurfaceVariant,
-    fontStyle: 'italic',
-    lineHeight: 18,
-    flex: 1,
-  },
 
   // Empty State
   emptyContainer: {

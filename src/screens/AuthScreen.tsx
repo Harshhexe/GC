@@ -245,7 +245,10 @@ export default function AuthScreen() {
 
     const message = await signUp(email.trim(), password, username.trim(), displayName.trim(), {
       emoji: '👤',
-      color: '#d0bcff',
+      // The brand indigo, not the Material purple this used to be. Every new
+      // account was being stamped with a colour that appeared nowhere else in
+      // the design system.
+      color: colors.primary,
       photoBase64: photo?.base64,
       photoExt: photo?.ext,
     });

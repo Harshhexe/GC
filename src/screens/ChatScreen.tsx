@@ -1060,7 +1060,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     const mentionPrefix = stagedMentions
       .map((m) => (m.type === 'everyone' ? '@everyone' : m.type === 'gc' ? '@gc' : `@${m.name}`))
       .join(' ');
-    const fullText = mentionPrefix ? `${mentionPrefix} ${draft.trim()}` : draft.trim();
+    const fullText = (mentionPrefix ? `${mentionPrefix} ${draft.trim()}` : draft.trim()).trim();
 
     const allCandidates = [...mentionCandidates.values()];
     for (const m of stagedMentions) {
@@ -1138,6 +1138,10 @@ export default function ChatScreen({ route, navigation }: Props) {
         }
       }, 40);
     }
+
+    requestAnimationFrame(() =>
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+    );
   }
 
   const sendMediaDirectly = useCallback(async (attachment: PendingAttachment) => {
@@ -1172,9 +1176,8 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const canSend =
     draft.trim().length > 0 ||
-    !!pendingAttachment ||
-    (stagedMentions.length > 0 && draft.trim().length > 0) ||
-    (isAnonMode && draft.trim().length > 0);
+    stagedMentions.length > 0 ||
+    !!pendingAttachment;
 
   function openAttachmentSheet() {
     if (editingMessage) return; // can't add media to an edit

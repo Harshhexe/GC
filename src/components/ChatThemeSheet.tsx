@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import {
   themeFromColor,
 } from '../theme/groupThemes';
 import { PressableScale } from './ui/PressableScale';
+import { DraggableSheet } from './ui/DraggableSheet';
 import { pickChatWallpaper, deleteChatWallpaper } from '../lib/wallpaper';
 import { extractWallpaperPalette } from '../lib/paletteExtract';
 import { selectFeedback } from '../utils/haptics';
@@ -84,14 +85,7 @@ export function ChatThemeSheet({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        {/* Tap-outside-to-close. A plain Pressable, not PressableScale — it
-            has no content to scale and must not animate the sheet behind it. */}
-        <Pressable style={styles.backdropFill} onPress={onClose} />
-
-        <View style={styles.sheet}>
-          <View style={styles.grabber} />
+    <DraggableSheet visible={visible} onClose={onClose} dragHandleOnly style={styles.sheet}>
 
           <View style={styles.header}>
             <View style={styles.headerCopy}>
@@ -297,32 +291,20 @@ export function ChatThemeSheet({
 
             {!!error && <Text style={styles.error}>{error}</Text>}
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    </DraggableSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim },
-  backdropFill: { ...StyleSheet.absoluteFillObject },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: colors.border,
     paddingBottom: spacing.xl,
+    // Rows inside supply their own horizontal padding so the scroll area can
+    // run edge to edge; the sheet must not add a second inset on top.
+    paddingHorizontal: 0,
     maxHeight: '86%',
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 38,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.outlineVariant,
-    marginTop: spacing.sm + 2,
   },
   header: {
     flexDirection: 'row',
