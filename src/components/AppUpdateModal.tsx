@@ -26,34 +26,34 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'cloud-offline-outline' as const,
-    color: '#38BDF8',
-    title: 'Offline Mode & Local Message Cache',
-    desc: 'Instant chat loading from local storage, persistent offline sending queue, auto-reconnect syncing, and failure retry controls.',
-  },
-  {
-    icon: 'notifications-outline' as const,
-    color: '#818CF8',
-    title: 'Per-Group Notification Controls & Mute',
-    desc: 'Customize notifications per GC (All messages, Mentions & replies only, or Off) and set flexible mute timers (1h, 8h, 1w, or Indefinite).',
-  },
-  {
-    icon: 'at-outline' as const,
-    color: '#F472B6',
-    title: 'Translucent Mentions & /anon Pills',
-    desc: 'Chic interactive glass pills for @members, @everyone, and anonymous mode with one-tap removal.',
-  },
-  {
     icon: 'camera-outline' as const,
     color: '#10B981',
-    title: 'Dynamic Composer Controls',
-    desc: 'Camera and mic automatically hide while typing to maximize space and cleanly return when empty.',
+    title: 'In-App Camera with Zoom',
+    desc: 'Shoot photos and videos without leaving GC — 0.5x/1x/2x/4x presets, pinch-to-zoom, and a filmstrip of your recent shots to send instantly.',
   },
   {
     icon: 'eye-off-outline' as const,
-    color: '#FFD166',
-    title: 'View Once Photos on Mobile & Web',
-    desc: 'Self-destructing media with single-view protections and hardware screenshot safeguards.',
+    color: '#9CA3AF',
+    title: 'Anonymous Messages',
+    desc: 'Type /anon before a message to send it with no name attached — up to 3 a day, and nobody in the GC can trace it back to you.',
+  },
+  {
+    icon: 'pricetag-outline' as const,
+    color: '#F472B6',
+    title: 'Daily GC Names',
+    desc: "Every member gets an AI-picked title each day based on what they actually said — even the ones who said nothing. Check What Did I Miss → Names.",
+  },
+  {
+    icon: 'headset-outline' as const,
+    color: '#38BDF8',
+    title: 'Voice Notes Keep Playing',
+    desc: 'Locking your screen or switching apps no longer cuts a voice note off mid-sentence.',
+  },
+  {
+    icon: 'shield-checkmark-outline' as const,
+    color: '#818CF8',
+    title: 'Reliability Fixes',
+    desc: "Fixed the chat randomly jumping back to the top when a notification came in, and squashed a batch of camera and media bugs.",
   },
 ];
 
