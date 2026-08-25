@@ -18,6 +18,18 @@ import type { AICompletionRequest, AICompletionResult, AIProvider } from './type
  * genuinely what @google/genai expects — the names below are taken from the
  * package's own type definitions, not converted.
  */
+function sanitizeSchemaForGemini(schema: unknown): unknown {
+  if (!schema || typeof schema !== 'object') return schema;
+  if (Array.isArray(schema)) return schema.map(sanitizeSchemaForGemini);
+
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+    if (key === 'additionalProperties') continue;
+    clean[key] = sanitizeSchemaForGemini(value);
+  }
+  return clean;
+}
+
 export class GeminiProvider implements AIProvider {
   readonly name = 'gemini';
   #client: GoogleGenAI;
@@ -47,7 +59,7 @@ export class GeminiProvider implements AIProvider {
         response_format: {
           type: 'text',
           mime_type: 'application/json',
-          schema: request.schema,
+          schema: request.schema ? sanitizeSchemaForGemini(request.schema) : undefined,
         },
         generation_config: {
           max_output_tokens: request.maxOutputTokens,
@@ -92,19 +104,33 @@ export class GeminiProvider implements AIProvider {
       );
     }
 
-    const text = interaction.output_text ?? '';
-    if (!text.trim()) {
+    const rawText = interaction.output_text ?? '';
+    if (!rawText.trim()) {
       throw new GCAIError('invalid_ai_response', 'Model returned no content');
     }
 
+    const cleaned = rawText
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
     let data: T;
     try {
-      data = JSON.parse(text) as T;
+      data = JSON.parse(cleaned) as T;
     } catch {
-      // Schema-constrained output makes this close to impossible, but a
-      // truncated response lands here — better a typed error than a crash
-      // inside an operation's validator.
-      throw new GCAIError('invalid_ai_response', 'Model output was not valid JSON');
+      // Fallback: extract substring between first { and last }
+      const startIdx = cleaned.indexOf('{');
+      const endIdx = cleaned.lastIndexOf('}');
+      if (startIdx >= 0 && endIdx > startIdx) {
+        try {
+          data = JSON.parse(cleaned.slice(startIdx, endIdx + 1)) as T;
+        } catch {
+          throw new GCAIError('invalid_ai_response', 'Model output was not valid JSON');
+        }
+      } else {
+        throw new GCAIError('invalid_ai_response', 'Model output was not valid JSON');
+      }
     }
 
     return {

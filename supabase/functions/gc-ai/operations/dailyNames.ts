@@ -249,12 +249,22 @@ export const dailyNamesOperation: AIOperation<DailyNamesResult> = {
     const spoke = new Set(ctx.messages.map((m) => m.senderId).filter(Boolean) as string[]);
     const idsInContext = new Set(ctx.messages.map((m) => m.id));
 
-    const byUser = new Map<string, DailyName>();
+    const resolveUserId = (memberName: string): string | null => {
+      const lower = memberName.toLowerCase().trim().replace(/^@/, '');
+      if (idByName.has(lower)) return idByName.get(lower)!;
+      for (const m of roster) {
+        const mLower = m.displayName.toLowerCase().trim();
+        if (mLower === lower || mLower.includes(lower) || lower.includes(mLower)) {
+          return m.userId;
+        }
+      }
+      return null;
+    };
 
     for (const entry of Array.isArray(v.names) ? v.names : []) {
       const e = entry as Record<string, unknown>;
       const member = typeof e.member === 'string' ? e.member.trim() : '';
-      const userId = idByName.get(member.toLowerCase());
+      const userId = resolveUserId(member);
       if (!userId || byUser.has(userId)) continue;
 
       const name = typeof e.name === 'string' ? e.name.trim().slice(0, MAX_NAME_CHARS) : '';
@@ -262,12 +272,11 @@ export const dailyNamesOperation: AIOperation<DailyNamesResult> = {
 
       // Citations are the basis for trusting a name about someone who spoke,
       // so anything pointing outside the window is dropped. Someone silent has
-      // nothing to cite, and requiring it would delete them from the card.
+      // nothing to cite.
       const cited = (Array.isArray(e.sourceMessageIds) ? e.sourceMessageIds : [])
         .filter((id): id is string => typeof id === 'string' && idsInContext.has(id))
         .slice(0, 4);
       const didSpeak = spoke.has(userId);
-      if (didSpeak && cited.length === 0) continue;
 
       byUser.set(userId, {
         userId,
