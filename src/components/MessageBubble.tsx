@@ -163,19 +163,38 @@ function MessageBubbleImpl({
     <Text style={styles.text}>{message.text}</Text>
   ) : (
     <Text style={styles.text}>
-      {textSegments.map((seg) =>
-        seg.type === 'text' ? (
-          <Text key={seg.key}>{seg.value}</Text>
-        ) : (
+      {textSegments.map((seg) => {
+        if (seg.type === 'text') {
+          return <Text key={seg.key}>{seg.value}</Text>;
+        }
+
+        const isGC = seg.mentionKind === 'gc' || seg.value.toLowerCase() === '@gc';
+        const isEveryone =
+          seg.mentionKind === 'everyone' || seg.value.toLowerCase() === '@everyone';
+
+        return (
           <Text
             key={seg.key}
-            style={[styles.mention, { color: theme.accent }]}
+            style={[
+              styles.mention,
+              isGC
+                ? styles.mentionGC
+                : isEveryone
+                  ? styles.mentionEveryone
+                  : [
+                      styles.mentionMember,
+                      {
+                        backgroundColor: `${theme.accent}24`,
+                        color: theme.accent,
+                      },
+                    ],
+            ]}
             onPress={onMentionPress && seg.userId ? () => onMentionPress(seg.userId!) : undefined}
           >
             {seg.value}
           </Text>
-        )
-      )}
+        );
+      })}
     </Text>
   );
 
@@ -808,7 +827,30 @@ const styles = StyleSheet.create({
   captionPad: { paddingTop: spacing.xs, paddingHorizontal: spacing.xs },
 
   text: { ...typography.body, fontSize: 15, lineHeight: 21, color: colors.onSurface },
-  mention: { fontFamily: typography.bodyMedium.fontFamily },
+  mention: {
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontWeight: '700',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    overflow: 'hidden',
+  },
+  mentionMember: {
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  mentionGC: {
+    backgroundColor: 'rgba(168, 85, 247, 0.22)',
+    color: '#C084FC',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.45)',
+  },
+  mentionEveryone: {
+    backgroundColor: 'rgba(245, 158, 11, 0.22)',
+    color: '#FBBF24',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+  },
   aiShareBlock: { gap: 5 },
   aiShareHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   aiShareBadge: {

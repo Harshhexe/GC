@@ -47,33 +47,49 @@ export function hslToHex(h: number, s: number, l: number) {
  *
  * Scored by population *and* saturation rather than population alone: photos
  * are mostly sky, skin and wall, so a pure headcount returns a row of greys
- * and nothing that works as a theme. Near-greys are dropped outright for the
- * same reason.
+ * and nothing that works as a theme. Uses adaptive thresholds so dark, muted,
+ * or atmospheric wallpapers always extract usable vibrant theme colors.
  */
 export function dominantHues(pixels: Rgb[], count = 5): number[] {
-  if (pixels.length === 0) return [];
+  if (pixels.length === 0) return [265, 215, 335, 160, 42];
 
-  // 24 buckets = 15° each, which is about the point where two hues stop
-  // reading as the same colour.
   const BUCKETS = 24;
-  const weight = new Float64Array(BUCKETS);
-  const hueSum = new Float64Array(BUCKETS);
 
-  for (const px of pixels) {
-    const { h, s, l } = rgbToHsl(px);
-    // Washed-out and near-black pixels carry no usable hue.
-    if (s < 0.18 || l < 0.08 || l > 0.94) continue;
-    const bucket = Math.min(BUCKETS - 1, Math.floor((h / 360) * BUCKETS));
-    const score = s * (1 - Math.abs(l - 0.5));
-    weight[bucket] += score;
-    hueSum[bucket] += h * score;
+  function extractWithThresholds(minS: number, minL: number, maxL: number): number[] {
+    const weight = new Float64Array(BUCKETS);
+    const hueSum = new Float64Array(BUCKETS);
+
+    for (const px of pixels) {
+      const { h, s, l } = rgbToHsl(px);
+      if (s < minS || l < minL || l > maxL) continue;
+      const bucket = Math.min(BUCKETS - 1, Math.floor((h / 360) * BUCKETS));
+      const score = s * (1 - Math.abs(l - 0.5));
+      weight[bucket] += score;
+      hueSum[bucket] += h * score;
+    }
+
+    return Array.from({ length: BUCKETS }, (_, i) => i)
+      .filter((i) => weight[i] > 0)
+      .sort((a, b) => weight[b] - weight[a])
+      .slice(0, count)
+      .map((i) => hueSum[i] / weight[i]);
   }
 
-  const ranked = Array.from({ length: BUCKETS }, (_, i) => i)
-    .filter((i) => weight[i] > 0)
-    .sort((a, b) => weight[b] - weight[a])
-    .slice(0, count)
-    .map((i) => hueSum[i] / weight[i]);
+  // 1. Primary pass with standard vibrancy criteria
+  let ranked = extractWithThresholds(0.12, 0.05, 0.96);
+
+  // 2. Secondary adaptive pass for darker, moodier, or pastel wallpapers
+  if (ranked.length < 3) {
+    const relaxed = extractWithThresholds(0.04, 0.02, 0.98);
+    if (relaxed.length > ranked.length) {
+      ranked = relaxed;
+    }
+  }
+
+  // 3. Fallback for completely monochrome / grayscale images: stylish GC accents
+  if (ranked.length === 0) {
+    return [265, 215, 335, 160, 42]; // Violet, Blue, Pink, Emerald, Amber
+  }
 
   return ranked;
 }

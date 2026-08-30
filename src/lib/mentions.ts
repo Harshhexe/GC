@@ -96,14 +96,22 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export const GC_TOKEN = 'gc';
+
 export type MentionSegment =
   | { type: 'text'; key: string; value: string }
-  | { type: 'mention'; key: string; value: string; userId: string | null };
+  | {
+      type: 'mention';
+      key: string;
+      value: string;
+      userId: string | null;
+      mentionKind: 'member' | 'everyone' | 'gc';
+    };
 
 /**
  * Splits message text into plain-text and mention runs for rendering. Uses
  * the message's *structured* mentions as the whitelist of what counts.
- * Also highlights @everyone case-insensitively whenever present.
+ * Also highlights @everyone and @gc case-insensitively whenever present.
  */
 export function segmentMentionText(
   text: string,
@@ -111,20 +119,27 @@ export function segmentMentionText(
   mentionEveryone: boolean
 ): MentionSegment[] {
   const hasEveryone = mentionEveryone || /@everyone\b/i.test(text);
-  if (mentions.length === 0 && !hasEveryone) {
+  const hasGC = /(?:^|\s)@gc\b/i.test(text);
+
+  if (mentions.length === 0 && !hasEveryone && !hasGC) {
     return [{ type: 'text', key: 't0', value: text }];
   }
 
-  const tokens: { username: string; userId: string | null }[] = mentions.map((m) => ({
-    username: m.username,
-    userId: m.userId,
-  }));
-  if (hasEveryone) tokens.push({ username: EVERYONE_TOKEN, userId: null });
+  const tokens: { username: string; userId: string | null; kind: 'member' | 'everyone' | 'gc' }[] =
+    mentions.map((m) => ({
+      username: m.username,
+      userId: m.userId,
+      kind: 'member' as const,
+    }));
+
+  if (hasEveryone) tokens.push({ username: EVERYONE_TOKEN, userId: null, kind: 'everyone' });
+  if (hasGC) tokens.push({ username: GC_TOKEN, userId: null, kind: 'gc' });
+
   // Longest first so e.g. "@Harsh" alongside "@HarshK" never eats into the
   // longer name's match.
   tokens.sort((a, b) => b.username.length - a.username.length);
 
-  const re = new RegExp(tokens.map((t) => `@${escapeRegExp(t.username)}`).join('|'), 'gi');
+  const re = new RegExp(tokens.map((t) => `@${escapeRegExp(t.username)}\\b`).join('|'), 'gi');
 
   const segments: MentionSegment[] = [];
   let lastIndex = 0;
@@ -136,7 +151,13 @@ export function segmentMentionText(
     }
     const matchedUsername = match[0].slice(1).toLowerCase();
     const token = tokens.find((t) => t.username.toLowerCase() === matchedUsername);
-    segments.push({ type: 'mention', key: `m${i++}`, value: match[0], userId: token?.userId ?? null });
+    segments.push({
+      type: 'mention',
+      key: `m${i++}`,
+      value: match[0],
+      userId: token?.userId ?? null,
+      mentionKind: token?.kind ?? 'member',
+    });
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) {

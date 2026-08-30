@@ -79,6 +79,7 @@ import { GCAwardsBanner } from '../components/GCAwardsBanner';
 import { GCAwardsModal } from '../components/GCAwardsModal';
 import { useWeeklyAwards } from '../hooks/useWeeklyAwards';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
+import { ChatBackground } from '../components/ui/ChatBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
@@ -162,7 +163,6 @@ const MOTD_MIN_REACTIONS = 3;
 /** Lets the web fallback locate the divider to scroll to. */
 const UNREAD_DIVIDER_ID = 'gc-unread-divider';
 
-const CHAT_BG = require('../../assets/ChatBG.png');
 
 const ANON_PLACEHOLDERS = [
   'Roast Them...',
@@ -468,14 +468,6 @@ export default function ChatScreen({ route, navigation }: Props) {
     () => (tea.isActive ? TEA_THEME : personalTheme),
     [tea.isActive, personalTheme]
   );
-  type StagedMention = {
-    id: string;
-    name: string;
-    type: 'member' | 'everyone' | 'gc';
-    color?: string;
-    avatarUrl?: string | null;
-    avatarEmoji?: string;
-  };
   const [draft, setDraft] = useState('');
   const [isAnonMode, setIsAnonMode] = useState(false);
   const [anonPlaceholder, setAnonPlaceholder] = useState(getRandomAnonPlaceholder);
@@ -485,7 +477,6 @@ export default function ChatScreen({ route, navigation }: Props) {
     setIsAnonMode(true);
   }, []);
 
-  const [stagedMentions, setStagedMentions] = useState<StagedMention[]>([]);
   const [pickerForMessage, setPickerForMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -528,7 +519,6 @@ export default function ChatScreen({ route, navigation }: Props) {
   const handleSendRef = useRef<() => void>(() => { });
   useEffect(() => {
     if (!isDesktopWeb || typeof document === 'undefined') return;
-
     const COMPOSER_PLACEHOLDERS = ['Cook Something...', 'Edit your message...'];
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -538,8 +528,15 @@ export default function ChatScreen({ route, navigation }: Props) {
 
       const target = e.target as HTMLElement | null;
       if (!target || target.tagName !== 'TEXTAREA') return;
-      const placeholder = target.getAttribute('placeholder') ?? '';
-      if (!COMPOSER_PLACEHOLDERS.includes(placeholder)) return;
+
+      const isComposer =
+        target.dataset?.gccomposer === '1' ||
+        target.getAttribute('name') === 'gc_message_search' ||
+        COMPOSER_PLACEHOLDERS.includes(target.getAttribute('placeholder') ?? '') ||
+        target.getAttribute('placeholder') === 'Message...' ||
+        target.getAttribute('placeholder')?.includes('spicy');
+
+      if (!isComposer) return;
 
       e.preventDefault();
       handleSendRef.current();
@@ -912,7 +909,6 @@ export default function ChatScreen({ route, navigation }: Props) {
       }
       setDraft('');
       setIsAnonMode(false);
-      setStagedMentions([]);
       const res = await sendAnonymousMessage(groupId, body);
       if (!res.ok) {
         setAttachError(res.error);
@@ -933,7 +929,6 @@ export default function ChatScreen({ route, navigation }: Props) {
       if (anon) {
         setDraft('');
         setIsAnonMode(false);
-        setStagedMentions([]);
         const res = await sendAnonymousMessage(groupId, anon.body);
         if (!res.ok) {
           setAttachError(res.error);
@@ -960,7 +955,6 @@ export default function ChatScreen({ route, navigation }: Props) {
     if (slash) {
       setDraft('');
       setIsAnonMode(false);
-      setStagedMentions([]);
       switch (slash.feature) {
         case 'wordy':
           navigation.navigate('Wordy', { groupId });
@@ -994,16 +988,12 @@ export default function ChatScreen({ route, navigation }: Props) {
     }
 
     const gcCmd = editingMessage ? null : parseGCCommand(draft);
-    const hasGC = stagedMentions.some((m) => m.type === 'gc') || !!gcCmd;
-    if (!editingMessage && hasGC) {
-      const question = stagedMentions.some((m) => m.type === 'gc')
-        ? draft.trim()
-        : parseGCCommand(draft)?.question;
+    if (!editingMessage && gcCmd) {
+      const question = gcCmd.question;
       if (question) {
         if (matchesWordyIntent(question)) {
           setDraft('');
           setIsAnonMode(false);
-          setStagedMentions([]);
           setReplyTo(null);
           navigation.navigate('Wordy', { groupId });
           return;
@@ -1012,7 +1002,6 @@ export default function ChatScreen({ route, navigation }: Props) {
         if (matchesPollIntent(question)) {
           setDraft('');
           setIsAnonMode(false);
-          setStagedMentions([]);
           setDraftingPoll(true);
           const response = await invokeGCAI<PollDraftResult>(groupId, 'poll_draft', { request: question });
           setDraftingPoll(false);
@@ -1045,7 +1034,6 @@ export default function ChatScreen({ route, navigation }: Props) {
         gcCommands.ask(question, gcReplyTo);
         setDraft('');
         setIsAnonMode(false);
-        setStagedMentions([]);
         setMentionCandidates(new Map());
         setSelection(undefined);
         setReplyTo(null);
@@ -1057,15 +1045,13 @@ export default function ChatScreen({ route, navigation }: Props) {
       }
     }
 
-    const mentionPrefix = stagedMentions
-      .map((m) => (m.type === 'everyone' ? '@everyone' : m.type === 'gc' ? '@gc' : `@${m.name}`))
-      .join(' ');
-    const fullText = (mentionPrefix ? `${mentionPrefix} ${draft.trim()}` : draft.trim()).trim();
+    const fullText = draft.trim();
 
     const allCandidates = [...mentionCandidates.values()];
-    for (const m of stagedMentions) {
-      if (m.type === 'member') {
-        allCandidates.push({ userId: m.id, username: m.name });
+    for (const member of groupMembers) {
+      allCandidates.push({ userId: member.id, username: member.displayName });
+      if (member.username && member.username !== member.displayName) {
+        allCandidates.push({ userId: member.id, username: member.username });
       }
     }
     const { mentions, mentionEveryone } = deriveMentionsFromText(fullText, allCandidates);
@@ -1075,7 +1061,6 @@ export default function ChatScreen({ route, navigation }: Props) {
       setEditingMessage(null);
       setDraft('');
       setIsAnonMode(false);
-      setStagedMentions([]);
       setMentionCandidates(new Map());
       setSelection(undefined);
       maintainComposerFocus();
@@ -1117,7 +1102,6 @@ export default function ChatScreen({ route, navigation }: Props) {
 
     setDraft('');
     setIsAnonMode(false);
-    setStagedMentions([]);
     setMentionCandidates(new Map());
     setSelection(undefined);
     setReplyTo(null);
@@ -1176,7 +1160,6 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const canSend =
     draft.trim().length > 0 ||
-    stagedMentions.length > 0 ||
     !!pendingAttachment;
 
   function openAttachmentSheet() {
@@ -1558,66 +1541,18 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const selectMentionMember = useCallback(
     (member: GroupMember) => {
-      setStagedMentions((prev) => {
-        if (prev.some((m) => m.id === member.id)) return prev;
-        return [
-          ...prev,
-          {
-            id: member.id,
-            name: member.displayName,
-            type: 'member',
-            color: member.avatarColor,
-            avatarUrl: member.avatarUrl,
-            avatarEmoji: member.avatarEmoji,
-          },
-        ];
-      });
-      setMentionCandidates((prev) => {
-        const next = new Map(prev);
-        next.set(member.id, { userId: member.id, username: member.displayName });
-        return next;
-      });
-      if (activeMentionQuery) {
-        setDraft((prev) => {
-          const before = prev.slice(0, activeMentionQuery.start);
-          const after = prev.slice(activeMentionQuery.start + activeMentionQuery.query.length + 1);
-          return `${before}${after}`.trimStart();
-        });
-      }
-      setTimeout(() => inputRef.current?.focus(), 50);
+      applyMentionInsert(member.displayName, { userId: member.id, username: member.displayName });
     },
-    [activeMentionQuery]
+    [applyMentionInsert]
   );
 
   const selectMentionEveryone = useCallback(() => {
-    setStagedMentions((prev) => {
-      if (prev.some((m) => m.type === 'everyone')) return prev;
-      return [...prev, { id: 'everyone', name: 'everyone', type: 'everyone' }];
-    });
-    if (activeMentionQuery) {
-      setDraft((prev) => {
-        const before = prev.slice(0, activeMentionQuery.start);
-        const after = prev.slice(activeMentionQuery.start + activeMentionQuery.query.length + 1);
-        return `${before}${after}`.trimStart();
-      });
-    }
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, [activeMentionQuery]);
+    applyMentionInsert('everyone');
+  }, [applyMentionInsert]);
 
   const selectMentionGC = useCallback(() => {
-    setStagedMentions((prev) => {
-      if (prev.some((m) => m.type === 'gc')) return prev;
-      return [...prev, { id: 'gc', name: 'gc', type: 'gc' }];
-    });
-    if (activeMentionQuery) {
-      setDraft((prev) => {
-        const before = prev.slice(0, activeMentionQuery.start);
-        const after = prev.slice(activeMentionQuery.start + activeMentionQuery.query.length + 1);
-        return `${before}${after}`.trimStart();
-      });
-    }
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, [activeMentionQuery]);
+    applyMentionInsert('gc');
+  }, [applyMentionInsert]);
 
   const canDeleteMessage = useCallback(
     (m: Message) => m.isMine || canModerate,
@@ -2201,22 +2136,32 @@ export default function ChatScreen({ route, navigation }: Props) {
       {/* A custom wallpaper replaces the default doodle background outright
           rather than stacking on it — two patterned layers fight each other,
           and the point of choosing a photo is to see the photo. */}
-      <Image
-        source={wallpaperUri ?? CHAT_BG}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-      />
-      {wallpaperUri && <View style={[StyleSheet.absoluteFill, styles.wallpaperScrim]} />}
+      {wallpaperUri ? (
+        <>
+          <Image
+            source={wallpaperUri}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+          <View style={[StyleSheet.absoluteFill, styles.wallpaperScrim]} />
+        </>
+      ) : (
+        /* The default surface now carries the group's own colour instead of
+           the same opaque doodle slab in every GC. See ChatBackground. */
+        <ChatBackground colors={theme.colors} />
+      )}
       {/* Edge glows off on web: in the installed PWA they land on the status
           bar and home-indicator strips and read as system chrome rather than
           part of the chat. Native keeps them — safe areas are padded there, so
           the bands sit inside the content where they were designed to. */}
-      <AmbientBackground
-        tint={theme.accent}
-        hideBaseBackground
-        hideEdgeGlows={Platform.OS === 'web'}
-      />
+      {!!wallpaperUri && (
+        <AmbientBackground
+          tint={theme.accent}
+          hideBaseBackground
+          hideEdgeGlows={Platform.OS === 'web'}
+        />
+      )}
       <SafeAreaView style={styles.safe} edges={['top']}>
         {selectMode ? (
           <View style={styles.header}>
@@ -2521,55 +2466,12 @@ export default function ChatScreen({ route, navigation }: Props) {
                   </View>
                 )}
 
-                {stagedMentions.map((m) => (
-                  <View
-                    key={m.id}
-                    style={[
-                      styles.translucentPillMention,
-                      m.type === 'everyone' && styles.translucentPillEveryone,
-                      m.type === 'gc' && styles.translucentPillGC,
-                    ]}
-                  >
-                    {m.type === 'everyone' ? (
-                      <Ionicons name="megaphone" size={11} color="#FBBF24" />
-                    ) : m.type === 'gc' ? (
-                      <Ionicons name="sparkles" size={11} color="#C084FC" />
-                    ) : (
-                      <Ionicons name="at" size={11} color={m.color || theme.accent} />
-                    )}
-                    <Text
-                      style={[
-                        styles.translucentPillText,
-                        m.type === 'everyone' && { color: '#FBBF24' },
-                        m.type === 'gc' && { color: '#C084FC' },
-                        m.type === 'member' && { color: m.color || theme.accent },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {m.type === 'everyone' ? '@everyone' : m.type === 'gc' ? '@gc' : `@${m.name}`}
-                    </Text>
-                    <Pressable
-                      hitSlop={8}
-                      onPress={() => {
-                        tapFeedback();
-                        setStagedMentions((prev) => prev.filter((item) => item.id !== m.id));
-                      }}
-                      style={styles.pillCloseBtn}
-                    >
-                      <Ionicons
-                        name="close"
-                        size={10}
-                        color={
-                          m.type === 'everyone'
-                            ? '#FBBF24'
-                            : m.type === 'gc'
-                              ? '#C084FC'
-                              : m.color || theme.accent
-                        }
-                      />
-                    </Pressable>
+                {!!parseGCCommand(draft) && !isAnonMode && (
+                  <View style={styles.translucentPillGC}>
+                    <Ionicons name="sparkles" size={11} color="#C084FC" />
+                    <Text style={styles.translucentPillGCText}>GC AI</Text>
                   </View>
-                ))}
+                )}
 
                 {!isRecordingVoice && (
                   <TextInput
@@ -2588,9 +2490,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                     }}
                     onKeyPress={(e) => {
                       if (e.nativeEvent.key === 'Backspace' && draft === '') {
-                        if (stagedMentions.length > 0) {
-                          setStagedMentions((prev) => prev.slice(0, -1));
-                        } else if (isAnonMode) {
+                        if (isAnonMode) {
                           setIsAnonMode(false);
                         }
                       }
@@ -2607,11 +2507,9 @@ export default function ChatScreen({ route, navigation }: Props) {
                     placeholder={
                       isAnonMode
                         ? anonPlaceholder
-                        : stagedMentions.length > 0
-                          ? 'Message...'
-                          : editingMessage
-                            ? 'Edit your message...'
-                            : 'Cook Something...'
+                        : editingMessage
+                          ? 'Edit your message...'
+                          : 'Cook Something...'
                     }
                     placeholderTextColor={colors.outline}
                     multiline
@@ -3196,30 +3094,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F472B6',
   },
-  translucentPillMention: {
+  translucentPillGC: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3.5,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(129, 140, 248, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.4)',
-  },
-  translucentPillEveryone: {
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-  },
-  translucentPillGC: {
     backgroundColor: 'rgba(168, 85, 247, 0.18)',
+    borderWidth: 1,
     borderColor: 'rgba(168, 85, 247, 0.45)',
   },
-  translucentPillText: {
+  translucentPillGCText: {
     ...typography.label,
     fontSize: 12,
     fontWeight: '700',
-    maxWidth: 130,
+    color: '#C084FC',
   },
   pillCloseBtn: {
     width: 14,

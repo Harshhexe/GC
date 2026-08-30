@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -51,73 +50,68 @@ const DEAD_CHAT_MS = 1000 * 60 * 60 * 24;
 const APP_LOGO_TRANSPARENT = require('../../assets/gc_app_logo-transparent.png');
 
 /** Deep moody atmospheric glow background for Group List */
+/**
+ * The room the group list sits in.
+ *
+ * What this replaces stacked four corner blobs in four different colours
+ * (violet, cyan, rose, indigo) and then ran a full-screen BlurView over the
+ * top of them. Two problems with that. Four accents is the same as no accent,
+ * and every row in this list already carries its own group's colour on the
+ * avatar ring and its action chip, so a multi-colour field underneath was
+ * competing with the only colour that carries meaning here. The blur was also
+ * doing no visible work: these layers are already smooth gradients, and
+ * blurring a gradient returns the same gradient while still costing a
+ * full-screen GPU pass on a surface that scrolls.
+ *
+ * So this is deliberately quieter than the chat background. A chat screen
+ * belongs to one group and can take that group's colour everywhere. The list
+ * belongs to the app, and its job is to let three differently-coloured cards
+ * sit on it without any of them clashing.
+ */
 function GroupListAtmosphericBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Obsidian Dark Base */}
+      {/* Base, deepening toward the floor. */}
       <LinearGradient
-        colors={['#0C0A14', '#06050A', colors.appChrome]}
+        colors={['#0D0B16', '#08070E', colors.appChrome]}
+        locations={[0, 0.5, 1]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Top Atmosphere Spotlight */}
+      {/*
+        One key light, in the app's own indigo, raking down from the top-left.
+        Full-bleed rather than a rounded blob: a gradient inside a circle
+        leaves a hard arc wherever it is still opaque at the circle's edge, and
+        on a tall screen that arc reads as a smudge across the list.
+      */}
       <LinearGradient
-        colors={['rgba(139, 92, 246, 0.16)', 'rgba(99, 102, 241, 0.06)', 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={styles.topSpotlight}
-      />
-
-      {/* Subtle Corner Ambient Glows */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={['rgba(139, 92, 246, 0.25)', 'rgba(236, 72, 153, 0.10)', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={['rgba(76, 215, 246, 0.16)', 'rgba(99, 102, 241, 0.10)', 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={['rgba(251, 113, 133, 0.14)', 'rgba(139, 92, 246, 0.10)', 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={['rgba(99, 102, 241, 0.18)', 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Velvety Smooth Dark Blur */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 85 : 95}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
+        colors={['rgba(129, 140, 248, 0.20)', 'rgba(99, 102, 241, 0.06)', 'transparent']}
+        locations={[0, 0.32, 0.66]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 0.78 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Subtle Ambient Sheen & Dark Vignette */}
+      {/*
+        A floor under the content. With only a few groups the lower half of
+        this screen is empty, and a flat black void reads as something failing
+        to load. A gradient that falls away instead reads as depth, and gives
+        the dock something to sit against.
+      */}
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.02)', 'transparent', 'rgba(3, 2, 6, 0.65)']}
+        colors={['transparent', 'rgba(99, 102, 241, 0.05)', 'rgba(3, 2, 6, 0.55)']}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0.5, y: 0.45 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Sheen at the very top, so the header does not start on a hard edge. */}
+      <LinearGradient
+        colors={['rgba(255, 255, 255, 0.03)', 'transparent']}
+        locations={[0, 0.18]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -541,22 +535,6 @@ export default function GroupListScreen({ navigation }: Props) {
                 </Text>
               </View>
             </View>
-
-            <PressableScale
-              scaleTo={0.92}
-              haptic="medium"
-              onPress={() => navigation.navigate('AddGC', { mode: 'create' })}
-            >
-              <LinearGradient
-                colors={gradients.brand}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.newGCBtn}
-              >
-                <Ionicons name="add" size={16} color="#FFFFFF" />
-                <Text style={styles.newGCBtnText}>New GC</Text>
-              </LinearGradient>
-            </PressableScale>
           </View>
         </View>
 
@@ -578,7 +556,7 @@ export default function GroupListScreen({ navigation }: Props) {
           <View style={styles.emptyContainer}>
             <EmptyState
               icon="chatbubbles-outline"
-              text="No group chats yet. Tap + New GC above to get started!"
+              text="No group chats yet."
               iconColor={colors.primary}
             />
           </View>
@@ -613,13 +591,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1, minHeight: 0 },
   glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  cornerBlob: { position: 'absolute', borderRadius: 999 },
-  blobFill: { flex: 1, borderRadius: 999 },
-  blobTopLeft: { top: -70, left: -70, width: 280, height: 280, opacity: 0.75 },
-  blobTopRight: { top: -60, right: -60, width: 270, height: 270, opacity: 0.7 },
-  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.65 },
-  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.7 },
   blobCenterAnimated: { top: '15%', left: '15%', width: 280, height: 280 },
   topBar: {
     flexDirection: 'row',
@@ -707,23 +678,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.onSurfaceVariant,
-  },
-  newGCBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: glass.strokeBright,
-    ...shadows.glow,
-  },
-  newGCBtnText: {
-    ...typography.label,
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   list: {
     paddingHorizontal: CONTAINER_MARGIN,

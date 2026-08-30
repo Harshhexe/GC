@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,6 +48,19 @@ export function ChatThemeSheet({
   const [busy, setBusy] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible || !appearance.wallpaperUri) return;
+    if (!appearance.wallpaperPalette || appearance.wallpaperPalette.length === 0) {
+      setExtracting(true);
+      extractWallpaperPalette(appearance.wallpaperUri).then((palette) => {
+        setExtracting(false);
+        if (palette && palette.length > 0) {
+          onChange({ wallpaperPalette: palette });
+        }
+      });
+    }
+  }, [visible, appearance.wallpaperUri, appearance.wallpaperPalette, onChange]);
 
   async function handlePickWallpaper() {
     selectFeedback();

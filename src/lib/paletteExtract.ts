@@ -60,28 +60,34 @@ async function loadManipulator() {
   return { manipulateAsync, SaveFormat };
 }
 
+import { decode as decodeBase64 } from 'base64-arraybuffer';
+
 async function samplePixelsNative(uri: string): Promise<Rgb[]> {
-  const { manipulateAsync, SaveFormat } = await loadManipulator();
-  const output = await manipulateAsync(uri, [{ resize: { width: SAMPLE_SIZE } }], {
-    format: SaveFormat?.PNG ?? 'png',
-    base64: true,
-  });
-  if (!output.base64) return [];
+  try {
+    const { manipulateAsync, SaveFormat } = await loadManipulator();
+    const output = await manipulateAsync(uri, [{ resize: { width: SAMPLE_SIZE } }], {
+      format: SaveFormat?.PNG ?? 'png',
+      base64: true,
+    });
+    if (!output.base64) return [];
 
-  const binary = globalThis.atob(output.base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const buffer = decodeBase64(output.base64);
+    const bytes = new Uint8Array(buffer);
 
-  const decoded = decodePng(bytes);
-  if (!decoded) return [];
+    const decoded = decodePng(bytes);
+    if (!decoded) return [];
 
-  const pixels: Rgb[] = [];
-  const { data, channels } = decoded;
-  for (let i = 0; i < data.length; i += channels) {
-    if (channels === 4 && data[i + 3] < 128) continue;
-    pixels.push({ r: data[i], g: data[i + 1], b: data[i + 2] });
+    const pixels: Rgb[] = [];
+    const { data, channels } = decoded;
+    for (let i = 0; i < data.length; i += channels) {
+      if (channels === 4 && data[i + 3] < 128) continue;
+      pixels.push({ r: data[i], g: data[i + 1], b: data[i + 2] });
+    }
+    return pixels;
+  } catch (err) {
+    console.warn('samplePixelsNative error:', err);
+    return [];
   }
-  return pixels;
 }
 
 /**
