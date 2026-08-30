@@ -37,6 +37,7 @@ export const pollDraftOperation: AIOperation<PollDraftResult> = {
     maxMessages: 40,
     defaultLookbackHours: 12,
     perViewer: false,
+    allowEmpty: true,
   },
 
   // Two people asking for a dinner poll minutes apart want their own drafts,

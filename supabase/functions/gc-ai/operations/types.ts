@@ -34,6 +34,11 @@ export type AIOperation<TResult = unknown> = {
      * result written to address one of them.
      */
     perViewer?: boolean;
+    /**
+     * Whether this operation can proceed with an empty message transcript
+     * (e.g. drafting a poll from the user's prompt text alone).
+     */
+    allowEmpty?: boolean;
   };
 
   /** Overrides the global cache TTL where an operation ages differently. */

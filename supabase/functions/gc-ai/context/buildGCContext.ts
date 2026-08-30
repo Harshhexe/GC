@@ -98,6 +98,10 @@ export type BuildContextParams = {
    */
   requireOthers?: boolean;
   /**
+   * Whether to allow an empty transcript without throwing empty_context error.
+   */
+  allowEmpty?: boolean;
+  /**
    * Pull this person's own messages into the window, by authorship — not by
    * keyword.
    *
@@ -332,6 +336,18 @@ export async function buildGCContext(params: BuildContextParams): Promise<GCCont
   );
 
   if (ordered.length === 0) {
+    if (params.allowEmpty) {
+      return {
+        groupId,
+        range: 'no messages',
+        transcript: '',
+        messages: [],
+        profiles: [],
+        totalAvailable: 0,
+        truncated: false,
+        hash: `${groupId}:empty:${params.cacheSeed ?? ''}`,
+      };
+    }
     throw new GCAIError('empty_context', 'No messages in the requested window');
   }
 
@@ -415,6 +431,18 @@ export async function buildGCContext(params: BuildContextParams): Promise<GCCont
   }
 
   if (messages.length === 0) {
+    if (params.allowEmpty) {
+      return {
+        groupId,
+        range: 'no messages',
+        transcript: '',
+        messages: [],
+        profiles: [],
+        totalAvailable: 0,
+        truncated: false,
+        hash: `${groupId}:empty:${params.cacheSeed ?? ''}`,
+      };
+    }
     throw new GCAIError('empty_context', 'Nothing in this window the model can read');
   }
 

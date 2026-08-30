@@ -224,6 +224,8 @@ function Key({
       )}
       {label === 'BACK' ? (
         <Ionicons name="backspace-outline" size={19} color="#FFFFFF" />
+      ) : label === 'ENTER' ? (
+        <Ionicons name="return-down-back" size={20} color="#FFFFFF" />
       ) : (
         <Text style={[styles.keyText, wide && styles.keyTextWide]}>{label}</Text>
       )}

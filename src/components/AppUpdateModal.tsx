@@ -27,40 +27,34 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'trophy-outline' as const,
-    color: '#FBBF24',
-    title: "This Week's Claimed Awards",
-    desc: 'The awards screen now shows only the titles you currently hold. Top three get gold, silver and bronze, and everything hands over automatically when your GC runs its next Sunday ceremony.',
+    icon: 'stats-chart-outline' as const,
+    color: '#06B6D4',
+    title: 'AI Poll Drafting with @gc',
+    desc: 'Ask @gc to make a poll about anything and it instantly drafts questions and options ready for review, even if the chat was quiet.',
   },
   {
-    icon: 'hand-left-outline' as const,
-    color: '#38BDF8',
-    title: 'Swipe Anything Away',
-    desc: 'Every sheet and full-screen panel (GIFs, stickers, polls, comments) can now be dragged down to close. Flick it and it goes, catch it mid-slide and it follows your finger. Taps feel springier everywhere too.',
+    icon: 'checkmark-circle-outline' as const,
+    color: '#10B981',
+    title: 'Smooth Modal Dismiss & Cancel',
+    desc: 'Sticker, GIF, and Poll pickers now dismiss instantly when pressing Cancel or completing a send.',
+  },
+  {
+    icon: 'at-outline' as const,
+    color: '#818CF8',
+    title: 'Send Mention-Only Messages',
+    desc: 'You can now send messages containing only @mentions without being forced to type extra text.',
+  },
+  {
+    icon: 'grid-outline' as const,
+    color: '#FBBF24',
+    title: 'Wordy Keyboard Upgrade',
+    desc: 'The Wordy daily game keyboard now features a clean return icon for submitting guesses.',
   },
   {
     icon: 'pricetag-outline' as const,
     color: '#F472B6',
     title: 'Daily GC Names, Now Automatic',
-    desc: "Names sync for the whole group at midnight, no need to open the tab. Every member gets one, including the ones who said nothing, and it shows next to their name in chat too.",
-  },
-  {
-    icon: 'bug-outline' as const,
-    color: '#F87171',
-    title: 'Fixed "GC AI said something incoherent"',
-    desc: "Daily Names was crashing on every generation. Also fixed larger groups getting cut off mid-response.",
-  },
-  {
-    icon: 'eye-off-outline' as const,
-    color: '#94A3B8',
-    title: 'Anonymous Messages',
-    desc: 'Type /anon before a message to send it with no name attached. Up to 3 a day, and nobody in the GC can trace it back to you.',
-  },
-  {
-    icon: 'camera-outline' as const,
-    color: '#10B981',
-    title: 'In-App Camera with Zoom',
-    desc: 'Shoot photos and videos without leaving GC: 0.5x/1x/2x/4x presets, pinch-to-zoom, and a filmstrip of your recent shots to send instantly.',
+    desc: 'Names sync for the whole group at midnight, no need to open the tab. Every member gets one, including silent ones, beside their chat avatar.',
   },
 ];
 

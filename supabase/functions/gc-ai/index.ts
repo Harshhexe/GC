@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
         anchorMessageId: window.anchorMessageId,
         teaSessionId: window.teaSessionId,
         cacheSeed: window.cacheSeed,
+        allowEmpty: operation.context.allowEmpty,
       });
     } catch (error) {
       // For most operations an empty window is an error. For What Did I Miss

@@ -57,16 +57,24 @@ export function DismissibleModalPage({
 }) {
   const { height } = useWindowDimensions();
   const translateY = useSharedValue(height);
-  const startY = useSharedValue(0);
   const [mounted, setMounted] = useState(visible);
+  const startY = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
       setMounted(true);
       translateY.value = height;
       translateY.value = withSpring(0, { ...dismissSpring, reduceMotion });
+    } else if (mounted) {
+      translateY.value = withSpring(
+        height,
+        { ...dismissSpring, velocity: 0, reduceMotion },
+        (finished) => {
+          if (finished) runOnJS(setMounted)(false);
+        }
+      );
     }
-  }, [visible, height, translateY]);
+  }, [visible, mounted, height, translateY]);
 
   const finish = useCallback(() => {
     setMounted(false);
