@@ -26,6 +26,9 @@ const CORS = {
  */
 const CASHFREE_API_VERSION = '2023-08-01';
 
+/** Confirmation page the payer lands on after Cashfree finishes. */
+const CONFIRM_PAGE = 'https://the-gc.vercel.app/paid';
+
 function baseUrl(env: string) {
   return env === 'production' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
 }
@@ -141,7 +144,16 @@ Deno.serve(async (req) => {
           customer_phone: (user.phone && user.phone.length >= 10) ? user.phone : '9999999999',
         },
         order_meta: {
-          return_url: typeof body.returnUrl === 'string' ? body.returnUrl : undefined,
+          /*
+           * Where Cashfree drops the payer once the payment page is done.
+           * Defaulted server-side rather than trusted from the request: a
+           * caller-supplied URL is an open redirect, and this one is only ever
+           * a confirmation page on GC's own domain.
+           *
+           * It is cosmetic. The slot is granted by the webhook, so a payer who
+           * closes the tab before the redirect still gets what they paid for.
+           */
+          return_url: `${CONFIRM_PAGE}?order={order_id}`,
         },
         // Echoed back on the webhook, so settlement never has to parse an id
         // out of a formatted string.

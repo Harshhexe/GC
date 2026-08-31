@@ -136,19 +136,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true, test: true });
     }
 
-    /*
-     * Structure only (keys plus our own identifiers, never customer values).
-     * Kept until a real payment has settled once, because the first live event
-     * is the only thing that can confirm this parser matches the payload the
-     * account's webhook version actually sends.
-     */
-    console.log(
-      `[gc-payment-webhook] shape type=${event.type ?? 'none'} ` +
-      `data=${Object.keys((event as Record<string, unknown>).data ?? {}).join(',')} ` +
-      `order=${Object.keys(event.data?.order ?? {}).join(',')} ` +
-      `payment=${Object.keys(event.data?.payment ?? {}).join(',')}`
-    );
-
     const orderId = event.data?.order?.order_id ?? '';
     const purchaseId = event.data?.order?.order_tags?.purchase_id ?? '';
     const paymentId = event.data?.payment?.cf_payment_id;

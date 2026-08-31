@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Slot unlocked - GC</title>
+    <meta name="theme-color" content="#030206" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="stylesheet" href="/legal.css" />
+    <style>
+      .done-wrap { max-width: 460px; margin: 0 auto; padding: 88px 22px; text-align: center; }
+      .tick {
+        width: 74px; height: 74px; margin: 0 auto 26px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 34px; color: #34d399;
+        background: rgba(52, 211, 153, 0.10);
+        border: 2px solid rgba(52, 211, 153, 0.38);
+      }
+      .done-body { color: var(--text-body); font-size: 16px; margin: 0 0 30px; }
+      .cta {
+        display: inline-block; padding: 15px 34px; border-radius: 999px;
+        background: var(--accent); color: #fff; font-weight: 650;
+        font-size: 16px; text-decoration: none;
+      }
+      .cta:hover { filter: brightness(1.08); }
+      .hint { margin-top: 22px; font-size: 14px; color: var(--text-muted); }
+    </style>
+  </head>
+  <body>
+    <div class="done-wrap">
+      <div class="tick" aria-hidden="true">&#10003;</div>
+      <h1 style="font-size: 30px; margin-bottom: 10px">Slot unlocked</h1>
+
+      <!--
+        Deliberately does not claim to have granted anything itself. The slot
+        is granted by the signed webhook, which may land a moment before or
+        after this page loads, so the copy describes the outcome rather than
+        promising an instant state the app might not have refreshed into yet.
+      -->
+      <p class="done-body">
+        Your payment went through. You can create one more GC.
+      </p>
+
+      <a class="cta" href="/">Back to GC</a>
+      <p class="hint" id="hint">
+        If you started this in the GC app, just switch back to it. Your new slot
+        is already there.
+      </p>
+    </div>
+
+    <script>
+      /*
+       * Payers arriving from the mobile app are in a separate browser, where
+       * "Back to GC" cannot reach the app. Only show the web link when this is
+       * plausibly the web app's own tab; otherwise the hint alone is honest.
+       */
+      (function () {
+        try {
+          var cameFromApp = !window.opener && window.history.length <= 2;
+          if (cameFromApp) {
+            var cta = document.querySelector('.cta');
+            if (cta) cta.style.display = 'none';
+          } else {
+            var hint = document.getElementById('hint');
+            if (hint) hint.style.display = 'none';
+          }
+        } catch (e) {
+          /* Both affordances stay visible, which is a fine fallback. */
+        }
+      })();
+    </script>
+  </body>
+</html>

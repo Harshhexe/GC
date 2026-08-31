@@ -504,6 +504,22 @@ export default function AddGCScreen({ navigation, route }: Props) {
                 entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
                 style={styles.createContainer}
               >
+                {/*
+                  How many more GCs this account may create. Shown only when a
+                  slot was actually bought, because "1 of 1" on a free account
+                  is just the default state dressed up as information, and it
+                  would put a price-shaped label on a screen nobody paid for.
+                */}
+                {!!entitlement && entitlement.allowance > entitlement.freeLimit && (
+                  <View style={styles.slotChip}>
+                    <Ionicons name="checkmark-circle" size={15} color={colors.lime} />
+                    <Text style={styles.slotChipText}>
+                      {entitlement.allowance - entitlement.owned} slot
+                      {entitlement.allowance - entitlement.owned === 1 ? '' : 's'} available
+                    </Text>
+                  </View>
+                )}
+
                 {/* 1. WhatsApp-Style Group Identity Card */}
                 <GlassPanel borderRadius={radius.xl} style={styles.profileCard}>
                   <Text style={styles.sectionHeaderLabel}>GROUP INFO</Text>
@@ -921,6 +937,24 @@ const styles = StyleSheet.create({
 
   // WhatsApp-Style Create Layout
   createContainer: { gap: spacing.md },
+  slotChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.32)',
+  },
+  slotChipText: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.lime,
+  },
   profileCard: { padding: spacing.lg, gap: spacing.md },
   sectionHeaderLabel: {
     ...typography.label,
