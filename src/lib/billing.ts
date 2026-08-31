@@ -1,3 +1,4 @@
+import { Linking, Platform } from 'react-native';
 import { supabase } from './supabase';
 
 /**
@@ -6,10 +7,12 @@ import { supabase } from './supabase';
  * One GC is free; every additional GC you *create* costs a one-off fee.
  * Joining someone else's GC is free and unlimited.
  *
- * No payment gateway is wired up yet. `startGCPurchase` records the intent
- * server-side and hands back the row a Razorpay checkout would be opened
- * against; nothing here holds keys, contacts Razorpay, or can mark a purchase
- * paid — settlement is the server's job (see supabase/gc_paid_slots.sql).
+ * Cashfree is the gateway. `startGCPurchase` records the intent server-side
+ * and hands back the row that checkout is opened against; nothing here holds
+ * keys, talks to Cashfree, or can mark a purchase paid. The order is created
+ * by the `gc-checkout` edge function and settled only by a signature-verified
+ * webhook (`gc-payment-webhook`), because a client that could settle its own
+ * purchase could grant itself unlimited GCs.
  */
 
 export type GCEntitlement = {
@@ -123,4 +126,60 @@ export function friendlyGroupCreateError(rawMessage: string): string {
     return 'You’ve used all your GC slots. Add another to create this group.';
   }
   return rawMessage;
+}
+
+/**
+ * Where the hosted checkout page lives.
+ *
+ * A page on GC's own web app rather than a link generated per payment: it
+ * loads Cashfree's SDK with the session id created server-side, so the app
+ * never needs the payment SDK compiled into it. That is what keeps this an
+ * over-the-air change instead of a new native build.
+ *
+ * Pointed at the canonical host and the extensionless path on purpose.
+ * `web-gc.vercel.app` 307s to `the-gc.vercel.app`, and `cleanUrls` then 308s
+ * `/pay.html` to `/pay`: two redirects for a URL carrying a single-use payment
+ * session, on a mobile browser, is two chances to lose the query string.
+ */
+const CHECKOUT_PAGE = 'https://the-gc.vercel.app/pay';
+
+/**
+ * Opens Cashfree checkout for one additional GC slot.
+ *
+ * The amount is never sent from here. `gc-checkout` reads it out of the
+ * purchase row, where the guard trigger stamped it from the database's own
+ * price function, so the client cannot influence what is charged.
+ *
+ * Returns once the browser has been handed the URL, not once the payment is
+ * done. Nothing here can grant a slot: the entitlement only moves when
+ * Cashfree calls the signed webhook, and the app picks that up by refetching
+ * on focus. Abandoning the payment page therefore costs nothing.
+ */
+export async function openGCCheckout(purchaseId: string): Promise<{ error: string | null }> {
+  const { data, error } = await supabase.functions.invoke('gc-checkout', {
+    body: { purchaseId },
+  });
+
+  if (error || !data?.ok || !data?.paymentSessionId) {
+    return { error: data?.error ?? error?.message ?? 'Could not start the payment.' };
+  }
+
+  const url =
+    `${CHECKOUT_PAGE}?session=${encodeURIComponent(data.paymentSessionId)}` +
+    `&mode=${data.mode === 'production' ? 'production' : 'sandbox'}`;
+
+  if (Platform.OS === 'web') {
+    /*
+     * Same tab, not a popup. Opening a new window here happens after an await,
+     * which has already broken the user-gesture chain, and browsers block that
+     * as a popup.
+     */
+    window.location.assign(url);
+    return { error: null };
+  }
+
+  const canOpen = await Linking.canOpenURL(url);
+  if (!canOpen) return { error: 'No browser available to open checkout.' };
+  await Linking.openURL(url);
+  return { error: null };
 }

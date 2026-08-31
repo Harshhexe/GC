@@ -30,7 +30,7 @@ import {
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { GROUP_THEMES, GroupThemeKey, groupTheme, GroupTheme } from '../theme/groupThemes';
 import { useGCEntitlement } from '../hooks/useGCEntitlement';
-import { formatPaise, friendlyGroupCreateError, startGCPurchase } from '../lib/billing';
+import { formatPaise, friendlyGroupCreateError, openGCCheckout, startGCPurchase } from '../lib/billing';
 import { GlassPanel } from '../components/ui/Glass';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { useIsDesktopWeb } from '../hooks/useResponsiveLayout';
@@ -157,12 +157,21 @@ export default function AddGCScreen({ navigation, route }: Props) {
       setPurchaseNote(error ?? 'Could not start the purchase. Try again.');
       return;
     }
-    // Where Razorpay checkout will be opened once keys exist. Until then the
-    // order is recorded and left unsettled — deliberately no client-side path
-    // to mark it paid, since that would hand out free slots.
-    setPurchaseNote(
-      `Order reserved (#${purchase.id.slice(0, 8)}). Razorpay checkout isn’t connected yet, so it stays pending.`
-    );
+    /*
+     * Hand off to Cashfree's hosted page. The slot is not granted here and
+     * cannot be: the purchase only becomes `paid` when Cashfree calls the
+     * signed webhook, and `useGCEntitlement` refetches on focus, so the new
+     * slot appears by itself when the user comes back.
+     */
+    setStartingPurchase(true);
+    const { error: checkoutError } = await openGCCheckout(purchase.id);
+    setStartingPurchase(false);
+
+    if (checkoutError) {
+      setPurchaseNote(checkoutError);
+      return;
+    }
+    setPurchaseNote('Finish the payment in your browser, then come back. Your slot unlocks automatically.');
   }
 
   function resetWizard() {
@@ -482,8 +491,8 @@ export default function AddGCScreen({ navigation, route }: Props) {
                   </PressableScale>
 
                   <Text style={styles.paywallFinePrint}>
-                    Payments are handled by Razorpay. Checkout isn’t switched on yet —
-                    this reserves your order.
+                    Payments are handled by Cashfree. You’ll finish in your browser,
+                    then come back.
                   </Text>
                 </GlassPanel>
               </Animated.View>

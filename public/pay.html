@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Checkout - GC</title>
+    <meta name="theme-color" content="#030206" />
+    <!-- Not indexable: every URL here is single-use and tied to one order. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="stylesheet" href="/legal.css" />
+    <style>
+      .pay-wrap { max-width: 460px; margin: 0 auto; padding: 96px 22px; text-align: center; }
+      .pay-status { margin: 28px 0 0; color: var(--text-muted); font-size: 15px; }
+      .pay-error {
+        margin-top: 24px; padding: 16px 18px; border-radius: var(--r);
+        background: rgba(248, 113, 113, 0.08);
+        border: 1px solid rgba(248, 113, 113, 0.28);
+        color: #fca5a5; font-size: 15px; text-align: left;
+      }
+      .spinner {
+        width: 34px; height: 34px; margin: 0 auto; border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.12);
+        border-top-color: var(--accent);
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      /* Motion is decoration here; the status text carries the meaning. */
+      @media (prefers-reduced-motion: reduce) {
+        .spinner { animation: none; border-top-color: rgba(255, 255, 255, 0.12); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pay-wrap">
+      <a class="brand" href="/">&larr; GC</a>
+      <h1 style="font-size: 30px; margin-bottom: 6px">Opening checkout</h1>
+      <div id="live" role="status" aria-live="polite">
+        <div class="spinner" id="spinner"></div>
+        <p class="pay-status" id="status">Handing you to Cashfree to complete the payment.</p>
+      </div>
+    </div>
+
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+    <script>
+      /*
+       * Launches Cashfree's hosted checkout for one GC slot.
+       *
+       * This page holds no keys and decides nothing. It receives a
+       * payment_session_id that the `gc-checkout` edge function already
+       * created server-side against a price read from the database, and hands
+       * it to Cashfree's SDK. It cannot alter the amount, and nothing it does
+       * grants a slot: settlement happens only when Cashfree calls the signed
+       * webhook. Closing this tab mid-payment therefore loses nothing.
+       */
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var session = params.get('session');
+        var mode = params.get('mode') === 'production' ? 'production' : 'sandbox';
+
+        var live = document.getElementById('live');
+
+        function fail(message) {
+          live.innerHTML =
+            '<div class="pay-error">' +
+            message +
+            '</div><p class="pay-status">Head back to GC and start the purchase again.</p>';
+        }
+
+        if (!session) {
+          fail('This checkout link is missing its payment session, so there is nothing to pay for yet.');
+          return;
+        }
+
+        if (typeof Cashfree !== 'function') {
+          fail('Could not load the payment provider. Check your connection and try again.');
+          return;
+        }
+
+        try {
+          var cashfree = Cashfree({ mode: mode });
+          cashfree
+            .checkout({ paymentSessionId: session, redirectTarget: '_self' })
+            .then(function (result) {
+              // Reached only when the SDK returns instead of navigating.
+              if (result && result.error) {
+                fail(result.error.message || 'The payment could not be started.');
+              }
+            })
+            .catch(function () {
+              fail('The payment could not be started.');
+            });
+        } catch (e) {
+          fail('The payment could not be started.');
+        }
+      })();
+    </script>
+  </body>
+</html>

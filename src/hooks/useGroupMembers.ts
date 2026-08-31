@@ -63,6 +63,11 @@ export function useGroupMembers(groupId: string) {
         { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` },
         () => load()
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        () => load()
+      )
       .subscribe(onChannelStatus('members'));
 
     return () => {

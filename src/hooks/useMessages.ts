@@ -927,6 +927,35 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
           });
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload) => {
+          const updated = payload.new as ProfileLite;
+          if (updated && updated.id) {
+            profilesRef.current.set(updated.id, {
+              id: updated.id,
+              display_name: updated.display_name,
+              avatar_color: updated.avatar_color,
+              avatar_emoji: updated.avatar_emoji,
+              avatar_url: updated.avatar_url,
+            });
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.authorId === updated.id
+                  ? {
+                      ...m,
+                      authorName: updated.display_name,
+                      authorAvatar: updated.avatar_url,
+                      authorColor: updated.avatar_color,
+                      authorEmoji: updated.avatar_emoji,
+                    }
+                  : m
+              )
+            );
+          }
+        }
+      )
       .subscribe(onChannelStatus('chat'));
 
     return () => {

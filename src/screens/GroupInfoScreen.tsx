@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ import { ChatThemeSheet } from '../components/ChatThemeSheet';
 import { GroupNotificationSheet } from '../components/GroupNotificationSheet';
 import { useGroupNotificationSettings } from '../hooks/useGroupNotificationSettings';
 import { supabase } from '../lib/supabase';
+import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { successFeedback } from '../utils/haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -131,9 +132,37 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     setMembers(list);
   }, [groupId]);
 
+  const channelId = useRef(Math.random().toString(36).slice(2, 10));
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`group-info-${groupId}-${channelId.current}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` },
+        () => load()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        () => load()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'groups', filter: `id=eq.${groupId}` },
+        () => load()
+      )
+      .subscribe(onChannelStatus('group-info'));
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [groupId, load]);
 
   const myRole = members.find((m) => m.id === session?.user.id)?.role ?? null;
   const canManage = myRole === 'owner' || myRole === 'admin';

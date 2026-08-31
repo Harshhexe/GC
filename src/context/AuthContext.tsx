@@ -90,6 +90,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     loadProfile(session.user.id);
+
+    const channel = supabase
+      .channel(`user-profile-${session.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${session.user.id}`,
+        },
+        () => {
+          loadProfile(session.user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [session?.user?.id, loadProfile]);
 
   const refreshProfile = useCallback(async () => {
