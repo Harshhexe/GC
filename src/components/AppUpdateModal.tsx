@@ -27,6 +27,12 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
+    icon: 'person-circle-outline' as const,
+    color: '#818CF8',
+    title: 'A Brand New Profile Screen',
+    desc: 'Your profile now opens on a full hero: a live aurora ring around your picture, your stats counting up, and a tap-to-copy handle. Quick actions became a grid, and the top bar swaps in your name as you scroll.',
+  },
+  {
     icon: 'notifications-outline' as const,
     color: '#38BDF8',
     title: 'Message Notifications Arrive Instantly',
@@ -43,12 +49,6 @@ const CHANGELOG_ITEMS = [
     color: '#10B981',
     title: 'Run More Than One GC',
     desc: 'Your first GC is free. Need another, pay once and the slot is yours to keep, reuse, and free up again by deleting a GC. Joining other people\u2019s GCs stays unlimited and free.',
-  },
-  {
-    icon: 'stats-chart-outline' as const,
-    color: '#06B6D4',
-    title: 'AI Poll Drafting with @gc',
-    desc: 'Ask @gc to make a poll about anything and it instantly drafts questions and options ready for review, even if the chat was quiet.',
   },
 ];
 
