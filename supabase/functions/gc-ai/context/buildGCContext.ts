@@ -165,6 +165,9 @@ export type GCContext = {
    * avatar too.
    */
   profilesById: Map<string, ProfileSummary>;
+  /** Per-group memories saved by members — nicknames, quirks, context the
+   *  AI should know but can't learn from messages alone. */
+  customInstructions: { instruction: string; category: string }[];
 };
 
 export type ProfileSummary = {
@@ -495,6 +498,19 @@ export async function buildGCContext(params: BuildContextParams): Promise<GCCont
         .map((row) => row.id)
     : [];
 
+  // Custom instructions saved by members — nicknames, quirks, and context
+  // the AI should reference but can't learn from messages alone.
+  const { data: instructionRows } = await db
+    .from('group_instructions')
+    .select('instruction, category')
+    .eq('group_id', groupId);
+  const customInstructions = (instructionRows ?? []).map(
+    (r: { instruction: string; category: string }) => ({
+      instruction: r.instruction,
+      category: r.category ?? 'context',
+    })
+  );
+
   const first = messages[0];
   const last = messages[messages.length - 1];
   const range = `${first.timestamp}..${last.timestamp} (${messages.length} messages)`;
@@ -526,6 +542,7 @@ export async function buildGCContext(params: BuildContextParams): Promise<GCCont
         ? params.subjectUserId
         : null,
     profilesById,
+    customInstructions,
   };
 }
 

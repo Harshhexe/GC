@@ -25,6 +25,8 @@ export type RootStackParamList = {
     privateThreadUserId?: string;
   };
   GroupInfo: { groupId: string };
+  /** Custom instructions — per-group memories the AI can reference. */
+  GroupInstructions: { groupId: string };
   PinnedMessages: { groupId: string };
   GroupSearch: { groupId: string };
   MediaLinksFiles: { groupId: string; initialTab?: 'media' | 'links' | 'files' };

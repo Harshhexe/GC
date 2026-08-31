@@ -27,28 +27,28 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'person-circle-outline' as const,
-    color: '#818CF8',
-    title: 'A Brand New Profile Screen',
-    desc: 'Your profile now opens on a full hero: a live aurora ring around your picture, your stats counting up, and a tap-to-copy handle. Quick actions became a grid, and the top bar swaps in your name as you scroll.',
+    icon: 'flash-outline' as const,
+    color: '#34D399',
+    title: 'Instant Realtime Chat Delivery & Auto-Sync',
+    desc: 'Fixed an issue where messages would sometimes not render live while in chat. Enhanced realtime socket resilience, publication replica identities, and added instant background-to-foreground delta sync.',
   },
   {
-    icon: 'notifications-outline' as const,
-    color: '#38BDF8',
-    title: 'Message Notifications Arrive Instantly',
-    desc: 'Group messages used to sit in Android\u2019s battery queue and land about a minute late. They are now sent as high priority, so a message shows up when it is sent.',
-  },
-  {
-    icon: 'sparkles-outline' as const,
+    icon: 'bulb-outline' as const,
     color: '#FBBF24',
-    title: '11:11 Reminder Lands In Time',
-    desc: 'The wish reminder now arrives just before 11:11 instead of just after it, so the 60-second window is still open when you open the app.',
+    title: 'GC Lore & Custom Instructions Redesign',
+    desc: 'Custom Instructions is completely revamped with ambient lighting, category filter tabs, clean cards, and a smart bottom composer bar with keyboard avoidance.',
   },
   {
-    icon: 'add-circle-outline' as const,
-    color: '#10B981',
-    title: 'Run More Than One GC',
-    desc: 'Your first GC is free. Need another, pay once and the slot is yours to keep, reuse, and free up again by deleting a GC. Joining other people\u2019s GCs stays unlimited and free.',
+    icon: 'images-outline' as const,
+    color: '#818CF8',
+    title: 'Media, Links & Files Showcase',
+    desc: 'Group Info now features a dedicated banner with live thumbnail previews of photos, videos, and files shared in your chat for quick browsing.',
+  },
+  {
+    icon: 'trophy-outline' as const,
+    color: '#F472B6',
+    title: 'Grand Trophy Room & Awards Overhaul',
+    desc: 'The Awards screen is completely transformed: an atmospheric golden aurora backdrop, a spinning hero trophy crest, live count-up stats, ceremony guide, and floating sticky header.',
   },
 ];
 

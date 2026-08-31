@@ -232,12 +232,13 @@ export const gcCommandOperation: AIOperation<GCCommandResult> = {
       'sexuality or income. No slurs. If a joke would actually hurt rather than',
       'embarrass for a second, drop it.',
       '',
-      'Accuracy outranks humour, without exception:',
-      '- Answer ONLY from the transcript. Never invent an event, a name, a',
-      '  decision, a time, or who said what.',
-      '- If the transcript does not answer the question, say so plainly and',
-      '  set insufficientContext to true. "I genuinely can\'t tell from what I',
-      '  can see 😭" is a correct answer. A confident guess is not.',
+      'Knowledge Sources & Accuracy:',
+      '1. Transcript: The actual messages sent in this group chat.',
+      '2. Custom Instructions & Member Notes: Facts, nicknames, future aspirations, lore, quirks, and rules saved by members.',
+      '- When asked about members, nicknames, lore, aspirations, or facts (e.g. "harsh kya banega" or "who is X"), ALWAYS check and prioritize Custom Instructions & Member Notes as 100% true facts!',
+      '- If a Custom Instruction answers the question (e.g. note says "harsh bada hoke acha developer banega"), USE IT directly to give a witty, confident, on-point response in your signature GC style!',
+      '- Never say you do not know or set insufficientContext when a Custom Instruction provides the answer.',
+      '- If NEITHER the transcript NOR any Custom Instruction provides the answer, say so honestly and set insufficientContext to true. "I genuinely can\'t tell from what I can see 😭" is a correct answer. A confident guess is not.',
       '- Do not guess what is inside a photo, video, or file.',
       '- Do not assume the earliest message you can see is where something',
       '  started — you may simply not have been shown the beginning.',
@@ -249,8 +250,7 @@ export const gcCommandOperation: AIOperation<GCCommandResult> = {
       'is not a claim that needs a citation the way "who said X" does; it\'s',
       'an opinion formed from evidence, same as a friend would give one.',
       '- Only refuse (insufficientContext) if that person sent ~nothing in',
-      '  the transcript. Having "not much" to go on is still enough for a',
-      '  one-word read — that itself can be the joke ("silent but unhinged").',
+      '  the transcript and there are no notes about them.',
       '- Still never invent a specific event, quote, or claim they didn\'t',
       '  actually make — the impression comes from their real tone and',
       '  content, not from a fabricated story about them.',
@@ -258,7 +258,8 @@ export const gcCommandOperation: AIOperation<GCCommandResult> = {
       'Citations:',
       '- Put the message ids backing your answer in sourceMessageIds, copied',
       '  exactly from the transcript.',
-      '- Any claim about who said or decided something needs its id.',
+      '- If an answer is backed by Custom Instructions / Member Notes rather than a specific message, leave sourceMessageIds as an empty array [].',
+      '- Any claim about who said or decided something in chat needs its id.',
       '- Never invent an id. If you cannot cite one, leave the list empty.',
       '',
       'Scope: you answer questions about this group chat. If asked something',
@@ -344,6 +345,45 @@ export const gcCommandOperation: AIOperation<GCCommandResult> = {
       '',
       'Transcript:',
       ctx.transcript,
+    );
+
+    // Custom instructions saved by members — nicknames, quirks, and context
+    // the AI should know but can't learn from messages alone.
+    if (ctx.customInstructions.length > 0) {
+      // Group by category so the prompt is readable and nicknames are
+      // prominently surfaced.
+      const nicknames = ctx.customInstructions.filter((i) => i.category === 'nickname');
+      const rules = ctx.customInstructions.filter((i) => i.category === 'rule');
+      const notes = ctx.customInstructions.filter((i) => i.category === 'context');
+
+      lines.push(
+        '',
+        '=== CUSTOM INSTRUCTIONS & MEMBER NOTES (FACTUAL TRUTH) ===',
+        'Group members explicitly saved these facts, nicknames, and context notes. Treat them as absolute facts and use them when answering questions about members:'
+      );
+
+      if (nicknames.length > 0) {
+        lines.push(
+          'Nicknames (use these freely):',
+          ...nicknames.map((i) => `- ${i.instruction}`),
+        );
+      }
+      if (rules.length > 0) {
+        lines.push(
+          'Rules / preferences:',
+          ...rules.map((i) => `- ${i.instruction}`),
+        );
+      }
+      if (notes.length > 0) {
+        lines.push(
+          'Member Notes & Lore (HIGH PRIORITY for answering questions about members):',
+          ...notes.map((i) => `- ${i.instruction}`),
+        );
+      }
+      lines.push('===========================================================');
+    }
+
+    lines.push(
       '',
       // Delimited and labelled so transcript text can't be read as the
       // question, and the question can't be read as instructions.

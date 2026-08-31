@@ -1,35 +1,48 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList,
+  ActivityIndicator,
+  Modal,
   Platform,
   RefreshControl,
+  ScrollView,
+  StyleProp,
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  Easing as ReaEasing,
+  Extrapolation,
+  FadeInDown,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
   DOCK_HEIGHT,
   colors,
+  fontFamily,
   glass,
   radius,
   spacing,
   typography,
 } from '../theme/theme';
-import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { GlassPanel } from '../components/ui/Glass';
-import { AppHeader } from '../components/ui/AppHeader';
-import { Avatar } from '../components/ui/Avatar';
+import { duration, easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from '../components/ui/PressableScale';
+import { Avatar } from '../components/ui/Avatar';
 import { AwardCard } from '../components/AwardCard';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { groupTheme } from '../theme/groupThemes';
+import { selectFeedback } from '../utils/haptics';
 import type { Award } from '../lib/ai';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -55,103 +68,221 @@ export type ClaimedAwardItem = {
   ceremonyTitle: string | null;
 };
 
-/** Golden moody ambient background with high blur for Awards Trophy Room */
-function GoldenAtmosphericBackground() {
+/** The floating top bar's own height, above the safe-area inset. */
+const HEADER_HEIGHT = 56;
+
+/** Where the big hero identity hands over to the compact header one. */
+const HANDOVER_START = 120;
+const HANDOVER_END = 190;
+
+const TROPHY_HERO_SIZE = 104;
+const RING_SIZE = 120;
+const HALO_SIZE = 148;
+
+/**
+ * 🌌 Deep obsidian & golden ambient background matching ProfileScreen's aurora language.
+ */
+function AwardsAuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Obsidian Dark Base */}
+    <Animated.View style={[StyleSheet.absoluteFill, styles.backdropRoot, style]} pointerEvents="none">
       <LinearGradient
-        colors={['#0E0C16', colors.appRoot, colors.appChrome]}
+        colors={['#130E07', '#0A0810', '#040306']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Top Golden Spotlight */}
+      {/* Overhead golden trophy spotlight, centred on where the trophy hero sits. */}
       <LinearGradient
-        colors={['rgba(245, 158, 11, 0.18)', 'rgba(217, 119, 6, 0.08)', 'transparent']}
+        colors={['rgba(245, 158, 11, 0.22)', 'rgba(236, 72, 153, 0.08)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
-        style={styles.topSpotlight}
+        style={styles.backdropSpotlight}
       />
 
-      {/* Atmospheric Glowing Mesh Blobs */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={['rgba(245, 158, 11, 0.28)', 'rgba(236, 72, 153, 0.14)', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={['rgba(139, 92, 246, 0.24)', 'rgba(245, 158, 11, 0.12)', 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={['rgba(251, 113, 133, 0.16)', 'rgba(139, 92, 246, 0.14)', 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={['rgba(245, 158, 11, 0.20)', 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
+      {/* Ambient glowing mesh accents */}
+      <LinearGradient
+        colors={['rgba(245, 158, 11, 0.16)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.75, y: 0.55 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={['rgba(168, 85, 247, 0.12)', 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.25, y: 0.55 }}
+        style={StyleSheet.absoluteFill}
+      />
 
       {/* High-intensity dark blur */}
       <BlurView
-        intensity={Platform.OS === 'ios' ? 85 : 95}
+        intensity={Platform.OS === 'ios' ? 70 : 85}
         tint="dark"
         experimentalBlurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Subtle Vignette */}
+      {/* Vignette — keeps cards and medals popping with high contrast. */}
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.02)', 'transparent', 'rgba(3, 2, 6, 0.65)']}
-        start={{ x: 0.5, y: 0 }}
+        colors={['transparent', 'rgba(0, 0, 0, 0.75)']}
+        start={{ x: 0.5, y: 0.5 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+    </Animated.View>
+  );
+}
+
+/**
+ * 🏆 Grand Hero Trophy Crest with spinning Aurora gradient sweep.
+ */
+function AuroraTrophyHero({
+  count,
+  userAvatarUrl,
+  userDisplayName,
+  onPress,
+}: {
+  count: number;
+  userAvatarUrl?: string | null;
+  userDisplayName?: string;
+  onPress: () => void;
+}) {
+  const spin = useSharedValue(0);
+
+  useEffect(() => {
+    spin.value = withRepeat(
+      withTiming(360, { duration: 8000, easing: ReaEasing.linear, reduceMotion }),
+      -1,
+      false
+    );
+  }, [spin]);
+
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value}deg` }],
+  }));
+
+  return (
+    <PressableScale
+      style={styles.heroWrap}
+      scaleTo={0.95}
+      haptic="medium"
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="View Awards Ceremony Guide"
+    >
+      <View style={styles.heroHalo} pointerEvents="none">
+        <LinearGradient
+          colors={['rgba(245, 158, 11, 0.32)', 'rgba(236, 72, 153, 0.14)', 'transparent']}
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+
+      <View style={styles.ringClip} pointerEvents="none">
+        <Animated.View style={[styles.ringSweep, spinStyle]}>
+          <LinearGradient
+            colors={['#FBBF24', '#F472B6', '#818CF8', '#FBBF24']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+        <View style={styles.ringHole} />
+      </View>
+
+      <View style={styles.trophyOrbInner}>
+        {userAvatarUrl ? (
+          <Avatar
+            imageUrl={userAvatarUrl}
+            label={userDisplayName ?? 'Me'}
+            size={TROPHY_HERO_SIZE - 8}
+            ring={false}
+          />
+        ) : (
+          <LinearGradient
+            colors={['#2A1F08', '#140E03']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.trophyIconFill}
+          >
+            <Text style={styles.trophyHeroEmoji}>🏆</Text>
+          </LinearGradient>
+        )}
+      </View>
+
+      <View style={styles.trophyCrownBadge}>
+        <Ionicons name="sparkles" size={13} color="#FBBF24" />
+        <Text style={styles.trophyCrownText}>{count > 0 ? `${count} Active` : 'Ceremony'}</Text>
+      </View>
+    </PressableScale>
+  );
+}
+
+function SectionLabel({ text }: { text: string }) {
+  return (
+    <View style={styles.sectionLabelRow}>
+      <Text style={styles.sectionLabelText} accessibilityRole="header">
+        {text}
+      </Text>
     </View>
   );
 }
 
-function formatAwardDate(dateStr: string | null, weekEndStr?: string | null): string {
-  const target = dateStr || weekEndStr;
-  if (!target) return 'Sunday';
-  try {
-    const d = new Date(target);
-    return d.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return target;
-  }
-}
+const POPULAR_AWARDS_GUIDE = [
+  { emoji: '🗣️', title: 'Professional Yapper', desc: 'Sent the absolute most messages and kept the chat alive 24/7.' },
+  { emoji: '💀', title: 'Most Unhinged', desc: 'Dropped the wildest, most unpredictable and out-of-pocket messages.' },
+  { emoji: '🌙', title: 'Night Owl', desc: 'Cooked messages deep past 2 AM while everyone else was asleep.' },
+  { emoji: '🍵', title: 'Drama Starter', desc: 'Sparked the hottest gossip, drama, and heated debate in the group.' },
+  { emoji: '⚡', title: 'Fastest Reply', desc: 'Responded in mere seconds before anyone else could even open the app.' },
+  { emoji: '👻', title: 'Professional Lurker', desc: 'Read every single piece of tea and drama without typing a word.' },
+];
 
 export default function ExploreScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const [claimedAwards, setClaimedAwards] = useState<ClaimedAwardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
+  const [guideModalVisible, setGuideModalVisible] = useState(false);
+
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(scrollY.value, [0, 500], [0, -70], Extrapolation.CLAMP) },
+    ],
+  }));
+
+  const heroStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(scrollY.value, [-150, 0], [1.06, 1], Extrapolation.CLAMP) }],
+  }));
+
+  const headerTitleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 70], [1, 0], Extrapolation.CLAMP),
+  }));
+
+  const headerIdentityStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [HANDOVER_START, HANDOVER_END], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(
+          scrollY.value,
+          [HANDOVER_START, HANDOVER_END],
+          [10, 0],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  const headerChromeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [30, 110], [0, 1], Extrapolation.CLAMP),
+  }));
 
   async function loadAwards() {
     if (!profile?.id) {
@@ -185,19 +316,6 @@ export default function ExploreScreen({ navigation }: Props) {
 
       if (error) throw error;
 
-      /*
-       * Only the newest ceremony per group survives.
-       *
-       * The awards a group hands out are for one week, and the moment that
-       * group holds its next ceremony the previous week's titles stop being
-       * current. Expiry is scoped per group rather than globally because the
-       * groups run on their own schedules: a quiet chat that has not held a
-       * ceremony in a fortnight should still show the last titles it actually
-       * awarded, instead of being blanked because a busier chat moved on.
-       *
-       * Rows arrive newest-week-first, so the first week_end seen for a group
-       * is that group's current one and every older row is dropped.
-       */
       const currentWeekByGroup = new Map<string, string>();
       for (const row of rows ?? []) {
         if (!currentWeekByGroup.has(row.group_id)) {
@@ -211,7 +329,6 @@ export default function ExploreScreen({ navigation }: Props) {
       const myUsername = (profile.username ?? '').trim().toLowerCase();
 
       for (const row of rows ?? []) {
-        // Superseded by a newer ceremony in this same group.
         if (currentWeekByGroup.get(row.group_id) !== row.week_end) continue;
 
         const groupData = Array.isArray(row.groups) ? row.groups[0] : row.groups;
@@ -261,10 +378,10 @@ export default function ExploreScreen({ navigation }: Props) {
 
   const onRefresh = () => {
     setRefreshing(true);
+    selectFeedback();
     loadAwards();
   };
 
-  // Extract distinct groups for filter tabs
   const groupFilters = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
     claimedAwards.forEach((a) => {
@@ -280,26 +397,12 @@ export default function ExploreScreen({ navigation }: Props) {
     return claimedAwards.filter((a) => a.groupId === selectedGroupFilter);
   }, [claimedAwards, selectedGroupFilter]);
 
-  const uniqueGCsCount = useMemo(() => {
-    const set = new Set(claimedAwards.map((a) => a.groupId));
-    return set.size;
-  }, [claimedAwards]);
-
-  /**
-   * The week the visible titles belong to. Taken from the awards themselves
-   * rather than from today's date, because a group that has not run a
-   * ceremony in a while is still showing an older week and the label has to
-   * say so honestly instead of claiming to be the current calendar week.
-   */
   const currentWeekLabel = useMemo(() => {
     if (filteredAwards.length === 0) return null;
     const ends = filteredAwards.map((a) => a.weekEnd).filter(Boolean).sort();
     const newest = ends[ends.length - 1];
     if (!newest) return null;
     const start = filteredAwards.find((a) => a.weekEnd === newest)?.weekStart;
-    // An unparseable date does not throw here — toLocaleDateString happily
-    // returns the string "Invalid Date" — so the guard has to be explicit or
-    // a malformed row renders as "from Invalid Date to Invalid Date".
     const fmt = (d: string): string | null => {
       const parsed = new Date(d);
       if (Number.isNaN(parsed.getTime())) return null;
@@ -311,316 +414,542 @@ export default function ExploreScreen({ navigation }: Props) {
     return startLabel ? `${startLabel} to ${endLabel}` : endLabel;
   }, [filteredAwards]);
 
-  const renderAwardCard = ({ item, index }: { item: ClaimedAwardItem; index: number }) => (
-    <Animated.View
-      entering={FadeInDown.delay(index * 50 + 80)
-        .duration(duration.base)
-        .easing(easing.out)
-        .reduceMotion(reduceMotion)}
-    >
-      <AwardCard
-        item={item}
-        rank={index}
-        onPress={() => navigation.navigate('Chat', { groupId: item.groupId })}
-      />
-    </Animated.View>
-  );
+  const headerOffset = insets.top + HEADER_HEIGHT;
 
   return (
     <View style={styles.root}>
-      <GoldenAtmosphericBackground />
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <AppHeader
-          wordmark
-          right={
-            <Avatar
-              imageUrl={profile?.avatar_url}
-              label={profile?.display_name ?? 'Me'}
-              size={34}
-            />
-          }
-        />
+      <AwardsAuroraBackdrop style={backdropStyle} />
 
-        <FlatList
-          data={filteredAwards}
-          keyExtractor={(item) => item.id}
-          renderItem={renderAwardCard}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#F59E0B"
-              colors={['#F59E0B']}
+      <Animated.ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: headerOffset + spacing.md, paddingBottom: DOCK_HEIGHT + spacing.xxl + 20 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#F59E0B"
+            colors={['#F59E0B']}
+            progressBackgroundColor={colors.surface}
+            progressViewOffset={headerOffset}
+          />
+        }
+      >
+        {/* 1. Hero identity */}
+        <Animated.View
+          entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+        >
+          <Animated.View style={[styles.hero, heroStyle]}>
+            <AuroraTrophyHero
+              count={claimedAwards.length}
+              userAvatarUrl={profile?.avatar_url}
+              userDisplayName={profile?.display_name}
+              onPress={() => {
+                selectFeedback();
+                setGuideModalVisible(true);
+              }}
             />
-          }
-          ListHeaderComponent={
-            <View style={styles.headerBlock}>
-              {/* Screen Title */}
-              <View style={styles.titleBlock}>
-                <View style={styles.titleBadge}>
-                  <Ionicons name="trophy" size={13} color="#FBBF24" />
-                  <Text style={styles.titleBadgeText}>THIS WEEK</Text>
-                </View>
-                <Text style={styles.mainTitle}>This Week's Claimed Awards</Text>
-                <Text style={styles.subtitle}>
-                  {currentWeekLabel
-                    ? `Titles you hold right now, from ${currentWeekLabel}. They hand over when the next ceremony runs.`
-                    : 'Titles you hold right now. They hand over when the next ceremony runs.'}
+
+            <Text style={styles.mainTitle} numberOfLines={2}>
+              Claimed Awards
+            </Text>
+
+            <View style={styles.heroMetaRow}>
+              <View style={styles.trophyChip}>
+                <Ionicons name="trophy" size={12} color="#FBBF24" />
+                <Text style={styles.trophyChipText}>
+                  {claimedAwards.length} {claimedAwards.length === 1 ? 'TITLE HELD' : 'TITLES HELD'}
                 </Text>
               </View>
-
-              {/* Showcase Summary Card */}
-              <GlassPanel borderRadius={radius.xl} style={styles.showcaseCard}>
-                <View style={styles.showcaseStatsRow}>
-                  <View style={styles.showcaseStatItem}>
-                    <View style={styles.trophyIconWrap}>
-                      <Ionicons name="trophy" size={24} color="#FBBF24" />
-                    </View>
-                    <View>
-                      <Text style={styles.showcaseStatValue}>{claimedAwards.length}</Text>
-                      <Text style={styles.showcaseStatLabel}>TITLES HELD</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.showcaseDivider} />
-
-                  <View style={styles.showcaseStatItem}>
-                    <View style={[styles.trophyIconWrap, { backgroundColor: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.35)' }]}>
-                      <Ionicons name="people" size={22} color="#A78BFA" />
-                    </View>
-                    <View>
-                      <Text style={styles.showcaseStatValue}>{uniqueGCsCount}</Text>
-                      <Text style={styles.showcaseStatLabel}>GCS</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {claimedAwards.length > 0 && (
-                  <View style={styles.showcaseFooter}>
-                    <Ionicons name="sparkles" size={13} color="#FBBF24" />
-                    <Text style={styles.showcaseFooterText}>
-                      Top title: <Text style={styles.showcaseFooterStrong}>{claimedAwards[0].award.title}</Text> {claimedAwards[0].award.emoji}
-                    </Text>
-                  </View>
-                )}
-              </GlassPanel>
-
-              {/* GC Filter Chips (if multiple GCs) */}
-              {groupFilters.length > 1 && (
-                <View style={styles.filterChipsRow}>
-                  <PressableScale
-                    scaleTo={0.94}
-                    onPress={() => setSelectedGroupFilter('all')}
-                    style={[
-                      styles.filterChip,
-                      selectedGroupFilter === 'all' && styles.filterChipActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        selectedGroupFilter === 'all' && styles.filterChipTextActive,
-                      ]}
-                    >
-                      All ({claimedAwards.length})
-                    </Text>
-                  </PressableScale>
-
-                  {groupFilters.map((g) => {
-                    const count = claimedAwards.filter((a) => a.groupId === g.id).length;
-                    const isSelected = selectedGroupFilter === g.id;
-                    return (
-                      <PressableScale
-                        key={g.id}
-                        scaleTo={0.94}
-                        onPress={() => setSelectedGroupFilter(g.id)}
-                        style={[
-                          styles.filterChip,
-                          isSelected && styles.filterChipActive,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.filterChipText,
-                            isSelected && styles.filterChipTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {g.name} ({count})
-                        </Text>
-                      </PressableScale>
-                    );
-                  })}
-                </View>
-              )}
             </View>
-          }
-          ListEmptyComponent={
-            loading ? (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconOrb}>
-                  <Ionicons name="hourglass-outline" size={32} color="#F59E0B" />
-                </View>
-                <Text style={styles.emptyTitle}>Loading your trophies...</Text>
-              </View>
-            ) : (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconOrb}>
-                  <Ionicons name="trophy-outline" size={36} color="#F59E0B" />
-                </View>
-                <Text style={styles.emptyTitle}>Nothing claimed this week</Text>
-                <Text style={styles.emptySubtitle}>
-                  Titles reset every ceremony. Yap, start some drama, or drop
-                  unhinged takes in your group chats to claim one in Sunday's GC Awards.
-                </Text>
+
+            <Text style={styles.subtitle}>
+              {currentWeekLabel
+                ? `Honors and titles you hold right now (${currentWeekLabel}). They hand over when the next Sunday ceremony runs.`
+                : 'Honors and titles you hold right now across your chats. They hand over when the next Sunday ceremony runs.'}
+            </Text>
+          </Animated.View>
+        </Animated.View>
+
+        {/* Section Header & Filters */}
+        <View style={styles.sectionDivider}>
+          <SectionLabel text="YOUR TROPHY ROOM" />
+        </View>
+
+        {/* GC Filter Chips (if in multiple GCs) */}
+        {groupFilters.length > 1 && (
+          <View style={styles.filterChipsRow}>
+            <PressableScale
+              scaleTo={0.94}
+              onPress={() => {
+                selectFeedback();
+                setSelectedGroupFilter('all');
+              }}
+              style={[
+                styles.filterChip,
+                selectedGroupFilter === 'all' && styles.filterChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedGroupFilter === 'all' && styles.filterChipTextActive,
+                ]}
+              >
+                All ({claimedAwards.length})
+              </Text>
+            </PressableScale>
+
+            {groupFilters.map((g) => {
+              const count = claimedAwards.filter((a) => a.groupId === g.id).length;
+              const isSelected = selectedGroupFilter === g.id;
+              return (
                 <PressableScale
-                  style={styles.emptyCTA}
-                  scaleTo={0.95}
-                  haptic="medium"
-                  onPress={() => navigation.navigate('GroupList')}
+                  key={g.id}
+                  scaleTo={0.94}
+                  onPress={() => {
+                    selectFeedback();
+                    setSelectedGroupFilter(g.id);
+                  }}
+                  style={[
+                    styles.filterChip,
+                    isSelected && styles.filterChipActive,
+                  ]}
                 >
-                  <LinearGradient
-                    colors={['#F59E0B', '#D97706']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.emptyCTAGradient}
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      isSelected && styles.filterChipTextActive,
+                    ]}
+                    numberOfLines={1}
                   >
-                    <Ionicons name="chatbubbles" size={17} color="#FFFFFF" />
-                    <Text style={styles.emptyCTAText}>Jump into Chats</Text>
-                  </LinearGradient>
+                    {g.name} ({count})
+                  </Text>
                 </PressableScale>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Award Cards List or Empty State */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#F59E0B" />
+            <Text style={styles.loadingText}>Polishing your trophies…</Text>
+          </View>
+        ) : filteredAwards.length === 0 ? (
+          <Animated.View
+            entering={FadeInDown.delay(100)
+              .duration(duration.base)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
+            style={styles.emptyContainer}
+          >
+            <View style={styles.emptyIconOrb}>
+              <Ionicons name="trophy-outline" size={36} color="#F59E0B" />
+            </View>
+            <Text style={styles.emptyTitle}>Nothing claimed this week</Text>
+            <Text style={styles.emptySubtitle}>
+              Titles reset every Sunday ceremony. Yap, start some drama, or drop unhinged takes in your group chats to claim honors in the next GC Awards!
+            </Text>
+            <PressableScale
+              style={styles.emptyCTA}
+              scaleTo={0.95}
+              haptic="medium"
+              onPress={() => navigation.navigate('GroupList')}
+            >
+              <LinearGradient
+                colors={['#F59E0B', '#D97706']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.emptyCTAGradient}
+              >
+                <Ionicons name="chatbubbles" size={17} color="#FFFFFF" />
+                <Text style={styles.emptyCTAText}>Jump into Chats</Text>
+              </LinearGradient>
+            </PressableScale>
+          </Animated.View>
+        ) : (
+          <View style={styles.cardsContainer}>
+            {filteredAwards.map((item, index) => (
+              <Animated.View
+                key={item.id}
+                entering={FadeInDown.delay(index * 50 + 50)
+                  .duration(duration.base)
+                  .easing(easing.out)
+                  .reduceMotion(reduceMotion)}
+              >
+                <AwardCard
+                  item={item}
+                  rank={index}
+                  onPress={() => navigation.navigate('Chat', { groupId: item.groupId })}
+                />
+              </Animated.View>
+            ))}
+          </View>
+        )}
+      </Animated.ScrollView>
+
+      {/* Floating Top Bar with Title at Top & Question Mark Ceremony Guide Button */}
+      <View style={[styles.headerWrap, { paddingTop: insets.top }]} pointerEvents="box-none">
+        <Animated.View style={[StyleSheet.absoluteFill, headerChromeStyle]} pointerEvents="none">
+          {Platform.OS !== 'web' && (
+            <BlurView
+              intensity={40}
+              tint="dark"
+              experimentalBlurMethod="dimezisBlurView"
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          <View style={styles.headerChromeFill} />
+          <View style={styles.headerHairline} />
+        </Animated.View>
+
+        <View style={styles.headerBar} pointerEvents="box-none">
+          <Animated.Text
+            style={[styles.headerTitle, headerTitleStyle]}
+            numberOfLines={1}
+            pointerEvents="none"
+          >
+            Awards
+          </Animated.Text>
+
+          <Animated.View style={[styles.headerIdentity, headerIdentityStyle]} pointerEvents="none">
+            <View style={styles.headerIdentityIcon}>
+              <Ionicons name="trophy" size={16} color="#FBBF24" />
+            </View>
+            <View style={styles.headerIdentityCopy}>
+              <Text style={styles.headerIdentityName} numberOfLines={1}>
+                Claimed Awards
+              </Text>
+              <Text style={styles.headerIdentityHandle} numberOfLines={1}>
+                {claimedAwards.length} {claimedAwards.length === 1 ? 'title held' : 'titles held'}
+              </Text>
+            </View>
+          </Animated.View>
+
+          {/* Question mark icon button for Ceremony Guide */}
+          <PressableScale
+            style={styles.headerHelpBtn}
+            scaleTo={0.88}
+            haptic="light"
+            onPress={() => {
+              selectFeedback();
+              setGuideModalVisible(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Ceremony guide and how awards work"
+          >
+            <Ionicons name="help-circle-outline" size={23} color="#FBBF24" />
+          </PressableScale>
+        </View>
+      </View>
+
+      {/* Ceremony Guide Modal */}
+      <Modal
+        visible={guideModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setGuideModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <PressableScale
+            style={StyleSheet.absoluteFill}
+            scaleTo={1}
+            onPress={() => setGuideModalVisible(false)}
+          >
+            <View style={StyleSheet.absoluteFill} />
+          </PressableScale>
+          <View style={[styles.modalCard, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderIconWrap}>
+                <Ionicons name="trophy" size={20} color="#FBBF24" />
               </View>
-            )
-          }
-        />
-      </SafeAreaView>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalTitle}>How GC Awards Work</Text>
+                <Text style={styles.modalSub}>Weekly honors, roasts & trophies</Text>
+              </View>
+              <PressableScale
+                style={styles.modalCloseBtn}
+                scaleTo={0.88}
+                onPress={() => setGuideModalVisible(false)}
+              >
+                <Ionicons name="close" size={18} color={colors.onSurface} />
+              </PressableScale>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.guideBlock}>
+                <Text style={styles.guideSectionTitle}>🏆 The Sunday Ceremony</Text>
+                <Text style={styles.guideSectionBody}>
+                  Every Sunday at midnight, GC AI judges all messages across the week to crown the champions, roasters, and icons of the group. Every member sees the exact same shared honors!
+                </Text>
+              </View>
+
+              <View style={styles.guideBlock}>
+                <Text style={styles.guideSectionTitle}>✨ Popular Award Categories</Text>
+                <View style={styles.guideList}>
+                  {POPULAR_AWARDS_GUIDE.map((cat, i) => (
+                    <View key={i} style={styles.guideListItem}>
+                      <Text style={styles.guideEmoji}>{cat.emoji}</Text>
+                      <View style={styles.guideTextWrap}>
+                        <Text style={styles.guideItemTitle}>{cat.title}</Text>
+                        <Text style={styles.guideItemDesc}>{cat.desc}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.appRoot },
-  safe: { flex: 1 },
-  listContent: {
-    padding: CONTAINER_MARGIN,
-    paddingBottom: DOCK_HEIGHT + spacing.xxl,
-    gap: spacing.md,
+  root: { flex: 1, backgroundColor: '#040306' },
+  scroll: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: CONTAINER_MARGIN,
+    gap: spacing.lg,
   },
 
-  // Glow Background
-  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  cornerBlob: { position: 'absolute', borderRadius: 999 },
-  blobFill: { flex: 1, borderRadius: 999 },
-  blobTopLeft: { top: -70, left: -70, width: 280, height: 280, opacity: 0.75 },
-  blobTopRight: { top: -60, right: -60, width: 270, height: 270, opacity: 0.7 },
-  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.65 },
-  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.7 },
+  // Backdrop
+  backdropRoot: { backgroundColor: '#040306', overflow: 'hidden' },
+  backdropSpotlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 480,
+  },
 
-  // Header Block
-  headerBlock: {
-    gap: spacing.md,
-    marginBottom: spacing.xs,
+  // Floating Top Bar Handover
+  headerWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
   },
-  titleBlock: {
-    gap: 6,
-    paddingTop: spacing.xs,
+  headerChromeFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 8, 16, 0.72)',
   },
-  titleBadge: {
+  headerHairline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  headerBar: {
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  headerTitle: {
+    ...typography.title,
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  headerIdentity: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  headerIdentityIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIdentityCopy: { maxWidth: 190 },
+  headerIdentityName: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  headerIdentityHandle: {
+    ...typography.micro,
+    fontSize: 11,
+    color: '#FBBF24',
+    fontWeight: '600',
+  },
+  headerHelpBtn: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.30)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Hero Section
+  hero: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  heroWrap: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  heroHalo: {
+    position: 'absolute',
+    width: HALO_SIZE,
+    height: HALO_SIZE,
+    borderRadius: HALO_SIZE / 2,
+    overflow: 'hidden',
+  },
+  ringClip: {
+    position: 'absolute',
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringSweep: {
+    width: RING_SIZE * 1.5,
+    height: RING_SIZE * 1.5,
+  },
+  ringHole: {
+    position: 'absolute',
+    width: RING_SIZE - 6,
+    height: RING_SIZE - 6,
+    borderRadius: (RING_SIZE - 6) / 2,
+    backgroundColor: '#0A0810',
+  },
+  trophyOrbInner: {
+    width: TROPHY_HERO_SIZE,
+    height: TROPHY_HERO_SIZE,
+    borderRadius: TROPHY_HERO_SIZE / 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1A1408',
+  },
+  trophyIconFill: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trophyHeroEmoji: {
+    fontSize: 48,
+  },
+  trophyCrownBadge: {
+    position: 'absolute',
+    bottom: -6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(20, 16, 8, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.50)',
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: radius.pill,
-    alignSelf: 'flex-start',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
   },
-  titleBadgeText: {
+  trophyCrownText: {
     ...typography.micro,
     fontSize: 10.5,
     fontWeight: '800',
     color: '#FBBF24',
-    letterSpacing: 0.8,
+    letterSpacing: 0.4,
   },
+
+  // Titles
   mainTitle: {
     ...typography.headline,
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 32,
+    lineHeight: 38,
     color: '#FFFFFF',
-    letterSpacing: -0.5,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
+  trophyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  trophyChipText: {
+    ...typography.micro,
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+    color: '#FBBF24',
   },
   subtitle: {
     ...typography.body,
     fontSize: 13.5,
     color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
     lineHeight: 19,
   },
 
-  // Showcase Stats Card
-  showcaseCard: {
-    padding: spacing.lg,
-    gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
+  // Section Headers
+  sectionDivider: {
+    marginTop: spacing.xs,
   },
-  showcaseStatsRow: {
+  sectionLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
   },
-  showcaseStatItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  trophyIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  showcaseStatValue: {
-    ...typography.headline,
-    fontSize: 22,
+  sectionLabelText: {
+    ...typography.micro,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  showcaseStatLabel: {
-    ...typography.micro,
-    fontSize: 10,
-    fontWeight: '700',
     color: '#94A3B8',
-    letterSpacing: 0.6,
-  },
-  showcaseDivider: {
-    width: 1,
-    height: 38,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: spacing.sm,
-  },
-  showcaseFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  showcaseFooterStrong: { color: colors.onSurface, fontWeight: '700' },
-  showcaseFooterText: {
-    ...typography.micro,
-    fontSize: 11.5,
-    color: '#94A3B8',
+    letterSpacing: 1,
   },
 
   // Filter Chips
@@ -628,10 +957,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
     flexWrap: 'wrap',
-    marginTop: 2,
+    marginTop: -spacing.xs,
   },
   filterChip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     paddingVertical: 6,
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -640,7 +969,7 @@ const styles = StyleSheet.create({
   },
   filterChipActive: {
     backgroundColor: 'rgba(245, 158, 11, 0.18)',
-    borderColor: 'rgba(245, 158, 11, 0.40)',
+    borderColor: 'rgba(245, 158, 11, 0.45)',
   },
   filterChipText: {
     ...typography.micro,
@@ -653,23 +982,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Award Card
+  // Cards Container
+  cardsContainer: {
+    gap: spacing.md,
+  },
 
-  // From GC Source Pill
-
-  // Reason Box
-
-  // Empty State
-  emptyContainer: {
+  // Loading & Empty
+  loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xxl,
+    gap: spacing.sm,
+  },
+  loadingText: {
+    ...typography.body,
+    fontSize: 13.5,
+    color: colors.onSurfaceVariant,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
     gap: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   emptyIconOrb: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderWidth: 1.5,
     borderColor: 'rgba(245, 158, 11, 0.35)',
@@ -677,8 +1021,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyTitle: {
-    ...typography.headline,
-    fontSize: 20,
+    fontFamily: fontFamily.display,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -688,27 +1032,144 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.onSurfaceVariant,
     textAlign: 'center',
-    paddingHorizontal: spacing.xl,
     lineHeight: 18,
   },
   emptyCTA: {
     borderRadius: radius.pill,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   emptyCTAGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 22,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: glass.strokeBright,
   },
   emptyCTAText: {
     ...typography.label,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+
+  // Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#0F0B18',
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  modalHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: CONTAINER_MARGIN,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    gap: spacing.sm,
+  },
+  modalHeaderIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalHeaderCopy: {
+    flex: 1,
+  },
+  modalTitle: {
+    fontFamily: fontFamily.displayBold,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalSub: {
+    ...typography.micro,
+    fontSize: 11.5,
+    color: colors.onSurfaceVariant,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBody: {
+    padding: CONTAINER_MARGIN,
+  },
+  guideBlock: {
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
+  },
+  guideSectionTitle: {
+    fontFamily: fontFamily.displayBold,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  guideSectionBody: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    lineHeight: 19,
+  },
+  guideList: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  guideListItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  guideEmoji: {
+    fontSize: 24,
+  },
+  guideTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  guideItemTitle: {
+    fontFamily: fontFamily.displayBold,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  guideItemDesc: {
+    ...typography.micro,
+    fontSize: 11.5,
+    color: colors.onSurfaceVariant,
+    lineHeight: 16,
   },
 });

@@ -34,6 +34,8 @@ import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { successFeedback } from '../utils/haptics';
+import { useSignedMediaUrl } from '../lib/mediaUrl';
+import { useVideoPoster } from '../hooks/useVideoPoster';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -52,7 +54,60 @@ type Member = {
   role: Role;
 };
 
+type RecentMediaItem = {
+  id: string;
+  url: string;
+  thumbUrl: string | null;
+  type: 'image' | 'video' | 'gif' | 'file';
+};
+
 const VISIBLE_MEMBERS = 5;
+
+function MediaBannerThumbnailItem({
+  item,
+}: {
+  item: RecentMediaItem;
+}) {
+  const isVideo = item.type === 'video';
+  const signedUrl = useSignedMediaUrl(item.url);
+  const signedThumb = useSignedMediaUrl(item.thumbUrl);
+  const derivedPoster = useVideoPoster(isVideo && !item.thumbUrl ? signedUrl : null);
+  const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
+
+  if (item.type === 'file') {
+    return (
+      <View style={styles.mediaBannerThumbFile}>
+        <Ionicons name="document-text" size={20} color="#818CF8" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.mediaBannerThumbWrap}>
+      {!!previewUri ? (
+        <Image
+          source={{ uri: previewUri }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={150}
+        />
+      ) : (
+        <View style={styles.mediaBannerThumbPlaceholder}>
+          <Ionicons
+            name={isVideo ? 'videocam' : 'image'}
+            size={18}
+            color={colors.onSurfaceVariant}
+          />
+        </View>
+      )}
+      {isVideo && (
+        <View style={styles.mediaBannerPlayBadge}>
+          <Ionicons name="play" size={10} color="#FFFFFF" />
+        </View>
+      )}
+    </View>
+  );
+}
 
 export default function GroupInfoScreen({ route, navigation }: Props) {
   const { groupId } = route.params;
@@ -72,13 +127,25 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   const [leaving, setLeaving] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
   const [actionTarget, setActionTarget] = useState<Member | null>(null);
+  const [recentMedia, setRecentMedia] = useState<RecentMediaItem[]>([]);
+  const [mediaTotalCount, setMediaTotalCount] = useState(0);
 
   const load = useCallback(async () => {
-    const { data: g } = await supabase
-      .from('groups')
-      .select('name, emoji, invite_code, created_by, avatar_url, theme')
-      .eq('id', groupId)
-      .single();
+    const [{ data: g }, { data: mediaRows, count: totalMediaCount }] = await Promise.all([
+      supabase
+        .from('groups')
+        .select('name, emoji, invite_code, created_by, avatar_url, theme')
+        .eq('id', groupId)
+        .single(),
+      supabase
+        .from('messages')
+        .select('id, media_url, media_thumb_url, media_type', { count: 'exact' })
+        .eq('group_id', groupId)
+        .eq('is_deleted', false)
+        .not('media_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(5),
+    ]);
 
     if (g) {
       setGroup({
@@ -90,6 +157,16 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
         theme: g.theme,
       });
     }
+
+    setMediaTotalCount(totalMediaCount ?? 0);
+    setRecentMedia(
+      (mediaRows ?? []).map((r) => ({
+        id: r.id,
+        url: r.media_url!,
+        thumbUrl: r.media_thumb_url,
+        type: (r.media_type as 'image' | 'video' | 'gif' | 'file') || 'image',
+      }))
+    );
 
     const { data: rows } = await supabase
       .from('group_members')
@@ -362,6 +439,65 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
             </GlassPanel>
           </Animated.View>
 
+          {/* Media, Links & Files Banner */}
+          <Animated.View
+            entering={FadeInDown.delay(STAGGER_MS + 2)
+              .duration(duration.slow)
+              .easing(easing.out)
+              .reduceMotion(reduceMotion)}
+          >
+            <PressableScale
+              scaleTo={0.98}
+              haptic="light"
+              onPress={() => navigation.navigate('MediaLinksFiles', { groupId })}
+              style={styles.mediaBannerWrap}
+            >
+              <GlassPanel borderRadius={radius.lg} style={styles.mediaBannerCard}>
+                <View style={styles.mediaBannerHeader}>
+                  <View style={styles.mediaBannerHeaderLeft}>
+                    <View
+                      style={[
+                        styles.mediaBannerIconWrap,
+                        {
+                          backgroundColor: `${activeTheme.accent}1E`,
+                          borderColor: `${activeTheme.accent}3A`,
+                        },
+                      ]}
+                    >
+                      <Ionicons name="images" size={17} color={activeTheme.accent} />
+                    </View>
+                    <Text style={styles.mediaBannerTitle}>Media, Links & Files</Text>
+                  </View>
+                  <View style={styles.mediaBannerHeaderRight}>
+                    <Text style={styles.mediaBannerCount}>{mediaTotalCount}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
+                  </View>
+                </View>
+
+                {recentMedia.length > 0 ? (
+                  <View style={styles.mediaBannerStrip}>
+                    {recentMedia.map((item) => (
+                      <MediaBannerThumbnailItem key={item.id} item={item} />
+                    ))}
+                    {mediaTotalCount > recentMedia.length && (
+                      <View style={styles.mediaBannerMoreChip}>
+                        <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
+                        <Text style={styles.mediaBannerMoreText}>All</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.mediaBannerEmpty}>
+                    <Ionicons name="images-outline" size={15} color={colors.onSurfaceVariant} />
+                    <Text style={styles.mediaBannerEmptyText}>
+                      Photos, videos, files and links shared in chat will appear here
+                    </Text>
+                  </View>
+                )}
+              </GlassPanel>
+            </PressableScale>
+          </Animated.View>
+
           <Animated.View
             entering={FadeInDown.delay(STAGGER_MS + 4)
               .duration(duration.slow)
@@ -382,17 +518,17 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               />
               <View style={styles.quickLinkDivider} />
               <QuickLinkRow
-                icon="image"
-                label="Media, Links & Files"
-                onPress={() => navigation.navigate('MediaLinksFiles', { groupId })}
-              />
-              <View style={styles.quickLinkDivider} />
-              <QuickLinkRow
                 icon="finger-print"
                 label="GC DNA"
                 onPress={() =>
                   navigation.navigate('GCDNA', { groupId, groupName: group?.name })
                 }
+              />
+              <View style={styles.quickLinkDivider} />
+              <QuickLinkRow
+                icon="bulb"
+                label="Custom Instructions"
+                onPress={() => navigation.navigate('GroupInstructions', { groupId })}
               />
             </GlassPanel>
           </Animated.View>
@@ -706,6 +842,123 @@ const styles = StyleSheet.create({
     marginRight: -4,
   },
   copyButton: { marginTop: spacing.md },
+
+  // Media, Links & Files Banner
+  mediaBannerWrap: {
+    borderRadius: radius.lg,
+  },
+  mediaBannerCard: {
+    padding: spacing.md + 2,
+    gap: spacing.md,
+    backgroundColor: colors.surfaceHigh,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  mediaBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mediaBannerHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 2,
+  },
+  mediaBannerIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaBannerTitle: {
+    ...typography.label,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  mediaBannerHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  mediaBannerCount: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  mediaBannerStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  mediaBannerThumbWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  mediaBannerThumbPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaBannerThumbFile: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaBannerPlayBadge: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaBannerMoreChip: {
+    height: 52,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  mediaBannerMoreText: {
+    ...typography.micro,
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  mediaBannerEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  mediaBannerEmptyText: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    flex: 1,
+  },
+
   quickLinks: { overflow: 'hidden' },
   quickLinkDivider: { height: StyleSheet.hairlineWidth, backgroundColor: glass.stroke, marginLeft: spacing.lg + 18 + spacing.md },
   notifBlock: { gap: spacing.sm },

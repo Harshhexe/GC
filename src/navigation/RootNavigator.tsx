@@ -22,6 +22,7 @@ import MediaLinksFilesScreen from '../screens/MediaLinksFilesScreen';
 import WhatDidIMissScreen from '../screens/WhatDidIMissScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import GCDNAScreen from '../screens/GCDNAScreen';
+import GroupInstructionsScreen from '../screens/GroupInstructionsScreen';
 import WordyScreen from '../screens/WordyScreen';
 import { InAppNotificationBanner } from '../components/InAppNotificationBanner';
 import { AppUpdateModal } from '../components/AppUpdateModal';
@@ -176,6 +177,10 @@ export default function RootNavigator() {
                 name="GCDNA"
                 component={GCDNAScreen}
                 options={{ animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen
+                name="GroupInstructions"
+                component={GroupInstructionsScreen}
               />
               <Stack.Screen
                 name="WhatDidIMiss"

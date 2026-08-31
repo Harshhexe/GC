@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { consumeMissedBoundary } from '../lib/readState';
@@ -701,42 +702,113 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
   }, [groupId]);
 
   /**
-   * Re-fetch when the app comes back to the foreground.
-   *
-   * The realtime socket is torn down while backgrounded, so anything sent in
-   * the meantime arrives at nobody — and `load()` above only re-runs when
-   * groupId changes. React Navigation's focus hooks don't help either: the
-   * screen never lost *navigation* focus, the whole app lost OS focus, which
-   * is a different thing entirely.
-   *
-   * The symptom was that reopening the app on an open chat showed a stale
-   * transcript until you went back to the list and re-entered — that
-   * round trip remounts the screen, which is what was really doing the
-   * refetch. This closes the gap without the detour.
+   * Performs a lightweight delta sync for any new messages that arrived
+   * while the app was inactive, reconnecting, or received via push notification.
+   */
+  const syncLatest = useCallback(async () => {
+    if (!groupId) return;
+    try {
+      const realMessages = messagesRef.current.filter((m) => !m.id.startsWith('temp_') && !m.isDeleted);
+      const latestMsg = realMessages[realMessages.length - 1];
+
+      let query = supabase
+        .from('messages')
+        .select(MESSAGE_COLUMNS)
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true })
+        .limit(50);
+
+      if (latestMsg?.createdAt) {
+        query = query.gt('created_at', latestMsg.createdAt);
+      }
+
+      const { data: newRows, error } = await query;
+      if (error || !newRows || newRows.length === 0) return;
+
+      const rows = newRows as MessageRow[];
+      const authorIds = Array.from(
+        new Set(rows.map((r) => r.author_id).filter((id): id is string => id !== null))
+      );
+      const missingProfileIds = authorIds.filter((id) => !profilesRef.current.has(id));
+      if (missingProfileIds.length > 0) {
+        const { data: pRows } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_color, avatar_emoji, avatar_url')
+          .in('id', missingProfileIds);
+        for (const p of pRows ?? []) profilesRef.current.set(p.id, p);
+      }
+
+      const built = buildMessages(rows);
+      if (built.length === 0) return;
+
+      setMessages((prev) => {
+        let next = [...prev];
+        for (const newMsg of built) {
+          const existingById = next.findIndex((m) => m.id === newMsg.id);
+          if (existingById >= 0) {
+            next[existingById] = { ...newMsg, deliveryStatus: 'sent' };
+            continue;
+          }
+
+          const optimisticIndex = next.findIndex(
+            (m) =>
+              (m.id.startsWith('temp_') || !!m.clientMessageId) &&
+              m.authorId === newMsg.authorId &&
+              m.text === newMsg.text &&
+              ((!m.media && !newMsg.media) || (m.media?.url === newMsg.media?.url))
+          );
+
+          if (optimisticIndex >= 0) {
+            next[optimisticIndex] = { ...newMsg, deliveryStatus: 'sent' };
+          } else {
+            next.push(newMsg);
+          }
+        }
+        return next;
+      });
+    } catch (e) {
+      console.warn('[useMessages] syncLatest error:', e);
+    }
+  }, [groupId, buildMessages]);
+
+  /**
+   * Re-fetch when the app comes back to the foreground or resumes from inactive.
    */
   useEffect(() => {
     if (!groupId) return;
 
     const sub = AppState.addEventListener('change', (next) => {
-      // Only a real resume. This cannot be decided from the previous state:
-      // iOS backgrounds via active → inactive → background and resumes via
-      // background → inactive → active, so the step before 'active' is
-      // 'inactive' either way — and 'inactive' is also what a notification
-      // banner, the app switcher peek and a Control Centre pull produce
-      // without ever leaving the foreground. Against the old `!== 'active'`
-      // guard every banner looked like a resume and triggered a full refetch,
-      // which is what made the app appear to refresh itself whenever a
-      // message arrived. Tracking whether 'background' was actually reached
-      // separates the two.
-      if (next === 'active' && wasBackgrounded.current) {
-        wasBackgrounded.current = false;
-        load();
+      if (next === 'active') {
+        if (wasBackgrounded.current) {
+          wasBackgrounded.current = false;
+          load();
+        } else {
+          syncLatest();
+        }
       }
       if (next === 'background') wasBackgrounded.current = true;
     });
 
     return () => sub.remove();
-  }, [groupId, load]);
+  }, [groupId, load, syncLatest]);
+
+  /**
+   * Catch incoming messages immediately whenever a foreground push notification arrives for this chat.
+   */
+  useEffect(() => {
+    if (!groupId || Platform.OS === 'web') return;
+    const sub = Notifications.addNotificationReceivedListener((notification) => {
+      try {
+        const data = notification.request.content.data as { groupId?: string };
+        if (data?.groupId === groupId) {
+          syncLatest();
+        }
+      } catch (e) {
+        // ignore
+      }
+    });
+    return () => sub.remove();
+  }, [groupId, syncLatest]);
 
   const refreshReactions = useCallback(async () => {
     const currentIds = messagesRef.current.map((m) => m.id);
@@ -956,7 +1028,12 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
           }
         }
       )
-      .subscribe(onChannelStatus('chat'));
+      .subscribe((status) => {
+        onChannelStatus('chat')(status);
+        if (status === 'SUBSCRIBED') {
+          syncLatest();
+        }
+      });
 
     return () => {
       // Without this a queued refetch can fire after the screen is gone.
@@ -966,7 +1043,7 @@ export function useMessages(groupId: string, options?: { initialLimit?: number }
       }
       supabase.removeChannel(channel);
     };
-  }, [groupId, myId, buildMessages, refreshReactions, resolveReplyPreview, authorNameFor, getViewerProfiles]);
+  }, [groupId, myId, buildMessages, refreshReactions, resolveReplyPreview, authorNameFor, getViewerProfiles, syncLatest]);
 
   // Any bubble whose reply preview came back unresolved (target not in the
   // loaded page yet) gets a one-shot lookup so it fills itself in.
