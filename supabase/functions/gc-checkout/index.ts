@@ -121,18 +121,6 @@ Deno.serve(async (req) => {
      */
     const orderId = `gc_${purchaseId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
-    /*
-     * TEMPORARY credential diagnostic for a 401 from Cashfree. Logs which
-     * environment was selected and the shape of the credentials, never their
-     * values: sandbox and production keys are separate pairs, so calling one
-     * host with the other's keys authenticates as nobody.
-     */
-    console.log(
-      `[gc-checkout] env="${cfEnv}" host=${baseUrl(cfEnv)} ` +
-      `appIdLen=${appId.length} appIdIsTestPrefixed=${appId.startsWith('TEST')} ` +
-      `secretLen=${secretKey.length} secretIsTestPrefixed=${secretKey.startsWith('cfsk_ma_test') || secretKey.startsWith('TEST')}`
-    );
-
     const cfRes = await fetch(`${baseUrl(cfEnv)}/orders`, {
       method: 'POST',
       headers: {
