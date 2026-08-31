@@ -117,10 +117,59 @@ Deno.serve(async (req) => {
     const orderAmount = purchase.amount_paise / 100;
 
     /*
-     * A fresh order id per attempt, since Cashfree rejects a duplicate. The
-     * purchase id is the stable part so the webhook can find its way back to
-     * the row, and the suffix makes a retry after an abandoned payment page a
-     * new order rather than a collision.
+     * Reuse the order this purchase already has, if it is still payable.
+     *
+     * Minting a fresh order on every tap left several payable links alive for
+     * one purchase at once, and someone who tapped Pay twice (or retried after
+     * assuming the first attempt failed) could pay two of them. The settlement
+     * guard then granted one slot and ignored the second payment, so the money
+     * moved and nothing came back for it. Verified in sandbox: one purchase
+     * ended up with two PAID orders and a single slot.
+     *
+     * An ACTIVE order carries its original payment_session_id, so handing the
+     * same one back is both correct and cheaper than creating another.
+     */
+    if (purchase.provider_order_id) {
+      const existing = await fetch(
+        `${baseUrl(cfEnv)}/orders/${encodeURIComponent(purchase.provider_order_id)}`,
+        {
+          headers: {
+            'x-api-version': CASHFREE_API_VERSION,
+            'x-client-id': appId,
+            'x-client-secret': secretKey,
+          },
+        }
+      );
+      const prev = await existing.json().catch(() => null);
+
+      if (existing.ok && prev?.order_status === 'ACTIVE' && prev?.payment_session_id) {
+        return jsonResponse({
+          ok: true,
+          orderId: purchase.provider_order_id,
+          paymentSessionId: prev.payment_session_id,
+          mode: cfEnv === 'production' ? 'production' : 'sandbox',
+          reused: true,
+        });
+      }
+
+      /*
+       * A PAID order on a purchase still marked `created` means the webhook
+       * has not landed yet. Opening another payable order here is exactly how
+       * the double charge happened, so refuse instead and let the webhook
+       * settle it.
+       */
+      if (prev?.order_status === 'PAID') {
+        return jsonResponse(
+          { ok: false, error: 'This payment is already going through. Give it a moment.' },
+          409
+        );
+      }
+    }
+
+    /*
+     * Only reached when the purchase has no order, or its order is expired or
+     * otherwise no longer payable. The purchase id is the stable part so the
+     * webhook can find its way back to the row.
      */
     const orderId = `gc_${purchaseId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 

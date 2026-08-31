@@ -159,6 +159,26 @@ export async function sendTestNotification(): Promise<void> {
   }
 }
 
+/**
+ * The 11:11 wish reminder.
+ *
+ * Fired two minutes EARLY on purpose. Do not "correct" this back to 11:11.
+ *
+ * These are OS-scheduled local notifications, and Android's DAILY trigger is an
+ * *inexact* alarm: under Doze and App Standby the system batches it to save
+ * battery, which in practice delivered the 11:11 reminder around 11:13. The
+ * wish window is 11:11:00 to 11:11:59, so an on-the-minute schedule arrived
+ * after the thing it was announcing had already closed.
+ *
+ * Firing exactly on time would need SCHEDULE_EXACT_ALARM, which Play restricts
+ * to alarm and calendar apps and would risk a review rejection for a chat app,
+ * and it would need a native rebuild. A lead time costs nothing and lands the
+ * notification inside the window at the observed delay instead of after it.
+ *
+ * The copy is written to survive early or late delivery: it announces that the
+ * window is about to open rather than claiming it is open right now, which was
+ * the part that read as broken when the notification ran late.
+ */
 export async function scheduleElevenElevenReminder(): Promise<void> {
   if (Platform.OS === 'web') return;
   try {
@@ -170,35 +190,25 @@ export async function scheduleElevenElevenReminder(): Promise<void> {
       }
     }
 
-    // Schedule 11:11 AM
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '✨ 11:11 Make a Wish! 🕯️',
-        body: 'The 60-second wish window is open right now.',
-        sound: 'default',
-        data: { type: '11_11_reminder' },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: 11,
-        minute: 11,
-      },
-    });
+    const content = {
+      title: '✨ 11:11 is almost here 🕯️',
+      body: 'Your wish window opens in a moment. Open GC to get ready.',
+      sound: 'default',
+      data: { type: '11_11_reminder' },
+    };
 
-    // Schedule 11:11 PM (23:11)
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '✨ 11:11 Make a Wish! 🕯️',
-        body: 'The 60-second wish window is open right now.',
-        sound: 'default',
-        data: { type: '11_11_reminder' },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: 23,
-        minute: 11,
-      },
-    });
+    /* Two minutes of lead time, so the observed Android delay lands the
+       notification inside the 11:11 window rather than past it. */
+    for (const hour of [11, 23]) {
+      await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute: 9,
+        },
+      });
+    }
   } catch (e) {
     console.warn('[push] scheduleElevenElevenReminder failed:', e);
   }

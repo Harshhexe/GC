@@ -198,6 +198,22 @@ Deno.serve(async (req) => {
       .select('id');
 
     const settled = (updated?.length ?? 0) > 0;
+
+    /*
+     * A success event that settles nothing is either a harmless duplicate of
+     * one already applied, or a genuine second payment for the same purchase,
+     * which means someone was charged twice and got one slot. The two are
+     * indistinguishable from here, and the second needs a human to refund it,
+     * so it is logged as an error rather than swallowed as a no-op.
+     */
+    if (!settled) {
+      console.error(
+        `[gc-payment-webhook] POSSIBLE DOUBLE CHARGE: purchase=${row.id} was already ` +
+        `${row.status} when order=${orderId} payment=${paymentId} reported success. ` +
+        `Verify against Cashfree and refund if this is a second payment.`
+      );
+    }
+
     console.log(
       `[gc-payment-webhook] order=${orderId} purchase=${row.id} settled=${settled}`
     );

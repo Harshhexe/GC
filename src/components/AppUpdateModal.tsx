@@ -27,34 +27,28 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
+    icon: 'notifications-outline' as const,
+    color: '#38BDF8',
+    title: 'Message Notifications Arrive Instantly',
+    desc: 'Group messages used to sit in Android\u2019s battery queue and land about a minute late. They are now sent as high priority, so a message shows up when it is sent.',
+  },
+  {
+    icon: 'sparkles-outline' as const,
+    color: '#FBBF24',
+    title: '11:11 Reminder Lands In Time',
+    desc: 'The wish reminder now arrives just before 11:11 instead of just after it, so the 60-second window is still open when you open the app.',
+  },
+  {
+    icon: 'add-circle-outline' as const,
+    color: '#10B981',
+    title: 'Run More Than One GC',
+    desc: 'Your first GC is free. Need another, pay once and the slot is yours to keep, reuse, and free up again by deleting a GC. Joining other people\u2019s GCs stays unlimited and free.',
+  },
+  {
     icon: 'stats-chart-outline' as const,
     color: '#06B6D4',
     title: 'AI Poll Drafting with @gc',
     desc: 'Ask @gc to make a poll about anything and it instantly drafts questions and options ready for review, even if the chat was quiet.',
-  },
-  {
-    icon: 'checkmark-circle-outline' as const,
-    color: '#10B981',
-    title: 'Smooth Modal Dismiss & Cancel',
-    desc: 'Sticker, GIF, and Poll pickers now dismiss instantly when pressing Cancel or completing a send.',
-  },
-  {
-    icon: 'at-outline' as const,
-    color: '#818CF8',
-    title: 'Send Mention-Only Messages',
-    desc: 'You can now send messages containing only @mentions without being forced to type extra text.',
-  },
-  {
-    icon: 'grid-outline' as const,
-    color: '#FBBF24',
-    title: 'Wordy Keyboard Upgrade',
-    desc: 'The Wordy daily game keyboard now features a clean return icon for submitting guesses.',
-  },
-  {
-    icon: 'pricetag-outline' as const,
-    color: '#F472B6',
-    title: 'Daily GC Names, Now Automatic',
-    desc: 'Names sync for the whole group at midnight, no need to open the tab. Every member gets one, including silent ones, beside their chat avatar.',
   },
 ];
 

@@ -26,6 +26,10 @@ export type GCEntitlement = {
   pricePaise: number;
   /** An unsettled purchase, if one is already open. */
   pendingPurchaseId: string | null;
+  /** False until the address is confirmed, once confirmation is enabled. */
+  emailVerified: boolean;
+  /** True for a known throwaway provider. Blocks creation outright. */
+  emailDisposable: boolean;
 };
 
 export type GCPurchase = {
@@ -64,6 +68,12 @@ export async function fetchGCEntitlement(): Promise<GCEntitlement | null> {
     canCreate: !!row.can_create,
     pricePaise: row.price_paise ?? 0,
     pendingPurchaseId: row.pending_purchase_id ?? null,
+    /* Default to permissive: a server that did not report these should not
+       lock someone out of a GC they are entitled to. The trigger is the real
+       gate either way, so a wrong guess here costs a clearer message, not a
+       free slot. */
+    emailVerified: row.email_verified ?? true,
+    emailDisposable: row.email_disposable ?? false,
   };
 }
 
@@ -123,7 +133,13 @@ function toPurchase(row: {
 /** Turns the creation trigger's error into copy the paywall can show. */
 export function friendlyGroupCreateError(rawMessage: string): string {
   if (rawMessage.includes('GC_LIMIT_REACHED')) {
-    return 'You’ve used all your GC slots. Add another to create this group.';
+    return 'You\u2019ve used all your GC slots. Add another to create this group.';
+  }
+  if (rawMessage.includes('GC_EMAIL_UNVERIFIED')) {
+    return 'Confirm your email address first. Check your inbox for the link we sent when you signed up.';
+  }
+  if (rawMessage.includes('GC_EMAIL_DISPOSABLE')) {
+    return 'That email provider isn\u2019t supported for creating a GC. Sign up with a permanent address and you\u2019re good to go.';
   }
   return rawMessage;
 }

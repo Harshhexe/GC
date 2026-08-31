@@ -578,7 +578,26 @@ Deno.serve(async (req) => {
             authorAvatarUrl: author?.avatar_url ?? null,
             text: preview,
           },
-          priority: isDirect ? 'high' : 'default',
+          /*
+           * Every chat message is high priority, direct or not.
+           *
+           * Group messages used to be sent at 'default', which Expo maps to
+           * FCM `normal` and APNs priority 5. Android then treats them as
+           * deferrable: under Doze and App Standby they wait for the next
+           * maintenance window instead of being delivered on arrival, which
+           * put a message sent at 1:00 on someone's phone around 1:01.
+           *
+           * The server was never the delay — insert to edge-function response
+           * measures 0.02 to 2 seconds. The whole minute was Android holding a
+           * normal-priority push. 'high' asks FCM to wake the device now.
+           *
+           * The awards and group-stats broadcasts deliberately stay at
+           * 'default'. Those are once-a-day digests where a minute costs
+           * nothing, and waking every device in every group for them is the
+           * battery drain the normal tier exists to prevent. A message someone
+           * is waiting on is a different thing.
+           */
+          priority: 'high',
         };
       });
 
