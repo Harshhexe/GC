@@ -86,7 +86,20 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false }, 401);
     }
 
-    const skew = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
+    /*
+     * The header arrives in seconds from some Cashfree endpoints and in
+     * milliseconds from others: the dashboard's test ping sent seconds, while
+     * real payment events sent milliseconds. Assuming seconds rejected every
+     * genuine payment with a skew in the trillions, so the unit is inferred
+     * from magnitude instead of assumed.
+     *
+     * Only the skew comparison is normalised. The signature is still computed
+     * over the raw header string, because that is the exact byte sequence
+     * Cashfree signed.
+     */
+    const rawTs = Number(timestamp);
+    const tsSeconds = rawTs > 1e11 ? Math.floor(rawTs / 1000) : rawTs;
+    const skew = Math.abs(Math.floor(Date.now() / 1000) - tsSeconds);
     if (!Number.isFinite(skew) || skew > MAX_SKEW_SECONDS) {
       console.warn(`[gc-payment-webhook] rejected: timestamp skew ${skew}s`);
       return jsonResponse({ ok: false }, 401);

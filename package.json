@@ -80,7 +80,8 @@
     "ios": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 expo run:ios",
     "prebuild": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 expo prebuild --clean",
     "web": "expo start --web",
-    "update": "npx eas-cli update --channel preview"
+    "update": "npx eas-cli update --channel production",
+    "update:preview": "npx eas-cli update --channel preview"
   },
   "private": true,
   "overrides": {
