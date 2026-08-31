@@ -41,33 +41,11 @@
         Your payment went through. You can create one more GC.
       </p>
 
-      <a class="cta" href="/">Back to GC</a>
-      <p class="hint" id="hint">
-        If you started this in the GC app, just switch back to it. Your new slot
-        is already there.
+      <a class="cta" href="/">Open GC on the web</a>
+      <p class="hint">
+        Paid from the app? Just switch back to it. Your new slot is already there.
       </p>
     </div>
 
-    <script>
-      /*
-       * Payers arriving from the mobile app are in a separate browser, where
-       * "Back to GC" cannot reach the app. Only show the web link when this is
-       * plausibly the web app's own tab; otherwise the hint alone is honest.
-       */
-      (function () {
-        try {
-          var cameFromApp = !window.opener && window.history.length <= 2;
-          if (cameFromApp) {
-            var cta = document.querySelector('.cta');
-            if (cta) cta.style.display = 'none';
-          } else {
-            var hint = document.getElementById('hint');
-            if (hint) hint.style.display = 'none';
-          }
-        } catch (e) {
-          /* Both affordances stay visible, which is a fine fallback. */
-        }
-      })();
-    </script>
   </body>
 </html>
