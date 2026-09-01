@@ -33,9 +33,22 @@ export function isValidInviteCode(code: string | null | undefined): boolean {
   return !!code && CODE_PATTERN.test(code.trim().toUpperCase());
 }
 
-/** The link to put in front of a human. */
+/**
+ * The link to put in front of a human.
+ *
+ * Uses `/join?join=CODE` rather than the tidier `/join/CODE`, because the path
+ * form 404s in production. The deployment does not apply vercel.json rewrites
+ * at all — `/csae` and `/delete-account` have always 404ed for the same reason,
+ * and the extensionless duplicates of child-safety and delete sitting in
+ * `public/` are an earlier workaround for it.
+ *
+ * `/join` resolves to a real file, so the query form needs no rewrite and works
+ * as-is. The path form is still accepted by inviteCodeFromUrl and still has a
+ * rewrite rule waiting in vercel.json, so links can move back to it the moment
+ * routing is fixed, without breaking any link already sent.
+ */
 export function inviteLinkFor(code: string): string {
-  return `${WEB_ORIGIN}/join/${encodeURIComponent(code.trim().toUpperCase())}`;
+  return `${WEB_ORIGIN}/join?join=${encodeURIComponent(code.trim().toUpperCase())}`;
 }
 
 /** The link that opens the installed app directly, used by the landing page. */
