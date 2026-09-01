@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Join a GC</title>
+    <meta name="theme-color" content="#030206" />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Rendered as a link preview wherever the invite gets pasted. Generic on
+         purpose: this page is static and never sees who the invite is for, and
+         naming the wrong group would be worse than naming none. -->
+    <meta property="og:title" content="You've been invited to a GC" />
+    <meta property="og:description" content="Open the invite to join the group chat." />
+    <meta property="og:type" content="website" />
+
+    <link rel="stylesheet" href="/legal.css" />
+    <style>
+      .join-wrap { max-width: 460px; margin: 0 auto; padding: 76px 22px; text-align: center; }
+      .mark {
+        width: 74px; height: 74px; margin: 0 auto 24px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 32px;
+        background: rgba(129, 140, 248, 0.12);
+        border: 2px solid rgba(129, 140, 248, 0.38);
+      }
+      .lead { color: var(--text-body); font-size: 16px; margin: 0 0 8px; }
+      .code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 34px; letter-spacing: 6px; font-weight: 700;
+        color: #fff; margin: 0 0 30px;
+      }
+      .code.missing { font-size: 18px; letter-spacing: 0; color: var(--text-muted); }
+      .routes { display: flex; flex-direction: column; gap: 12px; }
+      .cta {
+        display: block; width: 100%; box-sizing: border-box;
+        padding: 15px 30px; border-radius: 999px;
+        background: var(--accent); color: #fff; font-weight: 650;
+        font-size: 16px; text-decoration: none;
+      }
+      .cta:hover { filter: brightness(1.08); }
+      .cta.secondary {
+        background: transparent; color: var(--text-body);
+        border: 1px solid var(--hairline, #2b2844);
+      }
+      .hint { margin-top: 22px; font-size: 14px; color: var(--text-muted); line-height: 1.55; }
+    </style>
+  </head>
+  <body>
+    <div class="join-wrap">
+      <div class="mark" aria-hidden="true">💬</div>
+      <h1 style="font-size: 30px; margin-bottom: 10px">You're invited to a GC</h1>
+
+      <p class="lead">Invite code</p>
+      <p class="code missing" id="code">checking the link…</p>
+
+      <!--
+        No automatic redirect to the gc:// scheme.
+        A device without GC installed answers a scheme it does not know with a
+        browser error dialog, and firing that on load would greet a brand new
+        user — exactly the person an invite is for — with what looks like a
+        broken link. The app route is offered as the obvious first button
+        instead, with the web route directly beneath it rather than hidden
+        behind a fallback timer.
+      -->
+      <div class="routes" id="routes" hidden>
+        <a class="cta" id="openApp" href="#">Open in the GC app</a>
+        <a class="cta secondary" id="openWeb" href="/">Continue on the web</a>
+      </div>
+
+      <p class="hint" id="hint">
+        Don't have GC yet? Install it, then open this link again — or enter the
+        code above on the join screen.
+      </p>
+    </div>
+
+    <script>
+      (function () {
+        // Codes are six characters from a deliberately unambiguous alphabet
+        // (no O/0, no I/1) — see generate_invite_code. Validated here so a
+        // mistyped or truncated link says so plainly instead of handing a
+        // broken code to the app.
+        var VALID = /^[A-Z0-9]{6}$/;
+
+        var raw = '';
+        try {
+          var parts = window.location.pathname.split('/').filter(Boolean);
+          // /join/<code>
+          if (parts.length >= 2 && parts[0].toLowerCase() === 'join') raw = parts[1];
+          if (!raw) {
+            var q = new URLSearchParams(window.location.search).get('join');
+            if (q) raw = q;
+          }
+          raw = decodeURIComponent(raw || '');
+        } catch (e) {
+          raw = '';
+        }
+
+        var code = (raw || '').trim().toUpperCase();
+        var el = document.getElementById('code');
+
+        if (!VALID.test(code)) {
+          el.textContent = 'This invite link looks incomplete.';
+          document.getElementById('hint').textContent =
+            'Ask whoever sent it to share the link again, or type the six-character code on the join screen in the app.';
+          return;
+        }
+
+        el.textContent = code;
+        el.className = 'code';
+        document.getElementById('openApp').href = 'gc://join/' + encodeURIComponent(code);
+        // Handed to the web app as a query param: the path belongs to the
+        // single-page app once you leave this page.
+        document.getElementById('openWeb').href = '/?join=' + encodeURIComponent(code);
+        document.getElementById('routes').hidden = false;
+      })();
+    </script>
+  </body>
+</html>

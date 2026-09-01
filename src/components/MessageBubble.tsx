@@ -453,6 +453,7 @@ function MessageBubbleImpl({
                     {message.media && (
                       <MessageMediaView
                         media={message.media}
+                        createdAt={message.createdAt}
                         isMine={mine}
                         tint={theme.accent}
                         isVisible={isVisible}
@@ -518,6 +519,7 @@ function MessageBubbleImpl({
                         {message.media && (
                           <MessageMediaView
                             media={message.media}
+                            createdAt={message.createdAt}
                             isMine={mine}
                             tint={theme.accent}
                             isVisible={isVisible}

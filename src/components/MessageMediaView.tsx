@@ -7,7 +7,13 @@ import { ActivityIndicator, GestureResponderEvent, Platform, StyleSheet, Text, V
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { signedImageSource, useSignedMediaUrl } from '../lib/mediaUrl';
+import {
+  isMediaExpired,
+  MEDIA_RETENTION_DAYS,
+  signedImageSource,
+  useSignedMedia,
+  useSignedMediaUrl,
+} from '../lib/mediaUrl';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration } from '../theme/motion';
 import { formatFileSize } from '../lib/media';
@@ -47,6 +53,7 @@ function formatDuration(ms: number | null) {
  *  caption text (if any). */
 export function MessageMediaView({
   media,
+  createdAt,
   isMine,
   tint,
   onPress,
@@ -68,12 +75,15 @@ export function MessageMediaView({
   /** Whether this photo/video has been saved to the device — shows a small
    *  "Saved" pill. Local-only state, so it only reflects this device. */
   downloaded?: boolean;
+  /** The message's timestamp, used to tell an expired photo apart from a
+   *  failed one — media older than the retention window is gone for good. */
+  createdAt?: string | null;
 }) {
   const [imgError, setImgError] = useState(false);
   // Signed above the early returns, because hooks cannot live behind a branch.
   // Both are pass-throughs for anything outside the private bucket, so the
   // sticker and remote-GIF cases below are unaffected.
-  const signedUrl = useSignedMediaUrl(media.url);
+  const { url: signedUrl, failed: signFailed } = useSignedMedia(media.url);
   const signedThumb = useSignedMediaUrl(media.thumbUrl);
   // A video URL is not something an <Image> can draw — it needs a poster
   // frame. New videos carry one captured at send time; anything sent before
@@ -151,6 +161,18 @@ export function MessageMediaView({
    */
   const previewOriginal = isVideo ? (signedThumb ? media.thumbUrl : null) : media.url;
 
+  /*
+   * Expired, not broken.
+   *
+   * Media is removed from storage after the retention window while the message
+   * row stays, so from here an expired photo looks identical to a failed one:
+   * Storage refuses to sign an object that is gone. Age is what separates them.
+   * Both conditions are required — age alone would label a photo expired during
+   * the hours between it ageing out and the nightly job actually running, and
+   * failure alone would call a network blip an expiry.
+   */
+  const expired = (signFailed || imgError) && isMediaExpired(createdAt);
+
   return (
     <PressableScale
       onPress={onPress}
@@ -159,13 +181,13 @@ export function MessageMediaView({
       haptic="light"
       style={[styles.mediaBox, { width: box.width, height: box.height }]}
     >
-      {!previewUri && !imgError && (
+      {!previewUri && !imgError && !expired && (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.4)" />
         </View>
       )}
 
-      {!!previewUri && !imgError && (
+      {!!previewUri && !imgError && !expired && (
         <Image
           source={signedImageSource(previewUri, previewOriginal)}
           autoplay={media.type === 'gif' ? (isVisible ?? true) : undefined}
@@ -178,15 +200,26 @@ export function MessageMediaView({
         />
       )}
 
-      {imgError && (
+      {expired ? (
         <View style={styles.errorBox}>
-          <Ionicons name="image-outline" size={24} color="rgba(255, 255, 255, 0.4)" />
-          <Text style={styles.errorText}>Photo</Text>
+          <Ionicons name="time-outline" size={24} color="rgba(255, 255, 255, 0.42)" />
+          <Text style={styles.errorText}>Expired</Text>
+          <Text style={styles.expiredSub}>
+            {`Media is removed after ${MEDIA_RETENTION_DAYS} days`}
+          </Text>
         </View>
+      ) : (
+        imgError && (
+          <View style={styles.errorBox}>
+            <Ionicons name="image-outline" size={24} color="rgba(255, 255, 255, 0.4)" />
+            <Text style={styles.errorText}>Photo</Text>
+          </View>
+        )
       )}
 
-      {media.type === 'video' && (
-        <View style={[styles.videoOverlay, (!previewUri || imgError) && styles.videoPlate]}>
+      {media.type === 'video' && !expired && (
+        <View style={[styles.videoOverlay, (!previewUri || imgError) && styles.videoPlate]}
+              pointerEvents="none">
           <View style={styles.playCircle}>
             <Ionicons name="play" size={22} color="#FFFFFF" />
           </View>
@@ -314,5 +347,15 @@ const styles = StyleSheet.create({
     ...typography.micro,
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.4)',
+  },
+  // Quieter than the label above it, and padded so it wraps inside the
+  // smallest bubble rather than running to the edges.
+  expiredSub: {
+    ...typography.micro,
+    fontSize: 9.5,
+    lineHeight: 13,
+    textAlign: 'center',
+    paddingHorizontal: 10,
+    color: 'rgba(255, 255, 255, 0.28)',
   },
 });

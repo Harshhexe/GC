@@ -16,6 +16,21 @@ import { supabase } from './supabase';
  */
 
 const BUCKET = 'message-media';
+
+/**
+ * How long message media survives before the nightly job removes it from
+ * storage — see supabase/auto_cleanup_10_days.sql, which must agree with this.
+ * The message itself is kept forever; only the file expires.
+ */
+export const MEDIA_RETENTION_DAYS = 10;
+
+/** True once this media is old enough that the cleanup job has taken it. */
+export function isMediaExpired(createdAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const t = new Date(createdAt).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t > MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+}
 /** Long enough to watch a video, short enough that a leaked link dies fast. */
 const TTL_SECONDS = 60 * 60;
 /** Re-sign a little before expiry so nothing 400s mid-view. */
@@ -86,16 +101,26 @@ export async function signedUrlsFor(urls: (string | null | undefined)[]): Promis
 }
 
 /**
- * Render-time signed URL. Returns the original untouched for anything outside
- * the private bucket, so callers can use it unconditionally.
+ * Render-time signed URL, plus whether signing actually failed.
+ *
+ * `url === null` alone is ambiguous — it means both "still signing" and "there
+ * is nothing to sign". The transcript needs to tell those apart: message media
+ * is deleted from storage after 10 days while the message row stays, so a
+ * signature that fails because the object is gone is the signal that the photo
+ * expired, not that the app is broken.
  */
-export function useSignedMediaUrl(url: string | null | undefined): string | null {
+export function useSignedMedia(url: string | null | undefined): {
+  url: string | null;
+  failed: boolean;
+} {
   const [resolved, setResolved] = useState<string | null>(() =>
     needsSigning(url) ? null : (url ?? null)
   );
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     if (!url) {
       setResolved(null);
       return;
@@ -114,14 +139,26 @@ export function useSignedMediaUrl(url: string | null | undefined): string | null
     }
     setResolved(null);
     signedUrlFor(url).then((signed) => {
-      if (!cancelled) setResolved(signed);
+      if (cancelled) return;
+      setResolved(signed);
+      // Storage refuses to sign an object that no longer exists, which is
+      // exactly what an expired photo looks like from here.
+      if (!signed) setFailed(true);
     });
     return () => {
       cancelled = true;
     };
   }, [url]);
 
-  return resolved;
+  return { url: resolved, failed };
+}
+
+/**
+ * Render-time signed URL. Returns the original untouched for anything outside
+ * the private bucket, so callers can use it unconditionally.
+ */
+export function useSignedMediaUrl(url: string | null | undefined): string | null {
+  return useSignedMedia(url).url;
 }
 
 /**

@@ -27,6 +27,18 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
+    icon: 'chatbubbles-outline' as const,
+    color: '#10B981',
+    title: 'Your Messages Stay Put',
+    desc: 'Chat history is no longer cleared out after 10 days. Only photos and files expire, and an expired one now says so in the chat instead of showing a broken image.',
+  },
+  {
+    icon: 'link-outline' as const,
+    color: '#818CF8',
+    title: 'Invite Links',
+    desc: 'Share a link instead of reading out a code. One tap drops your friends straight into the GC, with the code already filled in for them.',
+  },
+  {
     icon: 'flash-outline' as const,
     color: '#34D399',
     title: 'Instant Realtime Chat Delivery & Auto-Sync',
@@ -37,18 +49,6 @@ const CHANGELOG_ITEMS = [
     color: '#FBBF24',
     title: 'GC Lore & Custom Instructions Redesign',
     desc: 'Custom Instructions is completely revamped with ambient lighting, category filter tabs, clean cards, and a smart bottom composer bar with keyboard avoidance.',
-  },
-  {
-    icon: 'images-outline' as const,
-    color: '#818CF8',
-    title: 'Media, Links & Files Showcase',
-    desc: 'Group Info now features a dedicated banner with live thumbnail previews of photos, videos, and files shared in your chat for quick browsing.',
-  },
-  {
-    icon: 'trophy-outline' as const,
-    color: '#F472B6',
-    title: 'Grand Trophy Room & Awards Overhaul',
-    desc: 'The Awards screen is completely transformed: an atmospheric golden aurora backdrop, a spinning hero trophy crest, live count-up stats, ceremony guide, and floating sticky header.',
   },
 ];
 

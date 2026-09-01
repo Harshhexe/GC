@@ -13,7 +13,12 @@ import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { EmptyState } from '../components/EmptyState';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { useGroupMembers } from '../hooks/useGroupMembers';
-import { signedImageSource, signedUrlFor, useSignedMediaUrl } from '../lib/mediaUrl';
+import {
+  MEDIA_RETENTION_DAYS,
+  signedImageSource,
+  signedUrlFor,
+  useSignedMediaUrl,
+} from '../lib/mediaUrl';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import { supabase } from '../lib/supabase';
 import { formatFileSize } from '../lib/media';
@@ -228,6 +233,21 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
           ))}
         </View>
 
+        {/*
+          Shown on Media and Files but not Links. Both of those are real files
+          in storage and are removed on the retention schedule; a link is just
+          text inside a message and outlives it, so promising it expires would
+          be wrong.
+        */}
+        {tab !== 'links' && (
+          <View style={styles.retentionNote}>
+            <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+            <Text style={styles.retentionText}>
+              {`Media is removed after ${MEDIA_RETENTION_DAYS} days. Save anything you want to keep.`}
+            </Text>
+          </View>
+        )}
+
         {loading ? (
           <View style={styles.center}>
             <Text style={styles.loadingText}>loading…</Text>
@@ -354,6 +374,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: spacing.md,
   },
+  retentionNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  retentionText: {
+    ...typography.micro,
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+
   tab: {
     flex: 1,
     alignItems: 'center',

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Linking, View } from 'react-native';
 import {
   NavigationContainer,
   DarkTheme,
@@ -28,6 +28,7 @@ import { InAppNotificationBanner } from '../components/InAppNotificationBanner';
 import { AppUpdateModal } from '../components/AppUpdateModal';
 import { useAppUpdates } from '../hooks/useAppUpdates';
 import { RootStackParamList } from './types';
+import { inviteCodeFromUrl } from '../lib/inviteLink';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -72,12 +73,62 @@ export default function RootNavigator() {
 
   usePushNotifications(session?.user.id, goToChat);
 
+  /*
+   * Invite links.
+   *
+   * Parked rather than acted on immediately, for the same reason as a cold
+   * -start notification tap plus one more: the person following an invite is
+   * very often a brand new user with no account yet. Navigating them at the
+   * Auth screen would drop the code on the floor, so it is held until there is
+   * both a session and a mounted navigator, then replayed. That makes
+   * "tap invite -> sign up -> land on the join screen with the code filled in"
+   * one continuous flow instead of two disconnected ones.
+   */
+  const pendingInvite = useRef<string | null>(null);
+
+  const goToInvite = useCallback((code: string) => {
+    if (!navigationRef.isReady() || !session) {
+      pendingInvite.current = code;
+      return;
+    }
+    pendingInvite.current = null;
+    navigationRef.navigate('MainTabs', {
+      screen: 'AddGC',
+      params: { mode: 'join', code },
+    });
+  }, [session]);
+
+  useEffect(() => {
+    // Cold start: the app was launched by the link.
+    Linking.getInitialURL()
+      .then((url) => {
+        const code = inviteCodeFromUrl(url);
+        if (code) goToInvite(code);
+      })
+      .catch(() => {});
+
+    // Warm: already running when the link is tapped.
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      const code = inviteCodeFromUrl(url);
+      if (code) goToInvite(code);
+    });
+    return () => sub.remove();
+  }, [goToInvite]);
+
+  // Replays a parked invite once signing in produces a session.
+  useEffect(() => {
+    if (session && pendingInvite.current) goToInvite(pendingInvite.current);
+  }, [session, goToInvite]);
+
   const flushPendingTap = useCallback(() => {
+    const invite = pendingInvite.current;
+    if (invite && session) goToInvite(invite);
+
     const target = pendingTap.current;
     if (!target) return;
     pendingTap.current = null;
     goToChat(target);
-  }, [goToChat]);
+  }, [goToChat, goToInvite, session]);
 
   // Explicitly push Welcome screen if a new user just completed sign up
   useEffect(() => {

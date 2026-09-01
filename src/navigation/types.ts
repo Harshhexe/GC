@@ -1,8 +1,12 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
+
 export type TabParamList = {
   GroupList: undefined;
   /** `mode` lets the empty chat list drop you straight onto the right tab of
    *  the create/join screen instead of always landing on "create". */
-  AddGC: { mode?: 'create' | 'join' } | undefined;
+  /** `code` arrives from an invite link and pre-fills the join field, so a
+   *  tapped invite needs no typing. Always paired with `mode: 'join'`. */
+  AddGC: { mode?: 'create' | 'join'; code?: string } | undefined;
   Explore: undefined;
   Profile: undefined;
 };
@@ -11,7 +15,9 @@ export type RootStackParamList = {
   Auth: undefined;
   /** Shown once, right after sign-up — see `justSignedUp` in AuthContext. */
   Welcome: undefined;
-  MainTabs: undefined;
+  /** Params are passed through to the tab navigator so a deep link can land on
+   *  a specific tab — an invite link opens AddGC with its code already in. */
+  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
   /** `unreadCount` comes from the chat list so the transcript can place its
    *  "unread" divider without re-reading a stamp it is about to overwrite. */
   Chat: {

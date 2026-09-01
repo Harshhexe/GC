@@ -35,6 +35,7 @@ import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { successFeedback } from '../utils/haptics';
 import { signedImageSource, useSignedMediaUrl } from '../lib/mediaUrl';
+import { inviteLinkFor, inviteMessageFor } from '../lib/inviteLink';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -125,7 +126,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   } | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [showAll, setShowAll] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
   const [actionTarget, setActionTarget] = useState<Member | null>(null);
@@ -246,18 +247,22 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
   const myRole = members.find((m) => m.id === session?.user.id)?.role ?? null;
   const canManage = myRole === 'owner' || myRole === 'admin';
 
-  async function handleCopy() {
+  /* Which field last got copied, so the tick lands on the row that was
+     actually tapped rather than on both at once. */
+  async function copyField(field: 'code' | 'link') {
     if (!group?.code) return;
-    await Clipboard.setStringAsync(group.code);
+    await Clipboard.setStringAsync(
+      field === 'code' ? group.code : inviteLinkFor(group.code)
+    );
     successFeedback();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    setCopied(field);
+    setTimeout(() => setCopied(null), 1800);
   }
 
   async function handleInvite() {
     if (!group) return;
     await Share.share({
-      message: `join "${group.name}" on GC — code: ${group.code}`,
+      message: inviteMessageFor(group.code, group.name),
     }).catch(() => {});
   }
 
@@ -412,33 +417,6 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                 {members.length} {members.length === 1 ? 'Member' : 'Members'}
               </Text>
             </View>
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeInDown.delay(STAGGER_MS)
-              .duration(duration.slow)
-              .easing(easing.out)
-              .reduceMotion(reduceMotion)}
-          >
-            <GlassPanel borderRadius={radius.lg} style={styles.codeCard}>
-              <Text style={styles.codeLabel}>GROUP CODE</Text>
-              <Text style={styles.code}>{group?.code ?? '••••••'}</Text>
-              <GCButton
-                label={copied ? 'COPIED' : 'COPY CODE'}
-                variant="primary"
-                neo
-                full={false}
-                onPress={handleCopy}
-                style={styles.copyButton}
-                icon={
-                  <Ionicons
-                    name={copied ? 'checkmark' : 'copy-outline'}
-                    size={17}
-                    color={colors.onPrimary}
-                  />
-                }
-              />
-            </GlassPanel>
           </Animated.View>
 
           {/* Media, Links & Files Banner */}
@@ -739,13 +717,73 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               .reduceMotion(reduceMotion)}
             style={styles.actions}
           >
-            <GCButton
-              label="Invite Friends"
-              variant="gradient"
-              neo
-              onPress={handleInvite}
-              icon={<Ionicons name="person-add" size={19} color="#FFFFFF" />}
-            />
+            {/*
+              Both the link and the code, because they are for different
+              situations: the link is one tap for anyone you can send a message
+              to, while the code is what still works when the link cannot be
+              sent — read aloud, or typed in by someone whose messaging app
+              stripped it. Pressing the card shares the link, which is the
+              common case; the codes are there to be copied individually.
+            */}
+            <PressableScale scaleTo={0.98} haptic="light" onPress={handleInvite}>
+              <GlassPanel borderRadius={radius.lg} style={styles.inviteCard}>
+                <View style={styles.inviteHeader}>
+                  <View
+                    style={[
+                      styles.inviteIconWrap,
+                      { backgroundColor: `${activeTheme.accent}1E`, borderColor: `${activeTheme.accent}3A` },
+                    ]}
+                  >
+                    <Ionicons name="person-add" size={18} color={activeTheme.accent} />
+                  </View>
+                  <View style={styles.inviteHeaderCopy}>
+                    <Text style={styles.inviteTitle}>Invite Friends</Text>
+                    <Text style={styles.inviteSubtitle}>Tap to share the link</Text>
+                  </View>
+                  <Ionicons name="share-outline" size={18} color={colors.textMuted} />
+                </View>
+
+                <View style={styles.inviteRow}>
+                  <Text style={styles.inviteRowLabel}>CODE</Text>
+                  <Text style={styles.inviteCode} numberOfLines={1}>
+                    {group?.code ?? '••••••'}
+                  </Text>
+                  <PressableScale
+                    scaleTo={0.9}
+                    haptic="light"
+                    hitSlop={10}
+                    onPress={() => copyField('code')}
+                    style={styles.inviteCopyBtn}
+                  >
+                    <Ionicons
+                      name={copied === 'code' ? 'checkmark' : 'copy-outline'}
+                      size={15}
+                      color={copied === 'code' ? colors.green : colors.textPrimary}
+                    />
+                  </PressableScale>
+                </View>
+
+                <View style={styles.inviteRow}>
+                  <Text style={styles.inviteRowLabel}>LINK</Text>
+                  <Text style={styles.inviteLink} numberOfLines={1} ellipsizeMode="tail">
+                    {group?.code ? inviteLinkFor(group.code) : '—'}
+                  </Text>
+                  <PressableScale
+                    scaleTo={0.9}
+                    haptic="light"
+                    hitSlop={10}
+                    onPress={() => copyField('link')}
+                    style={styles.inviteCopyBtn}
+                  >
+                    <Ionicons
+                      name={copied === 'link' ? 'checkmark' : 'copy-outline'}
+                      size={15}
+                      color={copied === 'link' ? colors.green : colors.textPrimary}
+                    />
+                  </PressableScale>
+                </View>
+              </GlassPanel>
+            </PressableScale>
             <GCButton
               label={clearingChat ? 'Clearing…' : 'Clear Chat'}
               variant="danger"
@@ -834,16 +872,43 @@ const styles = StyleSheet.create({
   groupName: { ...typography.headline, fontSize: 30, color: colors.onSurface, marginTop: spacing.md },
   memberLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   memberCount: { ...typography.bodyLg, color: colors.onSurfaceVariant },
-  codeCard: { padding: spacing.xl, alignItems: 'center', gap: spacing.sm },
-  codeLabel: { ...typography.label, color: colors.outline },
-  code: {
-    ...typography.headline,
-    fontSize: 34,
-    color: colors.onSurface,
-    letterSpacing: 4,
-    marginRight: -4,
+  // Invite card — replaces both the old GROUP CODE panel and the plain
+  // "Invite Friends" button, which said the same thing in two places.
+  inviteCard: { padding: spacing.lg, gap: spacing.sm + 2 },
+  inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 },
+  inviteIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
-  copyButton: { marginTop: spacing.md },
+  inviteHeaderCopy: { flex: 1, gap: 1 },
+  inviteTitle: { ...typography.subheading, color: colors.onSurface },
+  inviteSubtitle: { ...typography.micro, color: colors.textMuted },
+  inviteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 1,
+  },
+  inviteRowLabel: { ...typography.label, fontSize: 10, color: colors.textMuted, width: 34 },
+  inviteCode: {
+    flex: 1,
+    ...typography.subheading,
+    color: colors.onSurface,
+    letterSpacing: 2,
+  },
+  // Truncates from the tail so the group-identifying end of the URL is the
+  // part that survives a narrow screen.
+  inviteLink: { flex: 1, ...typography.micro, fontSize: 12, color: colors.onSurfaceVariant },
+  inviteCopyBtn: { padding: 4 },
 
   // Media, Links & Files Banner
   mediaBannerWrap: {

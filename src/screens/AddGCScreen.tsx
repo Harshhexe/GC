@@ -124,6 +124,24 @@ export default function AddGCScreen({ navigation, route }: Props) {
     if (requestedMode) setMode(requestedMode);
   }, [requestedMode]);
 
+  /*
+   * A code delivered by an invite link. Kept in sync with the param rather than
+   * read once at mount, because tapping a second invite while this screen is
+   * already open re-uses the mounted instance and would otherwise keep showing
+   * the first code.
+   *
+   * Deliberately fills the field instead of joining outright: the person should
+   * see which GC they are about to enter and press the button themselves. A
+   * link that silently adds you to a group is a link people learn not to tap.
+   */
+  const requestedCode = route.params?.code;
+  useEffect(() => {
+    if (requestedCode) {
+      setCode(normaliseCode(requestedCode));
+      setJoinError(null);
+    }
+  }, [requestedCode]);
+
   // ── Create State ──────────────────────────────────────────────────
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<{ uri: string; base64: string; ext: string } | null>(null);
@@ -133,7 +151,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
   const [created, setCreated] = useState<{ id: string; name: string; code: string } | null>(null);
 
   // ── Join State ────────────────────────────────────────────────────
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(route.params?.code ?? '');
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const codeInputRef = useRef<TextInput>(null);

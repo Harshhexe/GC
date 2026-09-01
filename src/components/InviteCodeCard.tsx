@@ -8,6 +8,7 @@ import { colors, gradients, radius, spacing, typography } from '../theme/theme';
 import { duration, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { successFeedback } from '../utils/haptics';
+import { inviteLinkFor, inviteMessageFor } from '../lib/inviteLink';
 
 /** The code, big and monospaced-ish, with copy + share. Used after creating a
  *  GC and again any time a member wants to pull the code back up. */
@@ -15,7 +16,9 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    await Clipboard.setStringAsync(code);
+    // The link, not the bare code. Someone who copies this is about to paste it
+    // to a friend, and a link is one tap for them where a code is five steps.
+    await Clipboard.setStringAsync(inviteLinkFor(code));
     successFeedback();
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -23,9 +26,7 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
 
   async function handleShare() {
     await Share.share({
-      message: groupName
-        ? `join "${groupName}" on GC — code: ${code}`
-        : `join my GC — code: ${code}`,
+      message: inviteMessageFor(code, groupName ?? 'my GC'),
     }).catch(() => {});
   }
 
@@ -41,6 +42,12 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
         <Text style={styles.code}>{code}</Text>
       </View>
 
+      {/* The link is shown as well as the code so "copy link" and "share" are
+          not silently acting on something the screen never displayed. */}
+      <Text style={styles.link} numberOfLines={1} ellipsizeMode="tail">
+        {inviteLinkFor(code)}
+      </Text>
+
       <View style={styles.actions}>
         <PressableScale style={styles.action} haptic="medium" onPress={handleCopy}>
           <Ionicons
@@ -49,7 +56,7 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
             color={copied ? colors.green : colors.textPrimary}
           />
           <Text style={[styles.actionText, copied && styles.actionTextDone]}>
-            {copied ? 'copied' : 'copy'}
+            {copied ? 'link copied' : 'copy link'}
           </Text>
         </PressableScale>
 
@@ -64,7 +71,7 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
           entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
           style={styles.hint}
         >
-          send it to the group. they tap "join" and paste it.
+          send it to anyone. the link drops them straight into this GC.
         </Animated.Text>
       )}
     </View>
@@ -92,6 +99,13 @@ const styles = StyleSheet.create({
     // letterSpacing adds trailing space after the last glyph; pull it back so
     // the code stays optically centred in the box.
     marginRight: -8,
+  },
+  link: {
+    ...typography.micro,
+    fontSize: 11.5,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
   },
   actions: { flexDirection: 'row', gap: spacing.sm },
   action: {
