@@ -18,11 +18,18 @@
       }
       .done-body { color: var(--text-body); font-size: 16px; margin: 0 0 30px; }
       .cta {
-        display: inline-block; padding: 15px 34px; border-radius: 999px;
+        display: block; width: 100%; box-sizing: border-box;
+        padding: 15px 34px; border-radius: 999px;
         background: var(--accent); color: #fff; font-weight: 650;
         font-size: 16px; text-decoration: none;
       }
       .cta:hover { filter: brightness(1.08); }
+      /* Secondary route, same footprint so neither reads as the failure case. */
+      .cta.secondary {
+        background: transparent; color: var(--text-body);
+        border: 1px solid var(--hairline, #2b2844);
+      }
+      .routes { display: flex; flex-direction: column; gap: 12px; }
       .hint { margin-top: 22px; font-size: 14px; color: var(--text-muted); }
     </style>
   </head>
@@ -41,9 +48,22 @@
         Your payment went through. You can create one more GC.
       </p>
 
-      <a class="cta" href="/">Open GC on the web</a>
+      <!--
+        Both routes are always shown. Which one is right depends on where the
+        payment started, and this page cannot tell: checkout opens in an
+        external browser, so an app payer and a web payer land here identically.
+        Guessing hid the working route from half of them, so neither is hidden.
+
+        The app link uses the `gc` scheme registered in app.json. On a device
+        without GC installed the scheme simply does not resolve, which is why
+        the web route sits directly beneath it rather than behind a hint.
+      -->
+      <div class="routes">
+        <a class="cta" href="gc://">Back to the GC app</a>
+        <a class="cta secondary" href="/">Open GC on the web</a>
+      </div>
       <p class="hint">
-        Paid from the app? Just switch back to it. Your new slot is already there.
+        Your new slot is already on your account either way.
       </p>
     </div>
 

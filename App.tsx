@@ -18,9 +18,11 @@ import {
 } from '@expo-google-fonts/inter';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Updates from 'expo-updates';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
-import { colors } from './src/theme/theme';
+import { colors, typography } from './src/theme/theme';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -42,20 +44,77 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     console.error('App Runtime Error:', error, errorInfo);
   }
 
+  /*
+   * A real process restart, not a state reset.
+   *
+   * Clearing hasError re-mounts the same tree with the same state that just
+   * threw, so for anything other than a transient render error it crashes
+   * straight back to this screen. reloadAsync restarts the app from scratch,
+   * which is what actually recovers. It is unavailable in Expo Go and dev
+   * builds, so the soft reset stays as the fallback rather than the default.
+   */
+  handleRestart = async () => {
+    try {
+      await Updates.reloadAsync();
+    } catch {
+      this.setState({ hasError: false, error: null });
+    }
+  };
+
   render() {
     if (this.state.hasError) {
       return (
         <View style={styles.errorRoot}>
-          <Text style={styles.errorTitle}>Something went wrong</Text>
-          <Text style={styles.errorText}>
-            {this.state.error?.message || 'An unexpected error occurred.'}
-          </Text>
-          <Pressable
-            style={styles.retryBtn}
-            onPress={() => this.setState({ hasError: false, error: null })}
-          >
-            <Text style={styles.retryText}>Try Again</Text>
-          </Pressable>
+          {/* Key light, so the screen belongs to GC rather than reading as a
+              system crash dialog. */}
+          <LinearGradient
+            colors={['rgba(129, 140, 248, 0.16)', 'rgba(129, 140, 248, 0)']}
+            style={styles.errorGlow}
+            pointerEvents="none"
+          />
+
+          <View style={styles.errorCard}>
+            <View style={styles.errorIconRing}>
+              <Ionicons name="refresh-outline" size={26} color={colors.primary} />
+            </View>
+
+            <Text style={styles.errorTitle}>GC needs a restart</Text>
+            <Text style={styles.errorBody}>
+              Something in the app stopped responding. Restarting almost always
+              clears it, and nothing you sent has been lost.
+            </Text>
+
+            {/*
+              The raw message is kept, but demoted. As the headline it told
+              people nothing they could act on; down here in monospace it is
+              still exact enough to screenshot into a bug report.
+            */}
+            {!!this.state.error?.message && (
+              <View style={styles.errorDetail}>
+                <Text style={styles.errorDetailLabel}>DETAILS</Text>
+                <Text style={styles.errorDetailText} numberOfLines={4}>
+                  {this.state.error.message}
+                </Text>
+              </View>
+            )}
+
+            <Pressable style={styles.primaryBtn} onPress={this.handleRestart}>
+              <LinearGradient
+                colors={['#6366F1', '#8B5CF6']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <Text style={styles.primaryBtnText}>Restart GC</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.secondaryBtn}
+              onPress={() => this.setState({ hasError: false, error: null })}
+            >
+              <Text style={styles.secondaryBtnText}>Try without restarting</Text>
+            </Pressable>
+          </View>
         </View>
       );
     }
@@ -108,37 +167,92 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
   errorRoot: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.appRoot,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
+  errorGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 320,
+  },
+  errorCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: colors.surface,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    padding: 26,
+    alignItems: 'center',
+  },
+  errorIconRing: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.34)',
+    marginBottom: 16,
+  },
   errorTitle: {
-    color: '#FF6B6B',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  errorText: {
+    ...typography.title,
     color: colors.onSurface,
-    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 24,
   },
-  retryBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
+  errorBody: {
+    ...typography.caption,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  errorDetail: {
+    width: '100%',
+    backgroundColor: colors.appChrome,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 12,
+    marginTop: 20,
   },
-  retryText: {
+  errorDetailLabel: {
+    ...typography.label,
+    color: colors.textMuted,
+    marginBottom: 6,
+  },
+  errorDetailText: {
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
+  primaryBtn: {
+    width: '100%',
+    height: 50,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginTop: 22,
+  },
+  primaryBtnText: {
+    ...typography.subheading,
     color: '#FFFFFF',
-    fontWeight: '600',
+  },
+  secondaryBtn: {
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  secondaryBtnText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
 });

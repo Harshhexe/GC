@@ -3,6 +3,7 @@
     "name": "GC",
     "slug": "GC",
     "version": "1.0.0",
+    "scheme": "gc",
     "orientation": "portrait",
     "icon": "./assets/gc-logo.png",
     "userInterfaceStyle": "dark",

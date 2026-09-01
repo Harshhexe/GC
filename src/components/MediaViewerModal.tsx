@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
-import { useSignedMediaUrl } from '../lib/mediaUrl';
+import { signedImageSource, useSignedMediaUrl } from '../lib/mediaUrl';
 import type { MessageMedia } from '../types';
 
 /** Mounted only while a video is actually being viewed — useVideoPlayer
@@ -247,7 +247,7 @@ export function MediaViewerModal({
                 <Animated.View style={[styles.flex, animatedImageStyle, styles.imageCenterWrap]}>
                   {signedUrl ? (
                     <Image
-                      source={signedUrl}
+                      source={signedImageSource(signedUrl, media?.url)}
                       style={styles.media}
                       contentFit="contain"
                       cachePolicy="memory-disk"

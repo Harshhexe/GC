@@ -7,7 +7,7 @@ import { ActivityIndicator, GestureResponderEvent, Platform, StyleSheet, Text, V
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSignedMediaUrl } from '../lib/mediaUrl';
+import { signedImageSource, useSignedMediaUrl } from '../lib/mediaUrl';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration } from '../theme/motion';
 import { formatFileSize } from '../lib/media';
@@ -108,7 +108,7 @@ export function MessageMediaView({
     return (
       <PressableScale onPress={onPress} onLongPress={onLongPress} scaleTo={0.96} haptic="light" style={styles.stickerBox}>
         <Image
-          source={signedUrl ?? undefined}
+          source={signedImageSource(signedUrl, media.url)}
           style={StyleSheet.absoluteFill}
           contentFit="contain"
           cachePolicy="memory-disk"
@@ -143,6 +143,13 @@ export function MessageMediaView({
 
   const box = boxFor(media);
   const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
+  /*
+   * The stored URL that `previewUri` was signed from, so the cache key matches
+   * the bytes being drawn. A derived poster is generated on-device and has no
+   * stored object behind it, so it gets no key and falls back to expo-image's
+   * default — correct, since its URI is already local and stable.
+   */
+  const previewOriginal = isVideo ? (signedThumb ? media.thumbUrl : null) : media.url;
 
   return (
     <PressableScale
@@ -160,7 +167,7 @@ export function MessageMediaView({
 
       {!!previewUri && !imgError && (
         <Image
-          source={previewUri}
+          source={signedImageSource(previewUri, previewOriginal)}
           autoplay={media.type === 'gif' ? (isVisible ?? true) : undefined}
           style={StyleSheet.absoluteFill}
           contentFit="cover"

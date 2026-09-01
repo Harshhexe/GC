@@ -124,6 +124,35 @@ export function useSignedMediaUrl(url: string | null | undefined): string | null
   return resolved;
 }
 
+/**
+ * Pairs a rotating signed URL with a cache key that does not rotate.
+ *
+ * expo-image keys its disk cache on the URI. Signed URLs change every hour and
+ * on every cold start (the signature cache above is in memory only), so the key
+ * changed constantly and `cachePolicy="memory-disk"` never hit — every image
+ * was re-downloaded in full on each app open. With 26 MB of message media that
+ * was enough to burn through the 5 GB monthly egress allowance and put the
+ * project over its quota.
+ *
+ * The storage path is stable for the life of the object, so it is the correct
+ * key: the signature can rotate freely underneath it and the bytes on disk stay
+ * valid. Nothing about the privacy model changes — the bucket is still private
+ * and Storage still re-checks membership on every sign.
+ *
+ * `original` must be the stored URL that `signed` was produced from, otherwise
+ * two different objects would share a cache entry.
+ */
+export function signedImageSource(
+  signed: string | null | undefined,
+  original: string | null | undefined
+): { uri: string; cacheKey?: string } | undefined {
+  if (!signed) return undefined;
+  const key = storagePathFromUrl(original);
+  // Anything outside the private bucket (giphy, stickers, avatars) already has
+  // a stable URL, so expo-image's default key is correct for it.
+  return key ? { uri: signed, cacheKey: key } : { uri: signed };
+}
+
 /** Drops cached signatures — call on sign-out so they don't outlive the session. */
 export function clearSignedUrlCache() {
   cache.clear();

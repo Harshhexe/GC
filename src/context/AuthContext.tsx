@@ -29,6 +29,21 @@ export type SignUpAvatar = {
   photoExt?: string;
 };
 
+/**
+ * Sign-up finishes in one of two shapes, and the caller has to tell them apart.
+ *
+ * With "Confirm email" enabled, Supabase creates the user but returns no
+ * session — the account is real yet unusable until the emailed link is opened.
+ * Returning only an error string could not express that: no error and no
+ * session looked identical to a completed sign-up, so the screen fell silent
+ * and the person was left on the form with no idea an email had been sent.
+ */
+export type SignUpResult = {
+  error: string | null;
+  /** True when the account exists but is waiting on the emailed link. */
+  needsConfirmation: boolean;
+};
+
 type AuthContextValue = {
   session: Session | null;
   profile: Profile | null;
@@ -39,7 +54,7 @@ type AuthContextValue = {
     username: string,
     displayName: string,
     avatar?: SignUpAvatar
-  ) => Promise<string | null>;
+  ) => Promise<SignUpResult>;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -141,7 +156,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error) {
       setJustSignedUp(false);
-      return friendlySignUpError(error.message);
+      return { error: friendlySignUpError(error.message), needsConfirmation: false };
+    }
+
+    /*
+     * No session means "Confirm email" is on and the link has been sent. The
+     * navigator stays on the auth stack in that case, so justSignedUp is
+     * cleared: it exists to slot the welcome screen between sign-up and the
+     * app, and there is no session here for it to sit in front of.
+     */
+    if (!data.session) {
+      setJustSignedUp(false);
+      return { error: null, needsConfirmation: true };
     }
 
     // A picked photo can only be uploaded once a session exists — storage
@@ -160,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    return null;
+    return { error: null, needsConfirmation: false };
   }
 
   async function signIn(email: string, password: string) {

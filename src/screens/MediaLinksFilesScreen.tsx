@@ -13,7 +13,7 @@ import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { EmptyState } from '../components/EmptyState';
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import { useGroupMembers } from '../hooks/useGroupMembers';
-import { signedUrlFor, useSignedMediaUrl } from '../lib/mediaUrl';
+import { signedImageSource, signedUrlFor, useSignedMediaUrl } from '../lib/mediaUrl';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import { supabase } from '../lib/supabase';
 import { formatFileSize } from '../lib/media';
@@ -60,12 +60,14 @@ function GridTile({ item, onPress }: { item: MediaRow; onPress: () => void }) {
   const signedThumb = useSignedMediaUrl(item.media.thumbUrl);
   const derivedPoster = useVideoPoster(isVideo && !item.media.thumbUrl ? signedUrl : null);
   const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
+  // Matches the object previewUri was signed from — see signedImageSource.
+  const previewOriginal = isVideo ? (signedThumb ? item.media.thumbUrl : null) : item.media.url;
 
   return (
     <PressableScale scaleTo={0.95} style={styles.gridItem} onPress={onPress}>
       {!!previewUri && (
         <Image
-          source={previewUri}
+          source={signedImageSource(previewUri, previewOriginal)}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           cachePolicy="memory-disk"

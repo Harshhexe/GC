@@ -141,6 +141,10 @@ export default function AuthScreen() {
 
   const isSignUp = mode === 'signUp';
 
+  /* Set once sign-up succeeds but the account is still gated behind the
+     emailed link. Holds the address so the screen can name it back. */
+  const [sentTo, setSentTo] = useState<string | null>(null);
+
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'free' | 'taken'>(
     'idle'
   );
@@ -243,7 +247,7 @@ export default function AuthScreen() {
       return;
     }
 
-    const message = await signUp(email.trim(), password, username.trim(), displayName.trim(), {
+    const result = await signUp(email.trim(), password, username.trim(), displayName.trim(), {
       emoji: '👤',
       // The brand indigo, not the Material purple this used to be. Every new
       // account was being stamped with a colour that appeared nowhere else in
@@ -253,12 +257,95 @@ export default function AuthScreen() {
       photoExt: photo?.ext,
     });
     setBusy(false);
-    if (message) {
-      setError(message);
-      if (/email|password/i.test(message)) setStep(0);
-    } else {
-      successFeedback();
+    if (result.error) {
+      setError(result.error);
+      if (/email|password/i.test(result.error)) setStep(0);
+      return;
     }
+    successFeedback();
+    /*
+     * With confirmation on there is no session, so nothing navigates and the
+     * form would otherwise just sit there looking like nothing happened. This
+     * is the only feedback that an email was sent.
+     */
+    if (result.needsConfirmation) setSentTo(email.trim());
+  }
+
+  /** Back to the sign-in form with the address they just registered filled in,
+   *  so confirming the email and signing in is two taps rather than retyping. */
+  function goToLogin() {
+    setSentTo(null);
+    setMode('signIn');
+    setStep(0);
+    setError(null);
+    setPassword('');
+  }
+
+  if (sentTo) {
+    return (
+      <View style={styles.root}>
+        <AuthAtmosphericBackground />
+        <SafeAreaView style={styles.safe}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View
+              entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
+              style={styles.cardWrapper}
+            >
+              <View style={styles.brandHeader}>
+                <Image source={APP_LOGO_TRANSPARENT} style={styles.brandLogo} contentFit="contain" />
+                <Text style={styles.brandWelcomeTitle}>Check your email</Text>
+                <Text style={styles.brandWelcomeSubtitle}>
+                  Your account is made. One link stands between you and your GCs.
+                </Text>
+              </View>
+
+              <GlassPanel borderRadius={radius.xl} style={styles.card}>
+                <View style={styles.confirmIconRing}>
+                  <Ionicons name="mail-outline" size={28} color={colors.primary} />
+                </View>
+
+                <Text style={styles.confirmLead}>We sent a confirmation link to</Text>
+                {/* The address is echoed back because a typo here is the single
+                    most common reason the email never arrives, and this is the
+                    last moment it can be spotted without support. */}
+                <Text style={styles.confirmEmail}>{sentTo}</Text>
+
+                <View style={styles.confirmNote}>
+                  <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+                  <Text style={styles.confirmNoteText}>
+                    Confirm within 24 hours. After that the account is removed and
+                    the username and email are free to use again.
+                  </Text>
+                </View>
+
+                <PressableScale style={styles.submitBtnWrap} scaleTo={0.97} onPress={goToLogin}>
+                  <LinearGradient
+                    colors={[colors.primaryContainer, '#8B5CF6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.submitBtnGradient}
+                  >
+                    <Text style={styles.submitBtnText}>Log in</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                  </LinearGradient>
+                </PressableScale>
+
+                <PressableScale
+                  style={styles.confirmSecondary}
+                  scaleTo={0.97}
+                  onPress={() => { setSentTo(null); setStep(0); }}
+                >
+                  <Text style={styles.confirmSecondaryText}>Wrong email? Go back</Text>
+                </PressableScale>
+              </GlassPanel>
+            </Animated.View>
+          </ScrollView>
+        </SafeAreaView>
+      </View>
+    );
   }
 
   return (
@@ -976,6 +1063,58 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+
+  // ── "Check your email" screen ──
+  // The card already applies `gap`, so these carry no vertical margins of
+  // their own; spacing comes from the container the same way the form's does.
+  confirmIconRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.34)',
+  },
+  confirmLead: {
+    ...typography.caption,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  confirmEmail: {
+    ...typography.subheading,
+    color: colors.onSurface,
+    textAlign: 'center',
+    marginTop: -6,
+  },
+  confirmNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  confirmNoteText: {
+    ...typography.micro,
+    color: colors.textMuted,
+    flex: 1,
+    lineHeight: 17,
+  },
+  confirmSecondary: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    marginTop: -4,
+  },
+  confirmSecondaryText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
 
   backRow: {

@@ -34,7 +34,7 @@ import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { successFeedback } from '../utils/haptics';
-import { useSignedMediaUrl } from '../lib/mediaUrl';
+import { signedImageSource, useSignedMediaUrl } from '../lib/mediaUrl';
 import { useVideoPoster } from '../hooks/useVideoPoster';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -73,6 +73,8 @@ function MediaBannerThumbnailItem({
   const signedThumb = useSignedMediaUrl(item.thumbUrl);
   const derivedPoster = useVideoPoster(isVideo && !item.thumbUrl ? signedUrl : null);
   const previewUri = isVideo ? signedThumb ?? derivedPoster : signedUrl;
+  // Matches the object previewUri was signed from — see signedImageSource.
+  const previewOriginal = isVideo ? (signedThumb ? item.thumbUrl : null) : item.url;
 
   if (item.type === 'file') {
     return (
@@ -86,7 +88,7 @@ function MediaBannerThumbnailItem({
     <View style={styles.mediaBannerThumbWrap}>
       {!!previewUri ? (
         <Image
-          source={{ uri: previewUri }}
+          source={signedImageSource(previewUri, previewOriginal)}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={150}
