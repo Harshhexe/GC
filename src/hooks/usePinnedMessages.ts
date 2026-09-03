@@ -43,7 +43,7 @@ export function usePinnedMessages(groupId: string) {
       supabase
         .from('messages')
         .select(
-          'id, author_id, text, is_deleted, media_type, media_name, created_at'
+          'id, author_id, text, is_deleted, media_type, media_name, media_url, media_thumb_url, created_at'
         )
         .in('id', messageIds),
       pinnerIds.length > 0
@@ -55,25 +55,34 @@ export function usePinnedMessages(groupId: string) {
       new Set((messageRows ?? []).map((m) => m.author_id).filter(Boolean) as string[])
     );
     const { data: authorRows } = authorIds.length > 0
-      ? await supabase.from('profiles').select('id, display_name').in('id', authorIds)
-      : { data: [] as { id: string; display_name: string }[] };
+      ? await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_emoji, avatar_color, avatar_url')
+          .in('id', authorIds)
+      : { data: [] as { id: string; display_name: string; avatar_emoji: string; avatar_color: string; avatar_url: string | null }[] };
 
     const messageById = new Map((messageRows ?? []).map((m) => [m.id, m]));
-    const authorNameById = new Map((authorRows ?? []).map((p) => [p.id, p.display_name]));
+    const authorProfileById = new Map((authorRows ?? []).map((p) => [p.id, p]));
     const pinnerNameById = new Map((pinnerRows ?? []).map((p) => [p.id, p.display_name]));
 
     const built: PinnedMessage[] = pinRows.map((r) => {
       const msg = messageById.get(r.message_id);
+      const authorProfile = msg?.author_id ? authorProfileById.get(msg.author_id) : undefined;
       return {
         messageId: r.message_id,
         pinnedBy: r.pinned_by,
         pinnedByName: r.pinned_by ? pinnerNameById.get(r.pinned_by) ?? 'someone' : 'someone',
         pinnedAt: r.pinned_at,
         exists: !!msg && !msg.is_deleted,
-        authorName: msg?.author_id ? authorNameById.get(msg.author_id) ?? 'someone' : 'Deleted User',
+        authorName: authorProfile?.display_name ?? (msg?.author_id ? 'someone' : 'Deleted User'),
+        authorAvatarUrl: authorProfile?.avatar_url ?? null,
+        authorEmoji: authorProfile?.avatar_emoji ?? '👤',
+        authorColor: authorProfile?.avatar_color ?? '#818CF8',
         text: msg?.is_deleted ? '' : msg?.text ?? '',
         mediaType: msg?.is_deleted ? null : msg?.media_type ?? null,
         mediaName: msg?.is_deleted ? null : msg?.media_name ?? null,
+        mediaUrl: msg?.is_deleted ? null : msg?.media_url ?? null,
+        mediaThumbUrl: msg?.is_deleted ? null : msg?.media_thumb_url ?? null,
         messageCreatedAt: msg?.created_at ?? r.pinned_at,
       };
     });

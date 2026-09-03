@@ -182,9 +182,14 @@ export type PinnedMessage = {
   pinnedAt: string;
   exists: boolean;
   authorName: string;
+  authorAvatarUrl?: string | null;
+  authorEmoji?: string;
+  authorColor?: string;
   text: string;
   mediaType: MediaType | null;
   mediaName: string | null;
+  mediaUrl?: string | null;
+  mediaThumbUrl?: string | null;
   messageCreatedAt: string;
 };
 

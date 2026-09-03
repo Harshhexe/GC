@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   FadeInDown,
@@ -24,7 +24,7 @@ import {
   flattenTint,
   groupTheme,
 } from '../theme/groupThemes';
-import { Message } from '../types';
+import { Message, GroupMember } from '../types';
 import { clockTime } from '../utils/time';
 import type { Reader } from '../hooks/useReadReceipts';
 import { ReactionPill } from './ReactionPill';
@@ -36,7 +36,7 @@ import { PollCard } from './PollCard';
 import type { Poll } from '../lib/polls';
 import { LinkPreviewCard, extractFirstUrl } from './LinkPreviewCard';
 import { tapFeedback } from '../utils/haptics';
-import { segmentMentionText } from '../lib/mentions';
+import { MessageText } from './MessageText';
 
 const SWIPE_TRIGGER = 56;
 const SWIPE_MAX = 84;
@@ -76,6 +76,7 @@ function MessageBubbleImpl({
   onSwipeReply,
   onQuotePress,
   onMentionPress,
+  memberMap,
   onMediaPress,
   onRetry,
   myId,
@@ -130,6 +131,8 @@ function MessageBubbleImpl({
    *  just a no-op) while in select mode, so the tap falls through to
    *  selecting the bubble instead of opening a profile. */
   onMentionPress?: (userId: string) => void;
+  /** Lookup for group members — used to show member emoji/avatar in mention chips. */
+  memberMap?: Map<string, GroupMember>;
   /** Tapping an image/video/document attachment. */
   onMediaPress?: (message: Message) => void;
   myId?: string;
@@ -144,7 +147,6 @@ function MessageBubbleImpl({
   const hasCaption = message.text.trim().length > 0;
   const detectedUrl = useMemo(() => extractFirstUrl(message.text), [message.text]);
 
-  const textSegments = segmentMentionText(message.text, message.mentions, message.mentionEveryone);
   const renderedText = message.aiShare ? (
     // A shared GC AI answer. The sender is the member who shared it — which
     // is honest — so the badge does the work of making clear the words are
@@ -159,43 +161,15 @@ function MessageBubbleImpl({
       </Text>
       <Text style={styles.text}>{message.aiShare.answer}</Text>
     </View>
-  ) : textSegments.length === 1 && textSegments[0].type === 'text' ? (
-    <Text style={styles.text}>{message.text}</Text>
   ) : (
-    <Text style={styles.text}>
-      {textSegments.map((seg) => {
-        if (seg.type === 'text') {
-          return <Text key={seg.key}>{seg.value}</Text>;
-        }
-
-        const isGC = seg.mentionKind === 'gc' || seg.value.toLowerCase() === '@gc';
-        const isEveryone =
-          seg.mentionKind === 'everyone' || seg.value.toLowerCase() === '@everyone';
-
-        return (
-          <Text
-            key={seg.key}
-            style={[
-              styles.mention,
-              isGC
-                ? styles.mentionGC
-                : isEveryone
-                  ? styles.mentionEveryone
-                  : [
-                      styles.mentionMember,
-                      {
-                        backgroundColor: `${theme.accent}24`,
-                        color: theme.accent,
-                      },
-                    ],
-            ]}
-            onPress={onMentionPress && seg.userId ? () => onMentionPress(seg.userId!) : undefined}
-          >
-            {seg.value}
-          </Text>
-        );
-      })}
-    </Text>
+    <MessageText
+      text={message.text}
+      mentions={message.mentions}
+      mentionEveryone={message.mentionEveryone}
+      accent={theme.accent}
+      memberMap={memberMap}
+      onMentionPress={onMentionPress}
+    />
   );
 
   // Message of the day breathes — a slow glow so the eye finds it without
@@ -699,6 +673,7 @@ function arePropsEqual(prev: any, next: any) {
     prev.onSwipeReply === next.onSwipeReply &&
     prev.onQuotePress === next.onQuotePress &&
     prev.onMentionPress === next.onMentionPress &&
+    prev.memberMap === next.memberMap &&
     prev.onMediaPress === next.onMediaPress &&
     prev.myId === next.myId
   );
@@ -829,30 +804,6 @@ const styles = StyleSheet.create({
   captionPad: { paddingTop: spacing.xs, paddingHorizontal: spacing.xs },
 
   text: { ...typography.body, fontSize: 15, lineHeight: 21, color: colors.onSurface },
-  mention: {
-    fontFamily: typography.bodyMedium.fontFamily,
-    fontWeight: '700',
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    overflow: 'hidden',
-  },
-  mentionMember: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  mentionGC: {
-    backgroundColor: 'rgba(168, 85, 247, 0.22)',
-    color: '#C084FC',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.45)',
-  },
-  mentionEveryone: {
-    backgroundColor: 'rgba(245, 158, 11, 0.22)',
-    color: '#FBBF24',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-  },
   aiShareBlock: { gap: 5 },
   aiShareHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   aiShareBadge: {

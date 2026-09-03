@@ -36,9 +36,15 @@ export function insertMentionToken(
   active: ActiveMentionQuery,
   token: string
 ): { text: string; cursor: number } {
-  const insertion = `@${token} `;
-  const nextText =
-    text.slice(0, active.start) + insertion + text.slice(active.start + 1 + active.query.length);
+  const rest = text.slice(active.start + 1 + active.query.length);
+  /*
+   * The trailing space is skipped when the text already continues with one.
+   * Completing a mention typed into the middle of a sentence — "hey @har| world"
+   * — otherwise produced "hey @Hari  world" with a doubled gap, because the
+   * insertion added a space that the remaining text already had.
+   */
+  const insertion = /^\s/.test(rest) ? `@${token}` : `@${token} `;
+  const nextText = text.slice(0, active.start) + insertion + rest;
   return { text: nextText, cursor: active.start + insertion.length };
 }
 
@@ -139,7 +145,22 @@ export function segmentMentionText(
   // longer name's match.
   tokens.sort((a, b) => b.username.length - a.username.length);
 
-  const re = new RegExp(tokens.map((t) => `@${escapeRegExp(t.username)}\\b`).join('|'), 'gi');
+  /*
+   * `\b` used to close each alternative, which silently broke every display
+   * name not ending in a word character. `\b` is a boundary between a word and
+   * a non-word character, so for a name like "sam :)" — a real account on this
+   * database — the ")" is already a non-word character and a following space is
+   * too, meaning no boundary exists and the mention never matched. The same
+   * held for any name ending in an emoji or "." , which is common here.
+   *
+   * A negative lookahead expresses the actual intent: the mention ends unless
+   * the next character would continue a name. Unicode-aware so an accented or
+   * non-Latin name is not cut short mid-word.
+   */
+  const re = new RegExp(
+    tokens.map((t) => `@${escapeRegExp(t.username)}(?![\\p{L}\\p{N}_])`).join('|'),
+    'giu'
+  );
 
   const segments: MentionSegment[] = [];
   let lastIndex = 0;

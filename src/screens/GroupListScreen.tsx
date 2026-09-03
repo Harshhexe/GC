@@ -290,7 +290,7 @@ const GroupCard = memo(function GroupCardImpl({
             <View style={styles.cardTitleRow}>
               <Text
                 style={[styles.groupName, unread && styles.groupNameUnread]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {group.name}
               </Text>
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
   cardCopy: { flex: 1, gap: 4 },
   cardTitleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },

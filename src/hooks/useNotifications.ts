@@ -126,5 +126,17 @@ export function useNotifications(userId: string | undefined) {
       .is('read_at', null);
   }, []);
 
-  return { items, unreadCount, loading, markRead, refetch: load };
+  const markAllRead = useCallback(async () => {
+    if (!userId) return;
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? now })));
+    setUnreadCount(0);
+    await supabase
+      .from('notifications')
+      .update({ read_at: now })
+      .eq('user_id', userId)
+      .is('read_at', null);
+  }, [userId]);
+
+  return { items, unreadCount, loading, markRead, markAllRead, refetch: load };
 }

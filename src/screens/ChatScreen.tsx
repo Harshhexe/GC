@@ -204,6 +204,14 @@ export default function ChatScreen({ route, navigation }: Props) {
     initialLimit: (route.params.unreadCount ?? 0) > 0 ? (route.params.unreadCount ?? 0) + 15 : undefined,
   });
   const { members: groupMembers } = useGroupMembers(groupId);
+
+  // Stable lookup map for member avatars in mention chips — only rebuilt when
+  // the member list itself changes, so it's safe to pass to memoised children.
+  const memberMap = useMemo(
+    () => new Map(groupMembers.map((m) => [m.id, m])),
+    [groupMembers]
+  );
+
   const { typingNames, notifyTyping } = useTyping(
     groupId,
     session?.user.id ?? '',
@@ -560,8 +568,26 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [actionAnchor, setActionAnchor] = useState<MessageActionAnchor | null>(null);
 
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(undefined);
+  /*
+   * Only set when the caret has to be moved programmatically — right after a
+   * mention is inserted from the picker.
+   *
+   * `selection` used to be passed to the TextInput directly, which made the
+   * caret fully controlled: every render re-applied the last position from
+   * state, so tapping into the middle of a written message snapped the cursor
+   * back to where state thought it was. That is what made it impossible to add
+   * a mention part-way through a sentence — you could not put the caret there
+   * to type the "@" in the first place.
+   *
+   * Passing `undefined` hands the caret back to the platform, and this is
+   * cleared on the next selection change so a forced position never sticks.
+   */
+  const [forcedSelection, setForcedSelection] = useState<
+    { start: number; end: number } | undefined
+  >(undefined);
   const [composerFocused, setComposerFocused] = useState(false);
   const [mentionCandidates, setMentionCandidates] = useState<Map<string, Mention>>(new Map());
+
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
 
   /**
@@ -1525,6 +1551,9 @@ export default function ChatScreen({ route, navigation }: Props) {
       const { text, cursor } = insertMentionToken(draft, activeMentionQuery, token);
       setDraft(text);
       setSelection({ start: cursor, end: cursor });
+      // Drops the caret after the inserted mention, then releases control on
+      // the selection change this causes.
+      setForcedSelection({ start: cursor, end: cursor });
       if (candidate) {
         setMentionCandidates((prev) => {
           const next = new Map(prev);
@@ -2092,6 +2121,7 @@ export default function ChatScreen({ route, navigation }: Props) {
               item.replyPreview && !item.replyPreview.isDeleted ? handleQuotePress : undefined
             }
             onMentionPress={selectMode ? undefined : handleMentionPress}
+            memberMap={memberMap}
             onMediaPress={handleMediaPress}
             onRetry={handleRetryMessage}
           />
@@ -2121,6 +2151,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       handleSwipeReply,
       handleQuotePress,
       handleMentionPress,
+      memberMap,
       handleMediaPress,
       handleViewGCSources,
       gcCommands.retry,
@@ -2181,7 +2212,7 @@ export default function ChatScreen({ route, navigation }: Props) {
               scaleTo={0.98}
               onPress={() => navigation.navigate('GroupInfo', { groupId })}
             >
-              <Text style={styles.headerName} numberOfLines={1}>
+              <Text style={styles.headerName} numberOfLines={2}>
                 {groupInfo?.emoji} {groupInfo?.name ?? 'GC'}
               </Text>
               <Text style={styles.headerMeta}>
@@ -2466,18 +2497,12 @@ export default function ChatScreen({ route, navigation }: Props) {
                   </View>
                 )}
 
-                {!!parseGCCommand(draft) && !isAnonMode && (
-                  <View style={styles.translucentPillGC}>
-                    <Ionicons name="sparkles" size={11} color="#C084FC" />
-                    <Text style={styles.translucentPillGCText}>GC AI</Text>
-                  </View>
-                )}
+                {/* Redundant GC AI pill removed: @gc is now styled inside the TextInput directly */}
 
                 {!isRecordingVoice && (
                   <TextInput
                     ref={inputRef}
                     style={styles.input}
-                    value={draft}
                     onChangeText={(t) => {
                       if (!isAnonMode && (t.startsWith('/anon ') || t.startsWith('/anonymous '))) {
                         enterAnonMode();
@@ -2495,8 +2520,13 @@ export default function ChatScreen({ route, navigation }: Props) {
                         }
                       }
                     }}
-                    onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
-                    selection={selection}
+                    onSelectionChange={(e) => {
+                      setSelection(e.nativeEvent.selection);
+                      // The forced position has been applied; give the caret
+                      // back to the user.
+                      if (forcedSelection) setForcedSelection(undefined);
+                    }}
+                    selection={forcedSelection}
                     onFocus={() => {
                       if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
                       setComposerFocused(true);
@@ -2530,8 +2560,29 @@ export default function ChatScreen({ route, navigation }: Props) {
                         dataSet: { gccomposer: '1' },
                       } as any)
                       : {})}
+                    /*
+                     * Plain, fully-controlled text.
+                     *
+                     * This used to render the draft as nested <Text> children so
+                     * mentions could be tinted inside the field. React Native
+                     * forbids passing `value` alongside children (it throws
+                     * "Cannot specify both value and children"), so that made the
+                     * input children-only and uncontrolled — and on Android the
+                     * native EditText keeps whatever the user typed while the
+                     * re-rendered spans are dropped on event-count mismatch. The
+                     * highlight therefore disappeared the moment you typed after
+                     * a mention, which is exactly the reported bug.
+                     *
+                     * A controlled `value` cannot be combined with the styling,
+                     * so the styling is what goes. The composer now always shows
+                     * precisely what will be sent, and the mention is drawn in
+                     * full — avatar pill and all — in the transcript, where the
+                     * view is not an editable field and can be laid out freely.
+                     */
+                    value={draft}
                   />
                 )}
+
                 {isRecordingVoice && <View style={styles.input} />}
               </View>
 
@@ -2749,6 +2800,13 @@ export default function ChatScreen({ route, navigation }: Props) {
         visible={viewingProfileId !== null}
         member={groupMembers.find((m) => m.id === viewingProfileId) ?? null}
         onClose={() => setViewingProfileId(null)}
+        onMention={(m) => {
+          setDraft((prev: string) => `${prev ? `${prev} ` : ''}@${m.displayName} `);
+          setTimeout(() => inputRef.current?.focus(), 80);
+        }}
+        onSearchMessages={(m) => {
+          navigation.navigate('GroupSearch', { groupId });
+        }}
       />
 
       <CameraCapture
@@ -3093,17 +3151,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#F472B6',
-  },
-  translucentPillGC: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(168, 85, 247, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.45)',
   },
   translucentPillGCText: {
     ...typography.label,

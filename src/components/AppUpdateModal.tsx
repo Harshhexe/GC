@@ -27,28 +27,28 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'chatbubbles-outline' as const,
-    color: '#10B981',
-    title: 'Your Messages Stay Put',
-    desc: 'Chat history is no longer cleared out after 10 days. Only photos and files expire, and an expired one now says so in the chat instead of showing a broken image.',
-  },
-  {
-    icon: 'link-outline' as const,
+    icon: 'at-outline' as const,
     color: '#818CF8',
-    title: 'Invite Links',
-    desc: 'Share a link instead of reading out a code. One tap drops your friends straight into the GC, with the code already filled in for them.',
+    title: 'Mentions, Rebuilt',
+    desc: 'Mentioning someone now shows their profile photo in a rounded, tinted pill instead of a plain @. The old highlight was drawn in a way Android quietly ignored, so it never looked right.',
   },
   {
-    icon: 'flash-outline' as const,
-    color: '#34D399',
-    title: 'Instant Realtime Chat Delivery & Auto-Sync',
-    desc: 'Fixed an issue where messages would sometimes not render live while in chat. Enhanced realtime socket resilience, publication replica identities, and added instant background-to-foreground delta sync.',
+    icon: 'pin-outline' as const,
+    color: '#F59E0B',
+    title: 'Pinned Highlights & Media Showcase',
+    desc: 'Pinned Messages is now a stunning Hall of Fame with a golden pin crest, author avatars, and live photo/video thumbnail previews.',
   },
   {
-    icon: 'bulb-outline' as const,
-    color: '#FBBF24',
-    title: 'GC Lore & Custom Instructions Redesign',
-    desc: 'Custom Instructions is completely revamped with ambient lighting, category filter tabs, clean cards, and a smart bottom composer bar with keyboard avoidance.',
+    icon: 'search-outline' as const,
+    color: '#38BDF8',
+    title: 'Smart Search with Keyword Highlights',
+    desc: 'Find any message instantly with category filter tabs (Media, Links, Files), highlighted matching keywords, and author profile previews.',
+  },
+  {
+    icon: 'person-circle-outline' as const,
+    color: '#C084FC',
+    title: 'Elevated Member Profile Sheet',
+    desc: 'Tapping any @mention now opens a rich sheet with a radiant avatar halo, role badges, copyable handle, and instant "Mention in Chat" action.',
   },
 ];
 

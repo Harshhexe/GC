@@ -1086,14 +1086,14 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                           ringColors={[activeTheme.accent, colors.secondary]}
                         />
                         <View style={styles.nameCopy}>
-                          <Text style={styles.nameTitle} numberOfLines={1}>
+                          <Text style={styles.nameTitle}>
                             {n.emoji} {n.name}
                           </Text>
-                          <Text style={styles.nameWho} numberOfLines={1}>
+                          <Text style={styles.nameWho}>
                             {member?.displayName ?? 'Someone'}
                           </Text>
                           {!!n.reason && (
-                            <Text style={styles.nameReason} numberOfLines={2}>
+                            <Text style={styles.nameReason}>
                               {n.reason}
                             </Text>
                           )}
@@ -1777,17 +1777,17 @@ const styles = StyleSheet.create({
   },
   nameRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm + 2,
     borderRadius: radius.lg,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   nameRowQuiet: { backgroundColor: 'rgba(255, 255, 255, 0.02)', opacity: 0.75 },
-  nameCopy: { flex: 1, gap: 2 },
-  nameTitle: { ...typography.subheading, color: colors.onSurface },
-  nameWho: { ...typography.micro, color: colors.onSurfaceVariant },
-  nameReason: { ...typography.micro, color: colors.onSurfaceVariant, lineHeight: 16 },
+  nameCopy: { flex: 1, gap: 4 },
+  nameTitle: { ...typography.subheading, color: colors.onSurface, lineHeight: 21 },
+  nameWho: { ...typography.micro, color: colors.onSurfaceVariant, marginTop: 1 },
+  nameReason: { ...typography.micro, color: colors.onSurfaceVariant, lineHeight: 17, marginTop: 2 },
   ctaWrap: { marginTop: spacing.sm },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,26 +9,52 @@ import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
 import { AmbientBackground } from '../components/ui/AmbientBackground';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
+import { GlassPanel } from '../components/ui/Glass';
 import { PressableScale } from '../components/ui/PressableScale';
 import { EmptyState } from '../components/EmptyState';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, NotificationItem } from '../hooks/useNotifications';
 import { timeAgo } from '../utils/time';
+import { successFeedback } from '../utils/haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
+type NotificationFilter = 'all' | 'mention' | 'private_comment' | 'mention_everyone';
+
+const FILTERS: { id: NotificationFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'all', label: 'All', icon: 'sparkles-outline' },
+  { id: 'mention', label: 'Mentions', icon: 'at-outline' },
+  { id: 'private_comment', label: 'Comments', icon: 'lock-closed-outline' },
+  { id: 'mention_everyone', label: 'Announcements', icon: 'megaphone-outline' },
+];
+
 export default function NotificationsScreen({ navigation }: Props) {
   const { session } = useAuth();
-  const { items, loading, markRead } = useNotifications(session?.user.id);
+  const { items, unreadCount, loading, markRead, markAllRead } = useNotifications(session?.user.id);
+  const [filter, setFilter] = useState<NotificationFilter>('all');
 
-  // Mentions plus private comments — both are "someone addressed you
-  // directly", which is what this screen is for.
-  const mentions = items.filter(
-    (n) =>
-      n.kind === 'mention' || n.kind === 'mention_everyone' || n.kind === 'private_comment'
+  const mentions = useMemo(
+    () =>
+      items.filter(
+        (n) =>
+          n.kind === 'mention' ||
+          n.kind === 'mention_everyone' ||
+          n.kind === 'private_comment'
+      ),
+    [items]
   );
+
+  const filteredMentions = useMemo(() => {
+    if (filter === 'all') return mentions;
+    return mentions.filter((n) => n.kind === filter);
+  }, [mentions, filter]);
+
+  function handleMarkAllRead() {
+    successFeedback();
+    markAllRead();
+  }
 
   function openNotification(n: NotificationItem) {
     if (!n.groupId) return;
@@ -48,7 +74,6 @@ export default function NotificationsScreen({ navigation }: Props) {
         merge: true,
       });
     } else if (Platform.OS === 'web') {
-      // In WebShell paneNavigation, navigate('Chat') seamlessly selects the 2-pane chat
       navigation.navigate('Chat', { groupId: n.groupId, jumpToMessageId: n.messageId });
     } else {
       navigation.replace('Chat', { groupId: n.groupId, jumpToMessageId: n.messageId });
@@ -57,104 +82,181 @@ export default function NotificationsScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <AmbientBackground />
+      <AmbientBackground tint="#818CF8" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.webContainer}>
           <AppHeader
-            title="Mentions"
+            title="Mentions & Activity"
             left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
+            right={
+              unreadCount > 0 ? (
+                <PressableScale
+                  scaleTo={0.92}
+                  haptic="light"
+                  onPress={handleMarkAllRead}
+                  style={styles.markAllBtn}
+                >
+                  <Ionicons name="checkmark-done" size={15} color="#818CF8" />
+                  <Text style={styles.markAllText}>Mark all read</Text>
+                </PressableScale>
+              ) : undefined
+            }
           />
 
+          {/* Filter Pills */}
+          {mentions.length > 0 && (
+            <View style={styles.filterRow}>
+              {FILTERS.map((f) => {
+                const count =
+                  f.id === 'all'
+                    ? mentions.length
+                    : mentions.filter((n) => n.kind === f.id).length;
+                if (count === 0 && f.id !== 'all') return null;
+                const isActive = filter === f.id;
+
+                return (
+                  <PressableScale
+                    key={f.id}
+                    scaleTo={0.94}
+                    haptic="light"
+                    onPress={() => setFilter(f.id)}
+                    style={[
+                      styles.filterPill,
+                      isActive && styles.filterPillActive,
+                    ]}
+                  >
+                    <Ionicons
+                      name={f.icon}
+                      size={13}
+                      color={isActive ? '#FFFFFF' : colors.onSurfaceVariant}
+                    />
+                    <Text
+                      style={[
+                        styles.filterPillText,
+                        isActive && styles.filterPillTextActive,
+                      ]}
+                    >
+                      {f.label} ({count})
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          )}
+
           {loading ? (
-            <EmptyState emoji="⏳" text="catching up..." />
-          ) : mentions.length === 0 ? (
-            <EmptyState emoji="✨" text="no mentions yet. you're all caught up!" />
+            <EmptyState emoji="⏳" text="Catching up on mentions..." />
+          ) : filteredMentions.length === 0 ? (
+            <EmptyState
+              emoji="✨"
+              text={
+                filter === 'all'
+                  ? "No mentions yet. You're all caught up!"
+                  : `No ${filter.replace('_', ' ')}s found.`
+              }
+            />
           ) : (
             <FlatList
-              data={mentions}
+              data={filteredMentions}
               keyExtractor={(n) => n.id}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item, index }) => (
-                <Animated.View
-                  entering={FadeInDown.delay(Math.min(index, 8) * STAGGER_MS)
-                    .duration(duration.slow)
-                    .easing(easing.out)
-                    .reduceMotion(reduceMotion)}
-                >
-                  <PressableScale
-                    style={[styles.row, !item.readAt && styles.rowUnread]}
-                    scaleTo={0.98}
-                    onPress={() => openNotification(item)}
+              renderItem={({ item, index }) => {
+                const isUnread = !item.readAt;
+                const isComment = item.kind === 'private_comment';
+                const isEveryone = item.kind === 'mention_everyone';
+
+                return (
+                  <Animated.View
+                    entering={FadeInDown.delay(Math.min(index, 7) * STAGGER_MS)
+                      .duration(duration.slow)
+                      .easing(easing.out)
+                      .reduceMotion(reduceMotion)}
                   >
-                    {!item.readAt && (
-                      <LinearGradient
-                        colors={['rgba(129, 140, 248, 0.12)', 'rgba(99, 102, 241, 0.03)']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[StyleSheet.absoluteFill, { borderRadius: radius.lg }]}
-                        pointerEvents="none"
-                      />
-                    )}
+                    <PressableScale
+                      style={[styles.row, isUnread && styles.rowUnread]}
+                      scaleTo={0.98}
+                      haptic="light"
+                      onPress={() => openNotification(item)}
+                    >
+                      {isUnread && (
+                        <LinearGradient
+                          colors={['rgba(129, 140, 248, 0.14)', 'rgba(99, 102, 241, 0.03)']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
+                          pointerEvents="none"
+                        />
+                      )}
 
-                    {!item.readAt && <View style={styles.unreadDot} />}
+                      {isUnread && <View style={styles.unreadDot} />}
 
-                    {item.kind === 'private_comment' ? (
-                      <Ionicons name="lock-closed" size={14} color={colors.primary} />
-                    ) : item.kind === 'mention_everyone' ? (
-                      <View style={styles.everyoneIcon}>
-                        <Ionicons name="megaphone" size={18} color="#818CF8" />
-                      </View>
-                    ) : (
-                      <Avatar
-                        imageUrl={item.actorAvatarUrl}
-                        emoji={item.actorEmoji}
-                        label={item.actorName}
-                        size={44}
-                        ringColors={[item.actorColor, colors.secondary]}
-                      />
-                    )}
+                      {isComment ? (
+                        <View style={styles.commentAvatarWrap}>
+                          <Ionicons name="lock-closed" size={18} color="#A78BFA" />
+                        </View>
+                      ) : isEveryone ? (
+                        <View style={styles.everyoneIcon}>
+                          <Ionicons name="megaphone" size={18} color="#818CF8" />
+                        </View>
+                      ) : (
+                        <Avatar
+                          imageUrl={item.actorAvatarUrl}
+                          emoji={item.actorEmoji}
+                          label={item.actorName}
+                          size={46}
+                          ringColors={[item.actorColor || '#818CF8', colors.secondary]}
+                        />
+                      )}
 
-                    <View style={styles.copy}>
-                      <View style={styles.headerRow}>
-                        <Text style={styles.actorName} numberOfLines={1}>
-                          {item.kind === 'private_comment'
-                            ? item.actorName
-                            : item.kind === 'mention_everyone'
+                      <View style={styles.copy}>
+                        <View style={styles.headerRow}>
+                          <Text style={styles.actorName} numberOfLines={1}>
+                            {isComment
+                              ? item.actorName
+                              : isEveryone
                               ? 'Everyone'
                               : item.actorName}
+                          </Text>
+
+                          {!!item.groupName && (
+                            <View style={styles.groupBadge}>
+                              <Ionicons name="chatbubbles-outline" size={10} color="#818CF8" />
+                              <Text style={styles.groupBadgeText} numberOfLines={1}>
+                                {item.groupName}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <Text style={styles.label}>
+                          {isComment
+                            ? 'commented privately on your message'
+                            : isEveryone
+                            ? 'notified everyone in the group'
+                            : 'mentioned you in a message'}
                         </Text>
-                        <View style={styles.groupBadge}>
-                          <Text style={styles.groupBadgeText} numberOfLines={1}>
-                            {item.groupName}
+
+                        {/* Quoted Bubble Snippet */}
+                        <View style={styles.snippetBubble}>
+                          <Text style={styles.snippet} numberOfLines={2}>
+                            {item.messageDeleted
+                              ? 'Original message was deleted'
+                              : item.messageText || 'Sent media'}
                           </Text>
                         </View>
                       </View>
 
-                      <Text style={styles.label}>
-                        {item.kind === 'private_comment'
-                          ? ' commented privately on your message'
-                          : item.kind === 'mention_everyone'
-                          ? 'notified everyone in the group'
-                          : 'mentioned you in a message'}
-                      </Text>
-
-                      <Text style={styles.snippet} numberOfLines={2}>
-                        {item.messageDeleted
-                          ? 'Original message was deleted'
-                          : item.messageText || 'Sent media'}
-                      </Text>
-                    </View>
-
-                    <View style={styles.metaCol}>
-                      <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
-                      <View style={styles.jumpPill}>
-                        <Ionicons name="arrow-forward" size={12} color="#818CF8" />
+                      <View style={styles.metaCol}>
+                        <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
+                        <View style={styles.jumpPill}>
+                          <Ionicons name="arrow-forward" size={12} color="#818CF8" />
+                        </View>
                       </View>
-                    </View>
-                  </PressableScale>
-                </Animated.View>
-              )}
+                    </PressableScale>
+                  </Animated.View>
+                );
+              }}
             />
           )}
         </View>
@@ -173,6 +275,61 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     minHeight: 0,
   },
+
+  markAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.28)',
+  },
+  markAllText: {
+    ...typography.caption,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#818CF8',
+  },
+
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs + 2,
+    paddingHorizontal: CONTAINER_MARGIN,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    flexWrap: 'wrap',
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 5.5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterPillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterPillText: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  filterPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
   list: {
     padding: CONTAINER_MARGIN,
     gap: spacing.sm + 2,
@@ -182,36 +339,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: '#13121D', // Solid dark card
+    padding: spacing.md + 1,
+    borderRadius: radius.xl,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: '#26243A',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
+    position: 'relative',
   },
   rowUnread: {
-    backgroundColor: '#161426',
-    borderColor: 'rgba(129, 140, 248, 0.45)',
+    backgroundColor: 'rgba(21, 20, 36, 0.95)',
+    borderColor: 'rgba(129, 140, 248, 0.40)',
   },
   unreadDot: {
     position: 'absolute',
-    left: 7,
+    left: 8,
     top: 18,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#818CF8',
   },
+
   everyoneIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(129, 140, 248, 0.16)',
     borderWidth: 1.5,
     borderColor: 'rgba(129, 140, 248, 0.35)',
   },
+  commentAvatarWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(167, 139, 250, 0.16)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(167, 139, 250, 0.35)',
+  },
+
   copy: {
     flex: 1,
     gap: 3,
@@ -219,7 +389,8 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexWrap: 'wrap',
   },
   actorName: {
     ...typography.bodyMedium,
@@ -228,6 +399,9 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
   },
   groupBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radius.pill,
@@ -237,7 +411,7 @@ const styles = StyleSheet.create({
   },
   groupBadgeText: {
     ...typography.caption,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#A5B4FC',
   },
@@ -246,19 +420,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.onSurfaceVariant,
   },
+  snippetBubble: {
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderLeftWidth: 2,
+    borderLeftColor: '#818CF8',
+  },
   snippet: {
     ...typography.caption,
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#E2E8F0',
-    marginTop: 3,
     lineHeight: 18,
   },
+
   metaCol: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: '100%',
-    minHeight: 44,
-    gap: 6,
+    minHeight: 46,
+    gap: 8,
   },
   time: {
     ...typography.micro,
