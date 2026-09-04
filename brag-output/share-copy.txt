@@ -1,5 +1,0 @@
-Made GC: a group chat with an AI living inside it.
-
-Type / for anything. It recaps what you missed, runs a Tea session and files the report, ships a daily word puzzle, renames everyone at midnight, and hands out awards every Sunday.
-
-It called someone who said nothing all week "The Phantom Lurker" and filed the citation: "Zero messages sent, just pure read-receipt energy."
