@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/expo/expo/master/docs/public/static/images/expo-logo.png" width="100" height="100" alt="Expo Logo" />
+  <img src="./assets/GC_Icon.png" width="100" height="100" alt="GC Logo" />
   <h1>✨ GC (Group Chat)</h1>
   <p><strong>A Next-Generation AI-Powered Group Chat Experience built with Expo & React Native</strong></p>
   
