@@ -20,7 +20,7 @@ create or replace function public.gc_free_limit()
 returns integer language sql immutable as $$ select 1 $$;
 
 create or replace function public.gc_slot_price_paise()
-returns integer language sql immutable as $$ select 50000 $$;  -- ₹500.00
+returns integer language sql immutable as $$ select 100 $$;  -- ₹1.00
 
 comment on function public.gc_slot_price_paise() is
   'Price of one additional GC slot, in paise. Single source of truth — the app reads it through gc_entitlement().';
