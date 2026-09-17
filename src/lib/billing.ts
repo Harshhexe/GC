@@ -171,9 +171,12 @@ const CHECKOUT_PAGE = 'https://the-gc.vercel.app/pay';
  * Cashfree calls the signed webhook, and the app picks that up by refetching
  * on focus. Abandoning the payment page therefore costs nothing.
  */
-export async function openGCCheckout(purchaseId: string): Promise<{ error: string | null }> {
+export async function openGCCheckout(
+  purchaseId: string,
+  phone?: string
+): Promise<{ error: string | null }> {
   const { data, error } = await supabase.functions.invoke('gc-checkout', {
-    body: { purchaseId },
+    body: { purchaseId, phone },
   });
 
   if (error || !data?.ok || !data?.paymentSessionId) {

@@ -14,6 +14,7 @@ export type Profile = {
   avatar_emoji: string;
   avatar_color: string;
   avatar_url: string | null;
+  phone?: string | null;
   /** ISO timestamp of the last username change; null means never changed.
    *  What the Profile screen reads to work out when the next one is allowed —
    *  the 30-day rule itself is enforced by a trigger on the table. */
@@ -107,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadProfile(session.user.id);
 
     const channel = supabase
-      .channel(`user-profile-${session.user.id}`)
+      .channel(`user-profile-${session.user.id}-${Math.random().toString(36).slice(2, 7)}`)
       .on(
         'postgres_changes',
         {

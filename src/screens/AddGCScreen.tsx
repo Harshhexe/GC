@@ -162,16 +162,45 @@ export default function AddGCScreen({ navigation, route }: Props) {
   const { entitlement, refresh: refreshEntitlement } = useGCEntitlement();
   const [startingPurchase, setStartingPurchase] = useState(false);
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
+  const [phone, setPhone] = useState(profile?.phone ?? '');
+
+  useEffect(() => {
+    if (profile?.phone && !phone) {
+      setPhone(profile.phone);
+    }
+  }, [profile?.phone]);
 
   async function handleBuySlot() {
     if (!session?.user || startingPurchase) return;
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    const valid10 =
+      cleanPhone.length === 10
+        ? cleanPhone
+        : cleanPhone.length > 10 && cleanPhone.startsWith('91')
+        ? cleanPhone.slice(2)
+        : null;
+
+    if (!valid10 || valid10.length !== 10) {
+      setPurchaseNote('Please enter a valid 10-digit mobile number for the payment receipt.');
+      return;
+    }
+
     setStartingPurchase(true);
     setPurchaseNote(null);
 
+    // Persist phone to profile so user is never asked again
+    if (profile?.phone !== valid10) {
+      void supabase
+        .from('profiles')
+        .update({ phone: valid10 })
+        .eq('id', session.user.id);
+    }
+
     const { purchase, error } = await startGCPurchase(session.user.id);
-    setStartingPurchase(false);
 
     if (error || !purchase) {
+      setStartingPurchase(false);
       setPurchaseNote(error ?? 'Could not start the purchase. Try again.');
       return;
     }
@@ -181,8 +210,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
      * signed webhook, and `useGCEntitlement` refetches on focus, so the new
      * slot appears by itself when the user comes back.
      */
-    setStartingPurchase(true);
-    const { error: checkoutError } = await openGCCheckout(purchase.id);
+    const { error: checkoutError } = await openGCCheckout(purchase.id, valid10);
     setStartingPurchase(false);
 
     if (checkoutError) {
@@ -198,6 +226,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
     setTheme('violet');
     setCreated(null);
     setCreateError(null);
+    refreshEntitlement();
   }
 
   async function pickPhoto() {
@@ -264,6 +293,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
     await supabase
       .from('group_members')
       .insert({ group_id: group.id, user_id: session.user.id, role: 'owner' });
+    await refreshEntitlement();
     setBusy(false);
     successFeedback();
     setCreated({ id: group.id, name: group.name, code: group.invite_code });
@@ -419,9 +449,15 @@ export default function AddGCScreen({ navigation, route }: Props) {
                       </LinearGradient>
                     </PressableScale>
 
-                    <PressableScale style={styles.anotherLinkBtn} scaleTo={0.95} onPress={resetWizard}>
-                      <Text style={styles.anotherLinkText}>Create another group</Text>
-                    </PressableScale>
+                    {!entitlement || entitlement.canCreate ? (
+                      <PressableScale style={styles.anotherLinkBtn} scaleTo={0.95} onPress={resetWizard}>
+                        <Text style={styles.anotherLinkText}>Create another group</Text>
+                      </PressableScale>
+                    ) : (
+                      <PressableScale style={styles.anotherLinkBtn} scaleTo={0.95} onPress={resetWizard}>
+                        <Text style={styles.anotherLinkText}>Unlock another slot</Text>
+                      </PressableScale>
+                    )}
                   </View>
                 </GlassPanel>
               </Animated.View>
@@ -475,6 +511,26 @@ export default function AddGCScreen({ navigation, route }: Props) {
                         <Text style={styles.paywallPerkText}>{perk}</Text>
                       </View>
                     ))}
+                  </View>
+
+                  {/* Phone input for Cashfree receipt & verification */}
+                  <View style={styles.paywallPhoneWrap}>
+                    <Text style={styles.paywallPhoneLabel}>Mobile number for payment receipt</Text>
+                    <View style={styles.paywallPhoneInputRow}>
+                      <Text style={styles.paywallPhonePrefix}>+91</Text>
+                      <TextInput
+                        style={styles.paywallPhoneInput}
+                        placeholder="10-digit number"
+                        placeholderTextColor="rgba(255,255,255,0.35)"
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                        value={phone}
+                        onChangeText={(val) => {
+                          setPhone(val.replace(/\D/g, ''));
+                          if (purchaseNote) setPurchaseNote(null);
+                        }}
+                      />
+                    </View>
                   </View>
 
                   {!!purchaseNote && <Text style={styles.paywallNote}>{purchaseNote}</Text>}
@@ -883,6 +939,42 @@ const styles = StyleSheet.create({
   },
   paywallPerkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   paywallPerkText: { ...typography.body, fontSize: 13, color: colors.onSurfaceVariant, flex: 1 },
+  paywallPhoneWrap: {
+    width: '100%',
+    marginTop: spacing.md,
+    gap: 6,
+  },
+  paywallPhoneLabel: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
+  paywallPhoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    height: 46,
+    gap: 8,
+  },
+  paywallPhonePrefix: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  paywallPhoneInput: {
+    flex: 1,
+    ...typography.body,
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    padding: 0,
+  },
   paywallNote: {
     ...typography.caption,
     fontSize: 12,

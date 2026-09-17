@@ -17,7 +17,7 @@ import { createClient } from 'npm:@supabase/supabase-js@^2.58.0';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 /**
@@ -44,10 +44,6 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    if (req.method !== 'POST') {
-      return jsonResponse({ ok: false, error: 'Use POST' }, 405);
-    }
-
     const url = Deno.env.get('SUPABASE_URL');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -57,6 +53,54 @@ Deno.serve(async (req) => {
 
     if (!url || !anonKey || !serviceKey || !appId || !secretKey) {
       return jsonResponse({ ok: false, error: 'Server is not configured' }, 500);
+    }
+
+    // ── Handle GET: Verification check for confirmation / return page ────
+    if (req.method === 'GET') {
+      const reqUrl = new URL(req.url);
+      const orderId = reqUrl.searchParams.get('order');
+      if (!orderId) {
+        return jsonResponse({ ok: false, error: 'Missing order parameter' }, 400);
+      }
+
+      let cfOrder: any = null;
+      try {
+        const cfRes = await fetch(
+          `${baseUrl(cfEnv)}/orders/${encodeURIComponent(orderId)}`,
+          {
+            headers: {
+              'x-api-version': CASHFREE_API_VERSION,
+              'x-client-id': appId,
+              'x-client-secret': secretKey,
+            },
+          }
+        );
+        cfOrder = await cfRes.json().catch(() => null);
+      } catch (err) {
+        console.error(`[gc-checkout] Cashfree check failed for ${orderId}: ${String(err)}`);
+      }
+
+      const asService = createClient(url, serviceKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: dbPurchase } = await asService
+        .from('gc_purchases')
+        .select('status')
+        .eq('provider_order_id', orderId)
+        .maybeSingle();
+
+      const isPaid = cfOrder?.order_status === 'PAID' || dbPurchase?.status === 'paid';
+
+      return jsonResponse({
+        ok: true,
+        orderId,
+        orderStatus: cfOrder?.order_status ?? (isPaid ? 'PAID' : 'UNKNOWN'),
+        isPaid,
+      });
+    }
+
+    if (req.method !== 'POST') {
+      return jsonResponse({ ok: false, error: 'Use GET or POST' }, 405);
     }
 
     // A real session is required: a purchase belongs to a specific account,
@@ -74,16 +118,28 @@ Deno.serve(async (req) => {
     }
     const user = userData.user;
 
-    let body: { purchaseId?: unknown; returnUrl?: unknown };
+    let body: { purchaseId?: unknown; phone?: unknown };
     try {
       body = await req.json();
     } catch {
       body = {};
     }
     const purchaseId = typeof body.purchaseId === 'string' ? body.purchaseId : '';
+    const phoneParam = typeof body.phone === 'string' ? body.phone.trim() : '';
+
     if (!purchaseId) {
       return jsonResponse({ ok: false, error: 'Missing purchaseId' }, 400);
     }
+
+    let cleanPhone = phoneParam.replace(/\D/g, '');
+    if (cleanPhone.length > 10 && cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.slice(2);
+    }
+    const customerPhone = cleanPhone.length === 10
+      ? cleanPhone
+      : (user.phone && user.phone.replace(/\D/g, '').length >= 10)
+        ? user.phone.replace(/\D/g, '').slice(-10)
+        : '9999999999';
 
     /*
      * Read the purchase with the caller's own client, not the service role.
@@ -117,17 +173,8 @@ Deno.serve(async (req) => {
     const orderAmount = purchase.amount_paise / 100;
 
     /*
-     * Reuse the order this purchase already has, if it is still payable.
-     *
-     * Minting a fresh order on every tap left several payable links alive for
-     * one purchase at once, and someone who tapped Pay twice (or retried after
-     * assuming the first attempt failed) could pay two of them. The settlement
-     * guard then granted one slot and ignored the second payment, so the money
-     * moved and nothing came back for it. Verified in sandbox: one purchase
-     * ended up with two PAID orders and a single slot.
-     *
-     * An ACTIVE order carries its original payment_session_id, so handing the
-     * same one back is both correct and cheaper than creating another.
+     * Reuse the order this purchase already has, if it is still payable and
+     * the customer phone matches.
      */
     if (purchase.provider_order_id) {
       const existing = await fetch(
@@ -142,7 +189,10 @@ Deno.serve(async (req) => {
       );
       const prev = await existing.json().catch(() => null);
 
-      if (existing.ok && prev?.order_status === 'ACTIVE' && prev?.payment_session_id) {
+      const existingPhone = prev?.customer_details?.customer_phone;
+      const phoneMatches = !cleanPhone || cleanPhone === existingPhone;
+
+      if (existing.ok && prev?.order_status === 'ACTIVE' && prev?.payment_session_id && phoneMatches) {
         return jsonResponse({
           ok: true,
           orderId: purchase.provider_order_id,
@@ -168,7 +218,7 @@ Deno.serve(async (req) => {
 
     /*
      * Only reached when the purchase has no order, or its order is expired or
-     * otherwise no longer payable. The purchase id is the stable part so the
+     * phone number changed. The purchase id is the stable part so the
      * webhook can find its way back to the row.
      */
     const orderId = `gc_${purchaseId.replace(/-/g, '')}_${Date.now().toString(36)}`;
@@ -188,24 +238,11 @@ Deno.serve(async (req) => {
         customer_details: {
           customer_id: user.id,
           customer_email: user.email ?? undefined,
-          // Cashfree wants a phone; a placeholder keeps card and UPI flows
-          // working for accounts that never gave one.
-          customer_phone: (user.phone && user.phone.length >= 10) ? user.phone : '9999999999',
+          customer_phone: customerPhone,
         },
         order_meta: {
-          /*
-           * Where Cashfree drops the payer once the payment page is done.
-           * Defaulted server-side rather than trusted from the request: a
-           * caller-supplied URL is an open redirect, and this one is only ever
-           * a confirmation page on GC's own domain.
-           *
-           * It is cosmetic. The slot is granted by the webhook, so a payer who
-           * closes the tab before the redirect still gets what they paid for.
-           */
           return_url: `${CONFIRM_PAGE}?order={order_id}`,
         },
-        // Echoed back on the webhook, so settlement never has to parse an id
-        // out of a formatted string.
         order_tags: { purchase_id: purchaseId, user_id: user.id },
       }),
     });
@@ -214,16 +251,9 @@ Deno.serve(async (req) => {
 
     if (!cfRes.ok || !cf?.payment_session_id) {
       console.error(`[gc-checkout] cashfree order failed ${cfRes.status}: ${JSON.stringify(cf)}`);
-      // The provider's message is not forwarded: it can carry account-level
-      // detail, and there is nothing the app could do differently with it.
       return jsonResponse({ ok: false, error: 'Could not start the payment' }, 502);
     }
 
-    /*
-     * Written with the service role because clients have no UPDATE policy on
-     * gc_purchases at all. This only records which Cashfree order belongs to
-     * this row; status is untouched and stays `created`.
-     */
     const asService = createClient(url, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });

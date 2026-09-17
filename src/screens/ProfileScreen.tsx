@@ -717,11 +717,15 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   }, [loadCount, refetchGroups, refreshProfile]);
 
+  const loadCountRef = useRef(loadCount);
+  loadCountRef.current = loadCount;
+
   useEffect(() => {
     if (!profile?.id) return;
 
+    const channelName = `profile-hype-${profile.id}-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel(`profile-hype-${profile.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -731,15 +735,15 @@ export default function ProfileScreen({ navigation }: Props) {
           filter: `author_id=eq.${profile.id}`,
         },
         () => {
-          loadCount();
+          loadCountRef.current();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [profile?.id, loadCount]);
+  }, [profile?.id]);
 
   async function pickFeedbackImage() {
     try {
