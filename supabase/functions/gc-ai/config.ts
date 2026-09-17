@@ -31,7 +31,7 @@ export const config = {
    * squarely what Flash is for. Must be a model the configured provider
    * actually serves; the two move together.
    */
-  model: str('GC_AI_MODEL', 'gemini-3.1-flash-lite'),
+  model: str('GC_AI_MODEL', 'gemini-2.5-flash'),
 
   limits: {
     /**

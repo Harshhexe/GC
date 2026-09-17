@@ -1,0 +1,9 @@
+GC — Group Chat
+One group chat. An entire universe inside.
+
+Core screens: Chats, group chat, create group, Explore, Awards, Profile, notifications,
+group search, pinned messages, media/links/files, group information, group instructions,
+Wordy, and Wordle.
+
+GC AI: @gc assistant, slash commands, What Did I Miss, daily recap, Tea Report,
+AI poll drafts, daily names, weekly awards, and Group DNA.

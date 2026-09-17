@@ -38,11 +38,46 @@ export class GeminiProvider implements AIProvider {
     // GOOGLE_API_KEY is the SDK's own convention; GEMINI_API_KEY is what the
     // key is called in AI Studio, where people copy it from. Accept both so a
     // correct-looking secret name isn't silently ignored.
-    const apiKey = Deno.env.get('GEMINI_API_KEY') ?? Deno.env.get('GOOGLE_API_KEY');
-    if (!apiKey) {
+    const raw = Deno.env.get('GEMINI_API_KEY') ?? Deno.env.get('GOOGLE_API_KEY');
+    if (!raw) {
       // A misconfigured deploy shouldn't look like a model outage.
       throw new GCAIError('provider_unavailable', 'GEMINI_API_KEY is not set');
     }
+
+    /*
+     * Whitespace and wrapping quotes are stripped before the key is used.
+     *
+     * The value was previously passed exactly as stored, so a key set with a
+     * trailing newline — which is what a copied line or `echo` leaves behind —
+     * or with the quotes from a shell command captured into the value, was sent
+     * to Google verbatim and came back as "API key not valid". That failure is
+     * indistinguishable from a genuinely revoked key, which is an expensive
+     * thing to be unable to tell apart during an outage.
+     */
+    const apiKey = raw.trim().replace(/^["']|["']$/g, '');
+
+    /*
+     * A sanity check on the stored value, logged once per cold start.
+     *
+     * This deliberately does NOT assert a key format. An earlier version
+     * required "AIza" and 39 characters, which was the older Google key shape;
+     * current AI Studio keys are issued as "AQ."-prefixed values of a different
+     * length, so that check reported a perfectly valid key as malformed and
+     * sent the investigation the wrong way. Google is the only authority on
+     * whether a key is valid, and it says so plainly in the 400 body.
+     *
+     * What is still worth catching locally is a value that cannot be a
+     * credential at all — empty after trimming, or short enough to be a label
+     * or a fragment rather than a key. Nothing secret is logged: only the
+     * length, and whether surrounding whitespace had to be removed.
+     */
+    if (apiKey.length < 20 || apiKey.length !== raw.length) {
+      console.warn(
+        `[gc-ai] api key looks wrong: length=${apiKey.length} (raw ${raw.length})` +
+        `${apiKey.length !== raw.length ? ' — whitespace or quotes were stripped' : ''}`
+      );
+    }
+
     this.#client = new GoogleGenAI({ apiKey });
   }
 
@@ -152,9 +187,48 @@ export class GeminiProvider implements AIProvider {
  * Provider failures become GC's own error vocabulary here, so nothing
  * downstream — including the client — ever sees a vendor's error shape.
  */
+/**
+ * Pulls whatever detail the SDK actually carries.
+ *
+ * @google/genai formats its message as `400 API error occurred: {...}` where
+ * the braces are an httpMeta envelope that is usually empty, so the reason
+ * Google gave — "model not found", "unsupported field", the actual complaint —
+ * never reached the logs. A 401 and a bad model name looked identical: a bare
+ * status and nothing else. Everything the error object holds is folded in here
+ * so the next failure is diagnosable from one log line.
+ */
+function describeProviderError(error: unknown): string {
+  const base = error instanceof Error ? error.message : String(error);
+  const extra: string[] = [];
+  const e = error as Record<string, unknown> | null;
+
+  if (e && typeof e === 'object') {
+    for (const key of ['status', 'code', 'statusText', 'name']) {
+      const v = e[key];
+      if (v !== undefined && v !== null) extra.push(`${key}=${String(v)}`);
+    }
+    // The response body is where Google's real message lives when the SDK
+    // manages to attach it at all.
+    for (const key of ['body', 'error', 'response', 'cause']) {
+      const v = e[key];
+      if (v === undefined || v === null) continue;
+      try {
+        const rendered = typeof v === 'string' ? v : JSON.stringify(v);
+        if (rendered && rendered !== '{}' && rendered !== '""') {
+          extra.push(`${key}=${rendered.slice(0, 600)}`);
+        }
+      } catch {
+        // A circular or exotic value is not worth failing the error path for.
+      }
+    }
+  }
+
+  return extra.length ? `${base} | ${extra.join(' ')}` : base;
+}
+
 function translateProviderError(error: unknown): GCAIError {
   const status = (error as { status?: number })?.status;
-  const message = error instanceof Error ? error.message : 'Provider call failed';
+  const message = describeProviderError(error);
 
   // 429 is the one users on the free tier will actually hit. Gemini's free
   // quota is per-day as well as per-minute, so the retry hint is deliberately

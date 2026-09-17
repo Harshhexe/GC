@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #22D3EE;
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-dy4d" id="root" data-composition-id="main" data-start="0" data-duration="90" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-1rbr" id="el-01-more-than-messages" class="scene" data-composition-id="01-more-than-messages" data-composition-src="compositions/frames/01-more-than-messages.html" data-start="0" data-duration="8.6" data-track-index="0"></div>
+
+      <div data-hf-id="hf-7wrt" id="el-02-universe-opens" class="scene" data-composition-id="02-universe-opens" data-composition-src="compositions/frames/02-universe-opens.html" data-start="8" data-duration="9" data-track-index="1"></div>
+
+      <div data-hf-id="hf-8e44" id="el-03-living-chat" class="scene" data-composition-id="03-living-chat" data-composition-src="compositions/frames/03-living-chat.html" data-start="17" data-duration="9" data-track-index="0"></div>
+
+      <div data-hf-id="hf-0lku" id="el-04-ask-gc" class="scene" data-composition-id="04-ask-gc" data-composition-src="compositions/frames/04-ask-gc.html" data-start="26" data-duration="9.6" data-track-index="1"></div>
+
+      <div data-hf-id="hf-x67l" id="el-05-never-miss" class="scene" data-composition-id="05-never-miss" data-composition-src="compositions/frames/05-never-miss.html" data-start="35" data-duration="10" data-track-index="0"></div>
+
+      <div data-hf-id="hf-y0z8" id="el-06-group-dna" class="scene" data-composition-id="06-group-dna" data-composition-src="compositions/frames/06-group-dna.html" data-start="45" data-duration="9" data-track-index="1"></div>
+
+      <div data-hf-id="hf-jiwx" id="el-07-plans-faster" class="scene" data-composition-id="07-plans-faster" data-composition-src="compositions/frames/07-plans-faster.html" data-start="54" data-duration="9.6" data-track-index="0"></div>
+
+      <div data-hf-id="hf-ndrc" id="el-08-every-detail" class="scene" data-composition-id="08-every-detail" data-composition-src="compositions/frames/08-every-detail.html" data-start="63" data-duration="9" data-track-index="1"></div>
+
+      <div data-hf-id="hf-f7d0" id="el-09-built-for-group" class="scene" data-composition-id="09-built-for-group" data-composition-src="compositions/frames/09-built-for-group.html" data-start="72" data-duration="9.5" data-track-index="0"></div>
+
+      <div data-hf-id="hf-flw2" id="el-10-gc" class="scene" data-composition-id="10-gc" data-composition-src="compositions/frames/10-gc.html" data-start="81" data-duration="9" data-track-index="1"></div>
+
+      <!-- BGM -->
+      <audio data-hf-id="hf-k9bh" id="el-bgm" src="assets/bgm/track.loop.mp3" data-start="0" data-duration="90" data-track-index="11" data-volume="0.9"></audio>
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+      // ── frame transitions (injected by transitions.mjs) ──
+      (function () { var tl = window.__timelines["main"];
+        tl.to("#el-01-more-than-messages", { filter: "blur(10px)", scale: 1.03, opacity: 0, duration: 0.6, ease: "power2.inOut" }, 8);
+        tl.fromTo("#el-02-universe-opens", { filter: "blur(10px)", scale: 0.97, opacity: 0 }, { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.6, ease: "power2.inOut" }, 8);
+        tl.to("#el-04-ask-gc", { filter: "blur(10px)", scale: 1.03, opacity: 0, duration: 0.6, ease: "power2.inOut" }, 35);
+        tl.fromTo("#el-05-never-miss", { filter: "blur(10px)", scale: 0.97, opacity: 0 }, { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.6, ease: "power2.inOut" }, 35);
+        tl.to("#el-07-plans-faster", { filter: "blur(10px)", scale: 1.03, opacity: 0, duration: 0.6, ease: "power2.inOut" }, 63);
+        tl.fromTo("#el-08-every-detail", { filter: "blur(10px)", scale: 0.97, opacity: 0 }, { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.6, ease: "power2.inOut" }, 63);
+        tl.to("#el-09-built-for-group", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 81);
+        tl.fromTo("#el-10-gc", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 81);
+        tl.to({}, { duration: 90 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
+      })();
+    </script>
+  </body>
+</html>

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,7 +42,7 @@ import { useGroupNotificationSettings } from '../hooks/useGroupNotificationSetti
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
-import { successFeedback } from '../utils/haptics';
+import { successFeedback, warningFeedback } from '../utils/haptics';
 import { signedImageSource, useSignedMediaUrl } from '../lib/mediaUrl';
 import { inviteLinkFor, inviteMessageFor } from '../lib/inviteLink';
 import { useVideoPoster } from '../hooks/useVideoPoster';
@@ -246,6 +255,48 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
 
   const myRole = members.find((m) => m.id === session?.user.id)?.role ?? null;
   const canManage = myRole === 'owner' || myRole === 'admin';
+  const [rotatingCode, setRotatingCode] = useState(false);
+
+  /*
+   * Swaps the GC's invite code for a fresh one.
+   *
+   * Confirmed first, because this is not a refresh in the "reload" sense — the
+   * old code and every link built from it stop working the moment it changes,
+   * including ones already sent to people who have not joined yet. That is the
+   * point when someone is removing an unwanted joiner, and a nasty surprise
+   * otherwise, so the wording says plainly what breaks.
+   */
+  function confirmRotateCode() {
+    if (!group || rotatingCode) return;
+    Alert.alert(
+      'Get a new code?',
+      'The current code and any link you have shared will stop working. Anyone who has not joined yet will need the new one.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'New code',
+          style: 'destructive',
+          onPress: async () => {
+            setRotatingCode(true);
+            const { data, error } = await supabase.rpc('rotate_group_invite_code', {
+              p_group_id: groupId,
+            });
+            setRotatingCode(false);
+            if (error || !data) {
+              warningFeedback();
+              Alert.alert('Could not get a new code', 'Give it a moment and try again.');
+              return;
+            }
+            successFeedback();
+            // Updated in place so the code and the link below it both change
+            // without a round trip back to the server.
+            setGroup((prev) => (prev ? { ...prev, code: data as string } : prev));
+            setCopied(null);
+          },
+        },
+      ]
+    );
+  }
 
   /* Which field last got copied, so the tick lands on the row that was
      actually tapped rather than on both at once. */
@@ -740,6 +791,25 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                     <Text style={styles.inviteTitle}>Invite Friends</Text>
                     <Text style={styles.inviteSubtitle}>Tap to share the link</Text>
                   </View>
+                  {/* Owners and admins only: rotating the code is destructive
+                      to links already in circulation, so it is not offered to
+                      members who cannot manage the GC. */}
+                  {canManage && (
+                    <PressableScale
+                      scaleTo={0.9}
+                      haptic="light"
+                      hitSlop={10}
+                      disabled={rotatingCode}
+                      onPress={confirmRotateCode}
+                      style={styles.inviteRotateBtn}
+                    >
+                      {rotatingCode ? (
+                        <ActivityIndicator size="small" color={colors.textMuted} />
+                      ) : (
+                        <Ionicons name="refresh" size={17} color={colors.textMuted} />
+                      )}
+                    </PressableScale>
+                  )}
                   <Ionicons name="share-outline" size={18} color={colors.textMuted} />
                 </View>
 
@@ -897,6 +967,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 1,
+  },
+  inviteRotateBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   inviteRowLabel: { ...typography.label, fontSize: 10, color: colors.textMuted, width: 34 },
   inviteCode: {

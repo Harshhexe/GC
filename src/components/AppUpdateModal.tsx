@@ -27,16 +27,10 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'at-outline' as const,
+    icon: 'grid-outline' as const,
     color: '#818CF8',
-    title: 'Mentions, Rebuilt',
-    desc: 'Mentioning someone now shows their profile photo in a rounded, tinted pill instead of a plain @. The old highlight was drawn in a way Android quietly ignored, so it never looked right.',
-  },
-  {
-    icon: 'pin-outline' as const,
-    color: '#F59E0B',
-    title: 'Pinned Highlights & Media Showcase',
-    desc: 'Pinned Messages is now a stunning Hall of Fame with a golden pin crest, author avatars, and live photo/video thumbnail previews.',
+    title: 'Attachment Sheet, Redesigned',
+    desc: 'The + sheet got the full glassmorphism treatment — a frosted header, glowing icon orbs in each action color, and a smooth staggered entrance. Sending media, files, GIFs and more now feels as polished as the rest of GC.',
   },
   {
     icon: 'search-outline' as const,
@@ -45,10 +39,10 @@ const CHANGELOG_ITEMS = [
     desc: 'Find any message instantly with category filter tabs (Media, Links, Files), highlighted matching keywords, and author profile previews.',
   },
   {
-    icon: 'person-circle-outline' as const,
-    color: '#C084FC',
-    title: 'Elevated Member Profile Sheet',
-    desc: 'Tapping any @mention now opens a rich sheet with a radiant avatar halo, role badges, copyable handle, and instant "Mention in Chat" action.',
+    icon: 'pin-outline' as const,
+    color: '#F59E0B',
+    title: 'Pinned Highlights & Media Showcase',
+    desc: 'Pinned Messages is now a stunning Hall of Fame with a golden pin crest, author avatars, and live photo/video thumbnail previews.',
   },
 ];
 
