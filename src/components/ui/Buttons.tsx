@@ -3,6 +3,7 @@ import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-n
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, glass, gradients, radius, shadows, spacing, typography } from '../../theme/theme';
 import { PressableScale } from './PressableScale';
+import { useAppearance } from '../../context/AppearanceContext';
 
 type Variant = 'primary' | 'gradient' | 'cyan' | 'ghost' | 'danger';
 
@@ -35,10 +36,12 @@ export function GCButton({
   textStyle?: StyleProp<TextStyle>;
   full?: boolean;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const content = (
     <View style={styles.row}>
       {icon}
-      <Text style={[styles.label, variantText[variant], disabled && styles.labelDisabled, textStyle]}>
+      <Text style={[styles.label, variantText[variant], (variant === 'primary' || variant === 'gradient') && { color: palette.onPrimary }, variant === 'cyan' && { color: palette.onTertiary }, variant === 'ghost' && { color: palette.onSurface }, disabled && styles.labelDisabled, textStyle]}>
         {label}
       </Text>
       {iconRight}
@@ -48,7 +51,7 @@ export function GCButton({
   const body =
     variant === 'gradient' ? (
       <LinearGradient
-        colors={disabled ? [colors.surfaceHigh, colors.surfaceHigh] : gradients.cta}
+        colors={disabled ? [palette.surfaceHigh, palette.surfaceHigh] : theme.gradients}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.base, full && styles.full]}
@@ -61,6 +64,9 @@ export function GCButton({
           styles.base,
           full && styles.full,
           variantBg[variant],
+          variant === 'primary' && { backgroundColor: palette.primaryContainer },
+          variant === 'cyan' && { backgroundColor: palette.tertiaryContainer },
+          variant === 'ghost' && { backgroundColor: theme.glass.fill, borderColor: theme.glass.strokeBright },
           disabled && styles.disabled,
         ]}
       >

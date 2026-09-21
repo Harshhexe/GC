@@ -27,22 +27,22 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'grid-outline' as const,
+    icon: 'color-palette-outline' as const,
     color: '#818CF8',
-    title: 'Attachment Sheet, Redesigned',
-    desc: 'The + sheet got the full glassmorphism treatment — a frosted header, glowing icon orbs in each action color, and a smooth staggered entrance. Sending media, files, GIFs and more now feels as polished as the rest of GC.',
+    title: 'Three ways to make GC yours',
+    desc: 'Choose Gen Z, Light, or Dark from your profile. Your preference is remembered and updates the app chrome, navigation, glass surfaces, and shared controls.',
   },
   {
-    icon: 'search-outline' as const,
+    icon: 'person-circle-outline' as const,
     color: '#38BDF8',
-    title: 'Smart Search with Keyword Highlights',
-    desc: 'Find any message instantly with category filter tabs (Media, Links, Files), highlighted matching keywords, and author profile previews.',
+    title: 'A calmer profile, with more personality',
+    desc: 'The profile experience now gives your identity, quick actions, and appearance a cleaner visual hierarchy without losing GC’s energy.',
   },
   {
-    icon: 'pin-outline' as const,
-    color: '#F59E0B',
-    title: 'Pinned Highlights & Media Showcase',
-    desc: 'Pinned Messages is now a stunning Hall of Fame with a golden pin crest, author avatars, and live photo/video thumbnail previews.',
+    icon: 'layers-outline' as const,
+    color: '#F472B6',
+    title: 'A more cohesive visual system',
+    desc: 'Navigation and shared UI now respond to the active appearance, keeping contrast, surfaces, and accents coordinated across the experience.',
   },
 ];
 

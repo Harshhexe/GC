@@ -3,6 +3,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, glass, HIT_TARGET, radius, spacing, typography } from '../../theme/theme';
 import { PressableScale } from './PressableScale';
+import { useAppearance } from '../../context/AppearanceContext';
 
 const LOGO_TRANSPARENT = require('../../../assets/gc_app_logo-transparent.png');
 
@@ -20,7 +21,7 @@ export function GCWordmark({ size = 38 }: { size?: number }) {
 export function HeaderIconButton({
   name,
   onPress,
-  color = colors.onSurface,
+  color,
   size = 22,
 }: {
   name: keyof typeof Ionicons.glyphMap;
@@ -28,9 +29,10 @@ export function HeaderIconButton({
   color?: string;
   size?: number;
 }) {
+  const { theme } = useAppearance();
   return (
     <PressableScale onPress={onPress} style={styles.iconButton} scaleTo={0.88} hitSlop={6}>
-      <Ionicons name={name} size={size} color={color} />
+      <Ionicons name={name} size={size} color={color ?? theme.palette.onSurface} />
     </PressableScale>
   );
 }
@@ -52,14 +54,15 @@ export function AppHeader({
   left?: ReactNode;
   right?: ReactNode;
 }) {
+  const { theme } = useAppearance();
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { borderBottomColor: theme.palette.border }]}>
       <View style={styles.side}>{left}</View>
 
       <View style={styles.center}>
-        {wordmark ? <GCWordmark /> : !!title && <Text style={styles.title} numberOfLines={1}>{title}</Text>}
+        {wordmark ? <GCWordmark /> : !!title && <Text style={[styles.title, { color: theme.palette.onSurface }]} numberOfLines={1}>{title}</Text>}
         {!!subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={[styles.subtitle, { color: theme.palette.onSurfaceVariant }]} numberOfLines={1}>
             {subtitle}
           </Text>
         )}

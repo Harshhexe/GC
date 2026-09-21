@@ -7,7 +7,7 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { colors } from '../theme/theme';
+import { useAppearance } from '../context/AppearanceContext';
 import { useAuth } from '../context/AuthContext';
 import AuthScreen from '../screens/AuthScreen';
 import MainTabs from './MainTabs';
@@ -36,20 +36,23 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
  *  is delivered by a native listener, not by anything rendering. */
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
-const navTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: colors.bg,
-    card: colors.surfaceLow,
-    border: colors.outlineVariant,
-    primary: colors.primary,
-    text: colors.onSurface,
-  },
-};
-
 export default function RootNavigator() {
   const { session, loading, justSignedUp } = useAuth();
+  const { theme } = useAppearance();
+  const palette = theme.palette;
+  const navTheme = {
+    ...DarkTheme,
+    dark: theme.isDark,
+    colors: {
+      ...DarkTheme.colors,
+      background: palette.bg,
+      card: palette.surfaceLow,
+      border: palette.outlineVariant,
+      primary: palette.primary,
+      text: palette.onSurface,
+      notification: palette.primary,
+    },
+  };
   // Desktop browser gets the two-pane shell; a phone browser is still a
   // phone and keeps the identical mobile UI. Live-reactive, so resizing the
   // window switches layouts rather than stranding you in one.
@@ -150,8 +153,8 @@ export default function RootNavigator() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: palette.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={palette.primary} />
       </View>
     );
   }
@@ -171,14 +174,14 @@ export default function RootNavigator() {
         },
       }}
     >
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ flex: 1, backgroundColor: palette.bg }}>
         <Stack.Navigator
           initialRouteName={session ? (justSignedUp ? 'Welcome' : 'MainTabs') : 'Auth'}
           screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
             animationDuration: 220,
-            contentStyle: { backgroundColor: colors.bg },
+            contentStyle: { backgroundColor: palette.bg },
           }}
         >
           {session ? (

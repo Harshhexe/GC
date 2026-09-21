@@ -62,6 +62,7 @@ import {
   usernameCooldown,
 } from '../lib/username';
 import { selectFeedback, successFeedback, warningFeedback } from '../utils/haptics';
+import { APP_THEMES, AppAppearance, useAppearance } from '../context/AppearanceContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -96,10 +97,12 @@ const FEEDBACK_MAX = 1000;
  * the person rather than being wallpaper behind them.
  */
 function AuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
+  const { theme } = useAppearance();
+  const glow = theme.palette.primary;
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.backdropRoot, style]} pointerEvents="none">
       <LinearGradient
-        colors={['#100D1C', '#08070E', '#040306']}
+        colors={theme.canvas}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -107,20 +110,20 @@ function AuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
 
       {/* Overhead spotlight, centred on where the avatar sits. */}
       <LinearGradient
-        colors={['rgba(129, 140, 248, 0.20)', 'rgba(236, 72, 153, 0.08)', 'transparent']}
+        colors={[`${glow}33`, `${theme.palette.secondary}16`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.backdropSpotlight}
       />
 
       <LinearGradient
-        colors={['rgba(99, 102, 241, 0.12)', 'transparent']}
+        colors={[`${glow}1F`, 'transparent']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0.75, y: 0.55 }}
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={['rgba(236, 72, 153, 0.09)', 'transparent']}
+        colors={[`${theme.palette.secondary}18`, 'transparent']}
         start={{ x: 1, y: 0 }}
         end={{ x: 0.25, y: 0.55 }}
         style={StyleSheet.absoluteFill}
@@ -128,7 +131,7 @@ function AuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
 
       {/* Vignette — keeps the lower half from competing with the cards. */}
       <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.72)']}
+        colors={theme.isDark ? ['transparent', 'rgba(0, 0, 0, 0.72)'] : ['transparent', 'rgba(236,236,232,0.58)']}
         start={{ x: 0.5, y: 0.55 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -159,6 +162,8 @@ function AuroraAvatar({
   uploading: boolean;
   onPress: () => void;
 }) {
+  const { theme } = useAppearance();
+  const { palette } = theme;
   const spin = useSharedValue(0);
 
   useEffect(() => {
@@ -185,7 +190,7 @@ function AuroraAvatar({
     >
       <View style={styles.avatarHalo} pointerEvents="none">
         <LinearGradient
-          colors={['rgba(129, 140, 248, 0.30)', 'rgba(244, 114, 182, 0.12)', 'transparent']}
+          colors={[`${palette.primary}4D`, `${palette.secondary}1F`, 'transparent']}
           start={{ x: 0.15, y: 0 }}
           end={{ x: 0.85, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -195,13 +200,13 @@ function AuroraAvatar({
       <View style={styles.ringClip} pointerEvents="none">
         <Animated.View style={[styles.ringSweep, spinStyle]}>
           <LinearGradient
-            colors={['#818CF8', '#F472B6', '#38BDF8', '#818CF8']}
+            colors={[palette.primary, palette.secondary, palette.tertiary, palette.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
         </Animated.View>
-        <View style={styles.ringHole} />
+        <View style={[styles.ringHole, { backgroundColor: palette.appRoot }]} />
       </View>
 
       <Avatar
@@ -212,7 +217,7 @@ function AuroraAvatar({
         ring={false}
       />
 
-      <View style={styles.cameraBadge}>
+      <View style={[styles.cameraBadge, { backgroundColor: palette.primaryContainer, borderColor: palette.appRoot }]}>
         {uploading ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
@@ -272,8 +277,9 @@ function StatCard({
   icon: keyof typeof Ionicons.glyphMap;
   accent: string;
 }) {
+  const { theme } = useAppearance();
   return (
-    <View style={styles.statCard} accessibilityLabel={`${value} ${label}`}>
+    <View style={[styles.statCard, { backgroundColor: theme.glass.fill, borderColor: theme.glass.stroke }]} accessibilityLabel={`${value} ${label}`}>
       <LinearGradient
         colors={[`${accent}1A`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
@@ -284,10 +290,10 @@ function StatCard({
       <View style={[styles.statIcon, { backgroundColor: `${accent}22`, borderColor: `${accent}3D` }]}>
         <Ionicons name={icon} size={14} color={accent} />
       </View>
-      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+      <Text style={[styles.statValue, { color: theme.palette.onSurface }]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
-      <Text style={styles.statLabel} numberOfLines={1}>
+      <Text style={[styles.statLabel, { color: theme.palette.textMuted }]} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -312,9 +318,10 @@ function ActionTile({
   subtitle: string;
   onPress: () => void;
 }) {
+  const { theme } = useAppearance();
   return (
     <PressableScale
-      style={[styles.tile, { borderColor: `${accent}2E` }]}
+      style={[styles.tile, { borderColor: `${accent}2E`, backgroundColor: theme.glass.fillStrong }]}
       scaleTo={0.96}
       haptic="light"
       onPress={onPress}
@@ -332,10 +339,10 @@ function ActionTile({
         <Ionicons name={icon} size={20} color={accent} />
       </View>
       <View style={styles.tileCopy}>
-        <Text style={styles.tileTitle} numberOfLines={1}>
+        <Text style={[styles.tileTitle, { color: theme.palette.onSurface }]} numberOfLines={1}>
           {title}
         </Text>
-        <Text style={styles.tileSub} numberOfLines={2}>
+        <Text style={[styles.tileSub, { color: theme.palette.textMuted }]} numberOfLines={2}>
           {subtitle}
         </Text>
       </View>
@@ -344,13 +351,14 @@ function ActionTile({
 }
 
 function SectionLabel({ text }: { text: string }) {
+  const { theme } = useAppearance();
   return (
     <View style={styles.sectionLabelRow}>
-      <Text style={styles.sectionLabelText} accessibilityRole="header">
+      <Text style={[styles.sectionLabelText, { color: theme.palette.onSurfaceVariant }]} accessibilityRole="header">
         {text}
       </Text>
       <LinearGradient
-        colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
+        colors={[theme.palette.borderBright, 'transparent']}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={styles.sectionRule}
@@ -378,6 +386,7 @@ function SettingsRow({
   isLast?: boolean;
   disabled?: boolean;
 }) {
+  const { theme } = useAppearance();
   return (
     <PressableScale
       style={[styles.row, !isLast && styles.rowBorder, disabled && styles.rowDisabled]}
@@ -394,17 +403,61 @@ function SettingsRow({
       </View>
 
       <View style={styles.rowCopy}>
-        <Text style={[styles.rowTitle, tone === 'danger' && { color: colors.error }]}>{title}</Text>
-        <Text style={styles.rowSub}>{subtitle}</Text>
+        <Text style={[styles.rowTitle, { color: theme.palette.onSurface }, tone === 'danger' && { color: theme.palette.error }]}>{title}</Text>
+        <Text style={[styles.rowSub, { color: theme.palette.textMuted }]}>{subtitle}</Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={17} color={colors.outline} />
+      <Ionicons name="chevron-forward" size={17} color={theme.palette.outline} />
     </PressableScale>
+  );
+}
+
+function AppearancePicker() {
+  const { appearance, setAppearance, theme } = useAppearance();
+  return (
+    <View style={[styles.appearanceCard, { backgroundColor: theme.glass.fillStrong, borderColor: theme.glass.stroke }]}>
+      <View style={styles.appearanceHeader}>
+        <View>
+          <Text style={[styles.appearanceTitle, { color: theme.palette.onSurface }]}>Make GC yours</Text>
+          <Text style={[styles.appearanceSubtitle, { color: theme.palette.onSurfaceVariant }]}>A look that follows you everywhere.</Text>
+        </View>
+        <Ionicons name="color-palette-outline" size={20} color={theme.palette.primary} />
+      </View>
+      <View style={styles.appearanceChoices}>
+        {(Object.keys(APP_THEMES) as AppAppearance[]).map((id) => {
+          const option = APP_THEMES[id];
+          const selected = appearance === id;
+          return (
+            <PressableScale
+              key={id}
+              style={[styles.appearanceChoice, { backgroundColor: option.palette.surface, borderColor: selected ? option.palette.primary : theme.glass.stroke }]}
+              onPress={() => { void setAppearance(id); }}
+              accessibilityRole="radio"
+              accessibilityLabel={`${option.label} theme`}
+              accessibilityState={{ selected }}
+            >
+              <LinearGradient colors={option.canvas} style={styles.appearancePreview}>
+                <View style={[styles.previewPill, { backgroundColor: option.palette.primary }]} />
+                <View style={[styles.previewLine, { backgroundColor: option.palette.onSurface }]} />
+                <View style={[styles.previewLineShort, { backgroundColor: option.palette.onSurfaceVariant }]} />
+              </LinearGradient>
+              <View style={styles.appearanceChoiceFooter}>
+                <Ionicons name={option.icon} size={15} color={option.palette.primary} />
+                <Text style={[styles.appearanceChoiceLabel, { color: option.palette.onSurface }]}>{option.label}</Text>
+              </View>
+              {selected && <View style={[styles.appearanceCheck, { backgroundColor: option.palette.primary }]}><Ionicons name="checkmark" size={11} color={option.palette.onPrimary} /></View>}
+            </PressableScale>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
 export default function ProfileScreen({ navigation }: Props) {
   const { session, profile, signOut, refreshProfile } = useAuth();
+  const { theme } = useAppearance();
+  const { palette } = theme;
   const { groups, refetch: refetchGroups } = useGroups({ realtime: true });
   const insets = useSafeAreaInsets();
   const [totalMessages, setTotalMessages] = useState<number | null>(null);
@@ -913,7 +966,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const headerOffset = insets.top + HEADER_HEIGHT;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: palette.appChrome }]}>
       <AuroraBackdrop style={backdropStyle} />
 
       <Animated.ScrollView
@@ -926,9 +979,9 @@ export default function ProfileScreen({ navigation }: Props) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surface}
+            tintColor={palette.primary}
+            colors={[palette.primary]}
+            progressBackgroundColor={palette.surface}
             progressViewOffset={headerOffset}
           />
         }
@@ -946,12 +999,12 @@ export default function ProfileScreen({ navigation }: Props) {
               onPress={openEditProfile}
             />
 
-            <Text style={styles.displayName} numberOfLines={2}>
+            <Text style={[styles.displayName, { color: palette.onSurface }]} numberOfLines={2}>
               {displayName}
             </Text>
 
             <PressableScale
-              style={styles.handleChip}
+              style={[styles.handleChip, { backgroundColor: theme.glass.fillStrong, borderColor: theme.glass.stroke }]}
               scaleTo={0.94}
               haptic="light"
               hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
@@ -959,20 +1012,20 @@ export default function ProfileScreen({ navigation }: Props) {
               accessibilityRole="button"
               accessibilityLabel={handleCopied ? 'Username copied' : `Copy username @${username}`}
             >
-              <Text style={[styles.handleText, handleCopied && styles.handleTextCopied]}>
+              <Text style={[styles.handleText, { color: palette.onSurfaceVariant }, handleCopied && styles.handleTextCopied]}>
                 {handleCopied ? 'Copied!' : `@${username}`}
               </Text>
               <Ionicons
                 name={handleCopied ? 'checkmark-circle' : 'copy-outline'}
                 size={13}
-                color={handleCopied ? colors.green : colors.onSurfaceVariant}
+                color={handleCopied ? palette.lime : palette.onSurfaceVariant}
               />
             </PressableScale>
 
             <View style={styles.heroMetaRow}>
-              <View style={styles.alphaChip}>
-                <Ionicons name="flask" size={11} color="#C084FC" />
-                <Text style={styles.alphaChipText}>ALPHA TESTER</Text>
+              <View style={[styles.alphaChip, { backgroundColor: `${palette.secondary}1F`, borderColor: `${palette.secondary}45` }]}>
+                <Ionicons name="flask" size={11} color={palette.secondary} />
+                <Text style={[styles.alphaChipText, { color: palette.secondary }]}>ALPHA TESTER</Text>
               </View>
               {!!joined && (
                 <Text style={styles.heroMeta}>
@@ -991,7 +1044,7 @@ export default function ProfileScreen({ navigation }: Props) {
               accessibilityLabel="Edit profile: picture, display name and username"
             >
               <LinearGradient
-                colors={gradients.brand}
+                colors={theme.gradients}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.editProfileGradient}
@@ -1013,24 +1066,36 @@ export default function ProfileScreen({ navigation }: Props) {
             .reduceMotion(reduceMotion)}
           style={styles.statsRow}
         >
-          <StatCard label="Active GCs" value={String(groupsCount ?? 0)} icon="chatbubbles" accent="#818CF8" />
+          <StatCard label="Active GCs" value={String(groupsCount ?? 0)} icon="chatbubbles" accent={palette.primary} />
           <StatCard
             label="Messages"
             value={messagesCount === null ? '—' : String(messagesCount)}
             icon="sparkles"
-            accent="#F472B6"
+            accent={palette.secondary}
           />
           <StatCard
             label="Days in"
             value={daysCount === null ? '—' : String(daysCount)}
             icon="flame"
-            accent="#38BDF8"
+            accent={palette.tertiary}
           />
         </Animated.View>
 
-        {/* 3. Quick actions */}
+        {/* 3. Appearance */}
         <Animated.View
           entering={FadeInDown.delay(STAGGER_MS * 2)
+            .duration(duration.slow)
+            .easing(easing.out)
+            .reduceMotion(reduceMotion)}
+          style={styles.section}
+        >
+          <SectionLabel text="APPEARANCE" />
+          <AppearancePicker />
+        </Animated.View>
+
+        {/* 4. Quick actions */}
+        <Animated.View
+          entering={FadeInDown.delay(STAGGER_MS * 3)
             .duration(duration.slow)
             .easing(easing.out)
             .reduceMotion(reduceMotion)}
@@ -1041,7 +1106,7 @@ export default function ProfileScreen({ navigation }: Props) {
           <View style={styles.bentoRow}>
             <ActionTile
               icon="people"
-              accent="#818CF8"
+              accent={palette.primary}
               title="All Chats"
               subtitle="Every GC and unread badge"
               onPress={() => navigation.navigate('GroupList')}
@@ -1058,14 +1123,14 @@ export default function ProfileScreen({ navigation }: Props) {
           <View style={styles.bentoRow}>
             <ActionTile
               icon="add-circle"
-              accent="#22D3EE"
+              accent={palette.tertiary}
               title="New GC"
               subtitle="Create one or enter an invite code"
               onPress={() => navigation.navigate('AddGC')}
             />
             <ActionTile
               icon="sparkles"
-              accent="#A855F7"
+              accent={palette.secondary}
               title="App Tour"
               subtitle="@gc AI, Tea, 11:11, Awards & Polls"
               onPress={() => navigation.navigate('Welcome')}
@@ -1073,9 +1138,9 @@ export default function ProfileScreen({ navigation }: Props) {
           </View>
         </Animated.View>
 
-        {/* 4. Alpha feedback */}
+        {/* 5. Alpha feedback */}
         <Animated.View
-          entering={FadeInDown.delay(STAGGER_MS * 3)
+          entering={FadeInDown.delay(STAGGER_MS * 4)
             .duration(duration.slow)
             .easing(easing.out)
             .reduceMotion(reduceMotion)}
@@ -1173,9 +1238,9 @@ export default function ProfileScreen({ navigation }: Props) {
           </GlassPanel>
         </Animated.View>
 
-        {/* 5. Account */}
+        {/* 6. Account */}
         <Animated.View
-          entering={FadeInDown.delay(STAGGER_MS * 4)
+          entering={FadeInDown.delay(STAGGER_MS * 5)
             .duration(duration.slow)
             .easing(easing.out)
             .reduceMotion(reduceMotion)}
@@ -1507,6 +1572,25 @@ const styles = StyleSheet.create({
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
     gap: spacing.xl,
   },
+
+  appearanceCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  appearanceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  appearanceTitle: { ...typography.bodyMedium, fontWeight: '700' },
+  appearanceSubtitle: { ...typography.caption, marginTop: 2 },
+  appearanceChoices: { flexDirection: 'row', gap: spacing.xs },
+  appearanceChoice: { flex: 1, minHeight: 112, borderRadius: radius.md, borderWidth: 1, overflow: 'hidden', padding: 6 },
+  appearancePreview: { height: 54, borderRadius: radius.sm, padding: 9, gap: 6, justifyContent: 'center' },
+  previewPill: { width: 19, height: 5, borderRadius: radius.pill },
+  previewLine: { width: '78%', height: 5, borderRadius: radius.pill, opacity: 0.88 },
+  previewLineShort: { width: '48%', height: 4, borderRadius: radius.pill, opacity: 0.5 },
+  appearanceChoiceFooter: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 3, paddingTop: 8 },
+  appearanceChoiceLabel: { ...typography.micro, fontSize: 11, fontWeight: '700' },
+  appearanceCheck: { position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
 
   // ── Backdrop ──────────────────────────────────────────────────────────
   // Taller than the screen so translating it up never uncovers the root.

@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../theme/theme';
+import { useAppearance } from '../../context/AppearanceContext';
 
 /** Turn a hex accent into a low-alpha rgba so the glow stays atmospheric. */
 function tinted(hex: string, alpha: number) {
@@ -41,6 +42,7 @@ export function AmbientBackground({
   hideEdgeGlows?: boolean;
   style?: any;
 }) {
+  const { theme } = useAppearance();
   const glow = tint ?? '#6366F1';
   const strength = variant === 'vivid' ? 0.14 : 0.09;
 
@@ -49,6 +51,7 @@ export function AmbientBackground({
       style={[
         StyleSheet.absoluteFill,
         styles.base,
+        { backgroundColor: theme.palette.bg },
         hideBaseBackground && { backgroundColor: 'transparent' },
         style,
         { pointerEvents: 'none' },
@@ -70,7 +73,7 @@ export function AmbientBackground({
       {!hideEdgeGlows && (
       <View style={styles.bottomGlow}>
         <LinearGradient
-          colors={['rgba(0, 0, 0, 0)', 'rgba(5, 5, 10, 0.6)']}
+        colors={theme.isDark ? ['rgba(0,0,0,0)', 'rgba(5,5,10,0.6)'] : ['rgba(255,255,255,0)', 'rgba(236,236,232,0.72)']}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}

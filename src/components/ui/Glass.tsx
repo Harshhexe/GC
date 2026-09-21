@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { colors, glass, radius } from '../../theme/theme';
+import { useAppearance } from '../../context/AppearanceContext';
 
 /**
  * Frosted Glass Panel:
@@ -24,28 +25,31 @@ export function GlassPanel({
   sheen?: boolean;
   blur?: boolean;
 }) {
+  const { theme } = useAppearance();
+  const isLight = !theme.isDark;
   const strokeColor =
     tone === 'primary'
-      ? 'rgba(129, 140, 248, 0.25)'
+      ? `${theme.palette.primary}40`
       : tone === 'secondary'
-        ? 'rgba(244, 114, 182, 0.25)'
+        ? `${theme.palette.secondary}40`
         : tone === 'tertiary'
-          ? 'rgba(56, 189, 248, 0.25)'
-          : glass.stroke;
+          ? `${theme.palette.tertiary}40`
+          : theme.glass.stroke;
 
   return (
     <View
       style={[
         styles.panel,
         { borderRadius, borderColor: strokeColor },
-        Platform.OS === 'web' && styles.panelWeb,
+        Platform.OS === 'web' && [styles.panelWeb, { backgroundColor: theme.glass.fillStrong }],
+        { backgroundColor: theme.glass.fill },
         style,
       ]}
     >
       {blur && Platform.OS !== 'web' && (
         <BlurView
           intensity={intensity}
-          tint="dark"
+          tint={isLight ? 'light' : 'dark'}
           experimentalBlurMethod="dimezisBlurView"
           style={StyleSheet.absoluteFill}
         />
@@ -65,22 +69,23 @@ export function Chip({
   style?: StyleProp<ViewStyle>;
   tone?: 'neutral' | 'primary' | 'secondary' | 'tertiary';
 }) {
+  const { theme } = useAppearance();
   const bg =
     tone === 'primary'
-      ? 'rgba(129, 140, 248, 0.12)'
+      ? `${theme.palette.primary}1F`
       : tone === 'secondary'
-        ? 'rgba(244, 114, 182, 0.12)'
+        ? `${theme.palette.secondary}1F`
         : tone === 'tertiary'
-          ? 'rgba(56, 189, 248, 0.12)'
-          : glass.fill;
+          ? `${theme.palette.tertiary}1F`
+          : theme.glass.fill;
   const border =
     tone === 'primary'
-      ? 'rgba(129, 140, 248, 0.25)'
+      ? `${theme.palette.primary}40`
       : tone === 'secondary'
-        ? 'rgba(244, 114, 182, 0.25)'
+        ? `${theme.palette.secondary}40`
         : tone === 'tertiary'
-          ? 'rgba(56, 189, 248, 0.25)'
-          : glass.stroke;
+          ? `${theme.palette.tertiary}40`
+          : theme.glass.stroke;
 
   return <View style={[styles.chip, { backgroundColor: bg, borderColor: border }, style]}>{children}</View>;
 }

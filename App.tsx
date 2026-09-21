@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { colors, typography } from './src/theme/theme';
+import { AppearanceProvider, useAppearance } from './src/context/AppearanceContext';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -145,9 +146,19 @@ export default function App() {
   }, [fontsLoaded, fontError]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, width: '100%', height: '100%', backgroundColor: colors.appChrome }}>
-      <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.appChrome }}>
-        <StatusBar style="light" backgroundColor={colors.appRoot} />
+    <AppearanceProvider>
+      <AppShell />
+    </AppearanceProvider>
+  );
+}
+
+function AppShell() {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
+  return (
+    <GestureHandlerRootView style={{ flex: 1, width: '100%', height: '100%', backgroundColor: palette.appChrome }}>
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: palette.appChrome }}>
+        <StatusBar style={theme.isDark ? 'light' : 'dark'} backgroundColor={palette.appRoot} />
         {/* SDK 54 forces edge-to-edge on Android — the status/nav bars are
             always transparent and `androidNavigationBar` in app.json is
             dead config (no plugin reads it). This is the actual control
@@ -155,7 +166,7 @@ export default function App() {
             are transparent and the app's own dark background (set via
             expo-system-ui's activityBackground) shows straight through
             instead of the OS default white. */}
-        <SystemBars style="light" />
+        <SystemBars style={theme.isDark ? 'light' : 'dark'} />
         <ErrorBoundary>
           <AuthProvider>
             <RootNavigator />
