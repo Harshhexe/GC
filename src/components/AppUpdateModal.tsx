@@ -29,20 +29,20 @@ const CHANGELOG_ITEMS = [
   {
     icon: 'sparkles' as const,
     color: '#8B5CF6',
-    title: 'Next-Gen AI Intelligence',
-    desc: 'Catch-up completely redesigned with React Bits spotlight cards, cosmic aurora backgrounds, and live decrypted sci-fi telemetry.',
+    title: 'Minimalist Daily Wrapped',
+    desc: 'Uncluttered, airy layout with bold vibe decrypted typography, unified activity pill bar, and seamless Spotify-Wrapped aesthetic.',
   },
   {
-    icon: 'cafe' as const,
-    color: '#F59E0B',
-    title: 'Tea & Awards Unleashed',
-    desc: 'Live drama reports and weekly trophy ceremonies now feature pulsating AI cores, glowing neon badges, and bento stat matrices.',
-  },
-  {
-    icon: 'trophy' as const,
+    icon: 'grid' as const,
     color: '#10B981',
-    title: 'Futuristic Daily Recap & Wordy',
-    desc: 'Daily wrapped reveals with interactive decrypted keywords, glowing glass cards, and high-stakes Wordy leaderboards.',
+    title: 'Streamlined Wordy Arena',
+    desc: 'Clean single-row word reveal and leaderboard, completely free of bulky boxes or awkward spacing.',
+  },
+  {
+    icon: 'flash' as const,
+    color: '#F472B6',
+    title: 'React Bits AI Experience',
+    desc: 'Native iOS glassmorphic spotlight cards, ambient aurora lighting, and animated decrypted text across all AI recap screens.',
   },
 ];
 

@@ -15,11 +15,8 @@ import { AIStoryHero } from './ui/AIStoryHero';
 import {
   AuroraBackground,
   SpotlightCard,
-  ShinyText,
   DecryptedText,
   NeonBadge,
-  AIPulsingCore,
-  BentoStatBox,
 } from './reactbits';
 import { supabase } from '../lib/supabase';
 import type { DailyRecapResult } from '../lib/ai';
@@ -180,30 +177,22 @@ export function DailyRecapModal({
   const modalBody = (
     <>
       <SpotlightCard
-        spotlightColor={`${gradientColors[0]}44`}
-        borderColor={`${gradientColors[0]}55`}
-        borderRadius={26}
+        spotlightColor={`${gradientColors[0]}33`}
+        borderColor={`${gradientColors[0]}44`}
+        borderRadius={24}
         style={styles.heroCard}
       >
         <View style={styles.recapHeroInner}>
           <View style={styles.recapHeroTopRow}>
-            <AIPulsingCore accentColor={gradientColors[0]} size={46} icon="sparkles" />
-            <View style={styles.recapHeroBadgeCol}>
-              <NeonBadge label="THE DAILY RECAP" color={gradientColors[0]} />
-              <ShinyText
-                text="AI INTELLIGENCE REPORT • DAY / 01"
-                style={styles.recapHeroShimmer}
-                shineColor="#FFFFFF"
-                baseColor="rgba(255, 255, 255, 0.65)"
-              />
-            </View>
+            <NeonBadge label={`DAILY WRAPPED • ${dateLabel.toUpperCase()}`} color={gradientColors[0]} />
           </View>
 
           <View style={styles.recapHeroTitleWrap}>
+            <Text style={styles.recapHeroKicker}>TODAY'S VIBE</Text>
             <DecryptedText
               text={recap.oneWord.toUpperCase()}
               style={styles.recapHeroTitle}
-              speed={32}
+              speed={28}
             />
             <Text style={styles.recapHeroDesc}>
               {recap.truncated
@@ -212,28 +201,20 @@ export function DailyRecapModal({
             </Text>
           </View>
 
-          <View style={styles.recapBentoRow}>
-            <BentoStatBox
-              icon="calendar"
-              iconColor={gradientColors[0]}
-              value={dateLabel.split(',')[0]}
-              label="Day"
-              sublabel={dateLabel.split(',')[1]?.trim() || 'Today'}
-            />
-            <BentoStatBox
-              icon="chatbubble-ellipses"
-              iconColor={gradientColors[1]}
-              value={recap.totalMessages}
-              label="Messages"
-              sublabel="Activity"
-            />
-            <BentoStatBox
-              icon={recap.userOfTheDay ? 'flame' : 'sparkles'}
-              iconColor="#F59E0B"
-              value={recap.userOfTheDay?.name || 'All Active'}
-              label="Top Contributor"
-              sublabel={recap.userOfTheDay ? `${recap.userOfTheDay.messageCount} msgs` : 'Squad'}
-            />
+          <View style={styles.recapStatPillRow}>
+            <View style={styles.recapPillItem}>
+              <Ionicons name="chatbubbles" size={13} color={gradientColors[0]} />
+              <Text style={styles.recapPillText}>
+                <Text style={styles.recapPillBold}>{recap.totalMessages}</Text> messages
+              </Text>
+            </View>
+            <View style={styles.recapPillDivider} />
+            <View style={styles.recapPillItem}>
+              <Ionicons name="sparkles" size={12} color="#FFD166" />
+              <Text style={styles.recapPillText} numberOfLines={1}>
+                {recap.userOfTheDay ? `Top: ${recap.userOfTheDay.name}` : 'Squad active'}
+              </Text>
+            </View>
           </View>
         </View>
       </SpotlightCard>
@@ -318,18 +299,15 @@ export function DailyRecapModal({
           )}
         </View>
 
-        {/* Leaderboard & Guessers List */}
-        <View style={styles.guessersList}>
-          <Text style={styles.guessersSectionTitle}>GC WORDY LEADERBOARD</Text>
-          {wordleTop3.length === 0 ? (
-            <View style={styles.emptyGuessers}>
-              <Text style={styles.emptyGuessersEmoji}>☕</Text>
-              <Text style={styles.emptyGuessersText}>
-                No one has played today's Wordy yet. Be #1!
-              </Text>
-            </View>
-          ) : (
-            wordleTop3.map((guesser, idx) => {
+        {/* Leaderboard or elegant subtle note */}
+        {wordleTop3.length === 0 ? (
+          <Text style={styles.emptyGuessersText}>
+            No one has solved today's Wordy yet. Be the first!
+          </Text>
+        ) : (
+          <View style={styles.guessersList}>
+            <Text style={styles.guessersSectionTitle}>GC LEADERBOARD</Text>
+            {wordleTop3.map((guesser, idx) => {
               const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
               return (
                 <View key={guesser.user_id} style={styles.guesserRow}>
@@ -374,9 +352,9 @@ export function DailyRecapModal({
                   </View>
                 </View>
               );
-            })
-          )}
-        </View>
+            })}
+          </View>
+        )}
       </StatCard>
 
       {/* Message of the Day */}
@@ -663,8 +641,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 760,
     alignSelf: 'center',
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xl,
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
     paddingTop: spacing.sm,
   },
   hero: {
@@ -731,8 +709,8 @@ const styles = StyleSheet.create({
 
   // Stat Card
   card: {
-    padding: spacing.xl,
-    gap: spacing.md,
+    padding: spacing.lg,
+    gap: spacing.sm,
     backgroundColor: colors.surfaceLow,
     borderWidth: 1,
     borderColor: colors.borderBright,
@@ -1029,7 +1007,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   heroCard: {
-    padding: spacing.lg,
+    padding: spacing.xl,
     overflow: 'hidden',
   },
   recapHeroInner: {
@@ -1038,35 +1016,63 @@ const styles = StyleSheet.create({
   recapHeroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-  },
-  recapHeroBadgeCol: {
-    gap: 3,
-  },
-  recapHeroShimmer: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    justifyContent: 'flex-start',
   },
   recapHeroTitleWrap: {
-    gap: 6,
+    gap: 4,
+    marginVertical: 2,
+  },
+  recapHeroKicker: {
+    ...typography.micro,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: '#94A3B8',
   },
   recapHeroTitle: {
     ...typography.displayXl,
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: '900',
     color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
   recapHeroDesc: {
     ...typography.body,
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.onSurfaceVariant,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.72)',
   },
-  recapBentoRow: {
+  recapStatPillRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 12,
+    marginTop: 4,
+  },
+  recapPillItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+  },
+  recapPillDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  recapPillText: {
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: '500',
+  },
+  recapPillBold: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
 });
