@@ -10,12 +10,22 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CONTAINER_MARGIN, colors, radius, spacing, typography, glass, shadows } from '../theme/theme';
+import { CONTAINER_MARGIN, colors, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { Avatar } from './ui/Avatar';
 import { PressableScale } from './ui/PressableScale';
 import { AIThinking } from './ui/AIState';
+import { AIStoryHero } from './ui/AIStoryHero';
 import { GCButton } from './ui/Buttons';
+import {
+  AuroraBackground,
+  SpotlightCard,
+  ShinyText,
+  DecryptedText,
+  NeonBadge,
+  AIPulsingCore,
+  BentoStatBox,
+} from './reactbits';
 import type { Award, AwardType, WeeklyAwardsResult } from '../lib/ai';
 
 type AwardTheme = {
@@ -127,17 +137,14 @@ function dateLabel(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-/** A restrained gold wash gives awards their own place in the app. */
 function GoldenAwardsBackground() {
   return (
-    <View style={[StyleSheet.absoluteFill, styles.goldenBgRoot]} pointerEvents="none">
-      <LinearGradient
-        colors={['rgba(251,191,36,0.08)', colors.appRoot, colors.appRoot]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-    </View>
+    <AuroraBackground
+      color1="#F59E0B"
+      color2="#D97706"
+      color3="#FBBF24"
+      opacity={0.38}
+    />
   );
 }
 
@@ -308,8 +315,8 @@ function AwardCard({
         style={[
           styles.card,
           {
-            borderColor: theme.borderColor,
-            backgroundColor: 'rgba(24, 19, 10, 0.78)',
+            borderColor: `${theme.color}55`,
+            backgroundColor: colors.surfaceLow,
           },
         ]}
       >
@@ -324,9 +331,6 @@ function AwardCard({
           end={{ x: 1, y: 0 }}
           style={styles.cardAccentBar}
         />
-
-        {/* Ambient Top Glow */}
-        <View style={[styles.cardGlowCircle, { backgroundColor: theme.glowColor }]} />
 
         {/* Header Eyebrow & Tag */}
         <View style={styles.cardHeader}>
@@ -455,54 +459,57 @@ export function GCAwardsModal({
 
   const modalBody = (
     <>
-      {/* Ceremony Hero */}
-      <Animated.View
-        entering={FadeIn.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
-        style={styles.hero}
+      <SpotlightCard
+        spotlightColor="rgba(251, 191, 36, 0.28)"
+        borderColor="rgba(251, 191, 36, 0.35)"
+        borderRadius={26}
+        style={styles.heroSpotlight}
       >
-        {/* Glowing Trophy Crest */}
-        <View style={styles.crestWrapper}>
-          <LinearGradient
-            colors={['#FDE047', '#F59E0B', '#D97706']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.crestBorder}
-          >
-            <View style={styles.crestInner}>
-              <Text style={styles.crestEmoji}>🏆</Text>
-            </View>
-          </LinearGradient>
-          <View style={styles.crestBackGlow} />
-        </View>
-
-        <Text style={styles.ceremonyEyebrow}>WEEKLY WRAPPED & HONORS</Text>
-        <Text style={styles.dateRange}>
-          {dateLabel(result.weekStart)} — {dateLabel(result.weekEnd)}
-        </Text>
-
-        {!generating && !failed && (
-          <View style={styles.statsRow}>
-            <View style={styles.statPill}>
-              <Ionicons name="chatbubbles" size={13} color={colors.primary} />
-              <Text style={styles.statPillText}>
-                {result.messageCount.toLocaleString()} messages judged
-              </Text>
-            </View>
-            <View style={styles.statPill}>
-              <Ionicons name="ribbon" size={13} color="#FBBF24" />
-              <Text style={styles.statPillText}>
-                {result.awards.length} title{result.awards.length === 1 ? '' : 's'} awarded
-              </Text>
+        <View style={styles.awardsHeroInner}>
+          <View style={styles.awardsHeroTopRow}>
+            <AIPulsingCore accentColor="#F59E0B" size={46} icon="trophy" />
+            <View style={styles.awardsHeroBadgeCol}>
+              <NeonBadge label="WEEKLY HONORS" color="#FDE047" />
+              <ShinyText
+                text="CEREMONY / 01"
+                style={styles.awardsHeroShimmer}
+                shineColor="#FFFFFF"
+                baseColor="rgba(253, 224, 71, 0.7)"
+              />
             </View>
           </View>
-        )}
 
-        {!generating && !failed && result.awards.length > 0 && (
-          <Text style={styles.heroSubtitle}>
-            The receipts have been audited. The verdicts are final. 💀
-          </Text>
-        )}
-      </Animated.View>
+          <View style={styles.awardsHeroTitleWrap}>
+            <DecryptedText
+              text="Your week, awarded."
+              style={styles.awardsHeroTitle}
+              speed={28}
+            />
+            <Text style={styles.awardsHeroDesc}>
+              {dateLabel(result.weekStart)} — {dateLabel(result.weekEnd)} · The moments and people your GC will remember.
+            </Text>
+          </View>
+
+          {!generating && !failed && (
+            <View style={styles.awardsBentoRow}>
+              <BentoStatBox
+                icon="chatbubbles"
+                iconColor="#F59E0B"
+                value={result.messageCount.toLocaleString()}
+                label="Messages"
+                sublabel="Analyzed"
+              />
+              <BentoStatBox
+                icon="ribbon"
+                iconColor="#FDE047"
+                value={result.awards.length}
+                label="Titles Awarded"
+                sublabel="Hall of fame"
+              />
+            </View>
+          )}
+        </View>
+      </SpotlightCard>
 
       {/* GC AI's overall take on the week — separate from any one
           category, the way a Tea Report's title sits above its receipts. */}
@@ -650,7 +657,7 @@ export function GCAwardsModal({
                 </PressableScale>
                 <View style={styles.webHeaderTitles}>
                   <Text style={styles.webHeaderTitle}>GC Awards</Text>
-                  <Text style={styles.webHeaderSub}>Weekly Wrapped & Honors</Text>
+                  <Text style={styles.webHeaderSub}>The week's people and moments</Text>
                 </View>
               </View>
 
@@ -838,11 +845,50 @@ const styles = StyleSheet.create({
   },
   scroll: {
     width: '100%',
-    maxWidth: 720,
+    maxWidth: 760,
     alignSelf: 'center',
     paddingHorizontal: CONTAINER_MARGIN,
     paddingTop: spacing.xs,
-    gap: spacing.lg,
+    gap: spacing.xl,
+  },
+  heroSpotlight: {
+    marginBottom: spacing.xs,
+  },
+  awardsHeroInner: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  awardsHeroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  awardsHeroBadgeCol: {
+    gap: 4,
+  },
+  awardsHeroShimmer: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  awardsHeroTitleWrap: {
+    gap: 6,
+  },
+  awardsHeroTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  awardsHeroDesc: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    lineHeight: 20,
+  },
+  awardsBentoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: spacing.xs,
   },
   webModalLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -857,12 +903,12 @@ const styles = StyleSheet.create({
   },
   webCard: {
     width: '100%',
-    maxWidth: 1040,
-    maxHeight: 780,
+    maxWidth: 800,
+    maxHeight: 820,
     flex: 1,
     borderRadius: radius.xl,
     overflow: 'hidden',
-    backgroundColor: colors.bgElevated,
+    backgroundColor: colors.appRoot,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
     shadowColor: '#000',
@@ -903,11 +949,13 @@ const styles = StyleSheet.create({
     padding: CONTAINER_MARGIN,
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl + 20,
-    gap: spacing.lg,
+    gap: spacing.xl,
     width: '100%',
-    maxWidth: 720,
+    maxWidth: 760,
     alignSelf: 'center',
   },
+  heroDetails: { flexDirection: 'row', alignItems: 'center', gap: 20, flexWrap: 'wrap' },
+  heroDetail: { ...typography.micro, fontSize: 10, fontWeight: '800', letterSpacing: 0.9, color: colors.onSurface },
   hero: {
     alignItems: 'center',
     paddingVertical: spacing.sm,
@@ -991,12 +1039,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   verdictCard: {
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    backgroundColor: colors.surfaceLow,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.22)',
-    padding: spacing.lg,
-    gap: spacing.xs,
+    borderColor: colors.borderBright,
+    padding: spacing.xl,
+    gap: spacing.sm,
   },
   verdictHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   verdictEyebrow: {
@@ -1058,13 +1106,13 @@ const styles = StyleSheet.create({
   // Grand Yapper Champion Card
   yapperCard: {
     borderRadius: radius.xl,
-    borderWidth: 1.5,
-    borderColor: 'rgba(253, 224, 71, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(233, 189, 105, 0.34)',
     padding: spacing.xl,
     gap: spacing.lg,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: 'rgba(24, 18, 7, 0.85)',
+    backgroundColor: colors.surfaceLow,
   },
   yapperAccentBar: {
     position: 'absolute',
@@ -1122,7 +1170,7 @@ const styles = StyleSheet.create({
     width: 104,
     height: 104,
     borderRadius: 52,
-    backgroundColor: 'rgba(245, 158, 11, 0.40)',
+    backgroundColor: 'rgba(233, 189, 105, 0.13)',
   },
   yapperAnonAvatar: {
     width: 88,
@@ -1195,11 +1243,11 @@ const styles = StyleSheet.create({
     color: '#FDE047',
   },
   yapperReasonBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    padding: spacing.md,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.22)',
+    borderColor: colors.borderBright,
     gap: 6,
   },
   yapperReasonHead: {
@@ -1245,8 +1293,8 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.xl,
-    borderWidth: 1.5,
-    padding: spacing.lg,
+    borderWidth: 1,
+    padding: spacing.xl,
     gap: spacing.md,
     overflow: 'hidden',
     position: 'relative',

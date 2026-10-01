@@ -15,6 +15,16 @@ import {
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
 import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
+import {
+  AuroraBackground,
+  SpotlightCard,
+  ShinyText,
+  DecryptedText,
+  AIPulsingCore,
+  NeonBadge,
+  ElasticTabBar,
+  BentoStatBox,
+} from '../components/reactbits';
 import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
 import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
@@ -35,6 +45,8 @@ import { useWeeklyAwards } from '../hooks/useWeeklyAwards';
 import { GCAwardsModal } from '../components/GCAwardsModal';
 import type { WeeklyAwardsResult } from '../lib/ai';
 import { AIThinking, AIErrorState } from '../components/ui/AIState';
+import { AIStoryHero } from '../components/ui/AIStoryHero';
+import { AIEmptyStory } from '../components/ui/AIEmptyStory';
 import { DailyRecapModal } from '../components/DailyRecapModal';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -46,24 +58,21 @@ import type { RootStackParamList } from '../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'WhatDidIMiss'>;
 type MissedTab = 'missed' | 'tea' | 'pulse' | 'names';
 
-const TABS: { id: MissedTab; label: string }[] = [
-  { id: 'missed', label: 'Missed' },
-  { id: 'tea', label: 'Tea' },
-  { id: 'pulse', label: 'Stats' },
-  { id: 'names', label: 'Names' },
+const TABS: { id: MissedTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'missed', label: 'Catch up', icon: 'sparkles-outline' },
+  { id: 'tea', label: 'Stories', icon: 'cafe-outline' },
+  { id: 'pulse', label: 'Pulse', icon: 'pulse-outline' },
+  { id: 'names', label: 'Names', icon: 'pricetag-outline' },
 ];
 
-/** A restrained tint keeps this long reading screen comfortable. */
 function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]} pointerEvents="none">
-      <LinearGradient
-        colors={[`${theme.accent}0D`, 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-    </View>
+    <AuroraBackground
+      color1={theme.accent}
+      color2={theme.colors[1] ?? '#A855F7'}
+      color3="#38BDF8"
+      opacity={0.34}
+    />
   );
 }
 
@@ -86,7 +95,7 @@ function Section({
   delay: number;
   onLayout?: (event: LayoutChangeEvent) => void;
   highlighted?: boolean;
-  /** Marks the section's contents as model-written. See the chip below. */
+  /** Marks the section's contents as model-written. */
   aiGenerated?: boolean;
 }) {
   return (
@@ -97,39 +106,37 @@ function Section({
         .easing(easing.out)
         .reduceMotion(reduceMotion)}
     >
-      <GlassPanel
-        borderRadius={radius.lg}
+      <SpotlightCard
+        spotlightColor={`${iconColor}22`}
+        borderColor={highlighted ? colors.yellow : 'rgba(255, 255, 255, 0.10)'}
+        borderRadius={24}
         style={[
           styles.card,
           highlighted && {
-            borderColor: colors.yellow,
             borderWidth: 1.5,
             shadowColor: colors.yellow,
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.35,
-            shadowRadius: 10,
+            shadowRadius: 12,
           },
         ]}
       >
         <View style={styles.cardHeader}>
-          <Ionicons name={icon} size={18} color={iconColor} />
+          <View style={[styles.cardIcon, { backgroundColor: `${iconColor}22`, borderColor: `${iconColor}44`, borderWidth: 1 }]}>
+            <Ionicons name={icon} size={16} color={iconColor} />
+          </View>
           <Text style={styles.cardTitle} accessibilityRole="header">
             {title}
           </Text>
-          {/* Says outright that a model wrote this. The sparkles icon hinted at
-              it, but a hint isn't attribution — and these summaries can be
-              wrong in ways a human-written recap wouldn't be. */}
           {aiGenerated && (
-            <View style={[styles.aiChip, { borderColor: `${iconColor}59` }]}>
-              <Text style={[styles.aiChipText, { color: iconColor }]}>AI</Text>
-            </View>
+            <NeonBadge label="AI" color={iconColor} showDot={false} />
           )}
           <View style={styles.spacer} />
           {trailing}
         </View>
         <View style={styles.divider} />
         {children}
-      </GlassPanel>
+      </SpotlightCard>
     </Animated.View>
   );
 }
@@ -154,33 +161,38 @@ function HighlightCard({
   onJump: (messageId: string) => void;
 }) {
   const style = CATEGORY_STYLE[highlight.category] ?? CATEGORY_STYLE.convo;
-  // The server drops any highlight whose citations didn't survive validation,
-  // so a card on screen always has at least one real message to jump to.
   const target = highlight.messageIds[0];
 
   return (
-    <View style={[styles.highlight, { borderColor: `${style.color}44` }]}>
-      <View style={styles.highlightHead}>
-        <Text style={styles.highlightEmoji}>{style.emoji}</Text>
-        <Text style={[styles.highlightTitle, { color: style.color }]}>
-          {highlight.title.toUpperCase()}
-        </Text>
-      </View>
-      <Text style={styles.highlightBody}>{highlight.summary}</Text>
-      {!!target && (
-        <PressableScale
-          style={styles.viewMessage}
-          scaleTo={0.97}
-          haptic="light"
-          onPress={() => onJump(target)}
-        >
-          <Ionicons name="arrow-forward-circle-outline" size={15} color={style.color} />
-          <Text style={[styles.viewMessageText, { color: style.color }]}>
-            View message{highlight.messageIds.length > 1 ? 's' : ''}
+    <SpotlightCard
+      spotlightColor={`${style.color}25`}
+      borderColor={`${style.color}35`}
+      borderRadius={18}
+      style={styles.highlight}
+    >
+      <View style={styles.highlightInner}>
+        <View style={styles.highlightHead}>
+          <NeonBadge label={highlight.category.toUpperCase()} color={style.color} />
+          <Text style={[styles.highlightTitle, { color: style.color }]} numberOfLines={1}>
+            {highlight.title}
           </Text>
-        </PressableScale>
-      )}
-    </View>
+        </View>
+        <Text style={styles.highlightBody}>{highlight.summary}</Text>
+        {!!target && (
+          <PressableScale
+            style={[styles.viewMessage, { backgroundColor: `${style.color}15`, borderColor: `${style.color}35` }]}
+            scaleTo={0.97}
+            haptic="light"
+            onPress={() => onJump(target)}
+          >
+            <Ionicons name="arrow-forward-circle-outline" size={15} color={style.color} />
+            <Text style={[styles.viewMessageText, { color: style.color }]}>
+              View message{highlight.messageIds.length > 1 ? 's' : ''}
+            </Text>
+          </PressableScale>
+        )}
+      </View>
+    </SpotlightCard>
   );
 }
 
@@ -250,30 +262,37 @@ function RecapCard({
   isLast: boolean;
 }) {
   return (
-    <View style={[styles.recapCard, isLast && styles.recapCardLast]}>
-      <View style={styles.recapCardHead}>
-        <View style={styles.recapHeadInfo}>
-          <Text style={styles.aiHeadline}>{entry.headline}</Text>
-          <View style={styles.recapMetaRow}>
-            <Text style={styles.recapTime}>{timeAgo(entry.createdAt)}</Text>
-            <RecapTimerBadge createdAt={entry.createdAt} now={now} accentColor={accentColor} />
+    <SpotlightCard
+      spotlightColor={`${accentColor ?? '#818CF8'}25`}
+      borderColor="rgba(255, 255, 255, 0.12)"
+      borderRadius={22}
+      style={[styles.recapCard, isLast && styles.recapCardLast]}
+    >
+      <View style={styles.recapInner}>
+        <View style={styles.recapCardHead}>
+          <View style={styles.recapHeadInfo}>
+            <Text style={styles.aiHeadline}>{entry.headline}</Text>
+            <View style={styles.recapMetaRow}>
+              <Text style={styles.recapTime}>{timeAgo(entry.createdAt)}</Text>
+              <RecapTimerBadge createdAt={entry.createdAt} now={now} accentColor={accentColor} />
+            </View>
           </View>
         </View>
+        <Text style={styles.aiSummary}>{entry.summary}</Text>
+
+        <View style={styles.highlightsStack}>
+          {entry.highlights.map((h, i) => (
+            <HighlightCard key={`${entry.id}-${h.category}-${i}`} highlight={h} onJump={onJump} />
+          ))}
+        </View>
+
+        {entry.truncated && (
+          <Text style={styles.aiFootnote}>
+            You missed more than this — showing the most recent {entry.messageCount} messages.
+          </Text>
+        )}
       </View>
-      <Text style={styles.aiSummary}>{entry.summary}</Text>
-
-      {entry.highlights.map((h, i) => (
-        <HighlightCard key={`${entry.id}-${h.category}-${i}`} highlight={h} onJump={onJump} />
-      ))}
-
-      {/* Said out loud rather than hidden — a recap of part of a range
-          shouldn't look like a recap of all of it. */}
-      {entry.truncated && (
-        <Text style={styles.aiFootnote}>
-          You missed more than this — showing the most recent {entry.messageCount} messages.
-        </Text>
-      )}
-    </View>
+    </SpotlightCard>
   );
 }
 
@@ -287,19 +306,27 @@ function dateRowLabel(date: string): string {
 
 function DailyRecapRow({ entry, onPress }: { entry: DailyRecapResult; onPress: () => void }) {
   return (
-    <PressableScale style={styles.dailyRow} scaleTo={0.98} haptic="light" onPress={onPress}>
-      <View style={styles.dailyRowDate}>
-        <Text style={styles.dailyRowDateText}>{dateRowLabel(entry.date)}</Text>
+    <SpotlightCard
+      spotlightColor="rgba(244, 114, 182, 0.2)"
+      borderColor="rgba(255, 255, 255, 0.08)"
+      borderRadius={16}
+      onPress={onPress}
+      style={styles.dailyRow}
+    >
+      <View style={styles.dailyRowInner}>
+        <View style={styles.dailyRowDate}>
+          <Text style={styles.dailyRowDateText}>{dateRowLabel(entry.date)}</Text>
+        </View>
+        <View style={styles.dailyRowCopy}>
+          <Text style={styles.dailyRowWord}>{entry.oneWord}</Text>
+          <Text style={styles.dailyRowMeta}>
+            {entry.totalMessages} message{entry.totalMessages === 1 ? '' : 's'}
+            {entry.userOfTheDay ? ` · ${entry.userOfTheDay.name}` : ''}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.outline} />
       </View>
-      <View style={styles.dailyRowCopy}>
-        <Text style={styles.dailyRowWord}>{entry.oneWord}</Text>
-        <Text style={styles.dailyRowMeta}>
-          {entry.totalMessages} message{entry.totalMessages === 1 ? '' : 's'}
-          {entry.userOfTheDay ? ` · ${entry.userOfTheDay.name}` : ''}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.outline} />
-    </PressableScale>
+    </SpotlightCard>
   );
 }
 
@@ -320,29 +347,35 @@ function WeeklyAwardsRow({
 }) {
   const topAward = result.awards[0];
   return (
-    <PressableScale style={styles.awardsRow} scaleTo={0.98} haptic="light" onPress={onPress}>
-      <Text style={styles.awardsRowEmoji}>
-        {result.status === 'generating' ? '⏳' : result.status === 'failed' ? '💀' : '🏆'}
-      </Text>
-      <View style={styles.dailyRowCopy}>
-        <Text style={styles.awardsRowTitle} numberOfLines={1}>
-          {isThisWeek ? "This Week's Awards" : weekRangeLabel(result.weekStart, result.weekEnd)}
+    <SpotlightCard
+      spotlightColor="rgba(251, 191, 36, 0.25)"
+      borderColor="rgba(251, 191, 36, 0.3)"
+      borderRadius={16}
+      onPress={onPress}
+      style={styles.awardsRow}
+    >
+      <View style={styles.awardsRowInner}>
+        <Text style={styles.awardsRowEmoji}>
+          {result.status === 'generating' ? '⏳' : result.status === 'failed' ? '💀' : '🏆'}
         </Text>
-        <Text style={styles.dailyRowMeta} numberOfLines={1}>
-          {result.status === 'generating'
-            ? 'Judging...'
-            : result.status === 'failed'
-              ? 'Retrying automatically'
-              : // GC's own headline for the week beats a generic "top award"
-                // line — it's the thing the AI actually wants said about the week.
-                result.title ||
-                (topAward
-                  ? `${topAward.emoji} ${topAward.title}: ${topAward.userName}`
-                  : 'Not enough activity for awards')}
-        </Text>
+        <View style={styles.dailyRowCopy}>
+          <Text style={styles.awardsRowTitle} numberOfLines={1}>
+            {isThisWeek ? "This Week's Awards" : weekRangeLabel(result.weekStart, result.weekEnd)}
+          </Text>
+          <Text style={styles.dailyRowMeta} numberOfLines={1}>
+            {result.status === 'generating'
+              ? 'Judging...'
+              : result.status === 'failed'
+                ? 'Retrying automatically'
+                : result.title ||
+                  (topAward
+                    ? `${topAward.emoji} ${topAward.title}: ${topAward.userName}`
+                    : 'Not enough activity for awards')}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.outline} />
       </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.outline} />
-    </PressableScale>
+    </SpotlightCard>
   );
 }
 
@@ -551,71 +584,136 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
     <View style={styles.root}>
       <ThemedGlowBackground theme={activeTheme} />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <AppHeader
-          tone="dark"
-          title="Catch up"
-          subtitle={groupName}
-          left={<HeaderIconButton tone="dark" name="arrow-back" onPress={() => navigation.goBack()} />}
-          right={<Avatar emoji={profile?.avatar_emoji} imageUrl={profile?.avatar_url} label={profile?.display_name} size={36} />}
-        />
+        {/* React Bits Floating Header */}
+        <View style={styles.modernTopBar}>
+          <PressableScale
+            style={styles.topBackCircle}
+            scaleTo={0.92}
+            haptic="light"
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </PressableScale>
 
-        {/* Compact Hero */}
-        <Animated.View
-          entering={FadeInDown.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
-          style={styles.hero}
-        >
-          <Text style={styles.heroTitle} accessibilityRole="header">
-            What you missed
-          </Text>
-          <Text style={styles.heroSub}>
-            Your GC, at a glance.
-          </Text>
-        </Animated.View>
+          <View style={styles.topBarCenter}>
+            <Text style={styles.topBarGroupName} numberOfLines={1}>{groupName ?? 'GC'}</Text>
+            <View style={styles.topBarStatusBadge}>
+              <View style={[styles.topLiveDot, { backgroundColor: activeTheme.accent }]} />
+              <ShinyText text="GC INTELLIGENCE" style={styles.topBarStatusText} shineColor="#FFFFFF" baseColor="rgba(255, 255, 255, 0.6)" />
+            </View>
+          </View>
 
-        {/* Segmented Control Track */}
-        <View style={styles.tabTrack} accessibilityRole="tablist">
-          {TABS.map((t) => {
-            const isActive = activeTab === t.id;
-            let badgeCount: string | undefined;
-            if (t.id === 'missed' && recap.mentions.length > 0) {
-              badgeCount = String(recap.mentions.length);
-            } else if (t.id === 'tea' && todaysTea.sessions.length > 0) {
-              badgeCount = String(todaysTea.sessions.length);
-            } else if (t.id === 'pulse' && recap.missedElevenEleven.length > 0) {
-              badgeCount = String(recap.missedElevenEleven.length);
-            }
-
-            return (
-              <PressableScale
-                key={t.id}
-                scaleTo={0.97}
-                haptic="light"
-                onPress={() => handleTabChange(t.id)}
-                // Without these a screen reader announces three unlabelled
-                // buttons and never says which one is showing.
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isActive }}
-                accessibilityLabel={
-                  badgeCount ? `${t.label}, ${badgeCount} new` : t.label
-                }
-                style={[styles.tab, isActive && styles.tabActive]}
-              >
-                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-                  {t.label}
-                </Text>
-                {!!badgeCount && (
-                  <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                    <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                      {badgeCount}
-                    </Text>
-                  </View>
-                )}
-              </PressableScale>
-            );
-          })}
+          <Avatar
+            emoji={profile?.avatar_emoji}
+            imageUrl={profile?.avatar_url}
+            label={profile?.display_name}
+            size={38}
+            ring
+            ringColors={activeTheme.colors}
+          />
         </View>
 
+        {/* React Bits Elastic Segmented Tabs */}
+        <ElasticTabBar
+          tabs={[
+            {
+              id: 'missed',
+              label: 'Catch Up',
+              icon: 'sparkles-outline',
+              badge: recap.mentions.length > 0 ? recap.mentions.length : undefined,
+            },
+            {
+              id: 'tea',
+              label: 'Stories',
+              icon: 'cafe-outline',
+              badge: todaysTea.sessions.length > 0 ? todaysTea.sessions.length : undefined,
+            },
+            {
+              id: 'pulse',
+              label: 'Pulse',
+              icon: 'pulse-outline',
+              badge: recap.missedElevenEleven.length > 0 ? recap.missedElevenEleven.length : undefined,
+            },
+            {
+              id: 'names',
+              label: 'Names',
+              icon: 'pricetag-outline',
+            },
+          ]}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          accentColor={activeTheme.accent}
+        />
+
         <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* React Bits AI Hero */}
+          <SpotlightCard
+            spotlightColor={`${activeTheme.accent}26`}
+            borderColor="rgba(255, 255, 255, 0.12)"
+            borderRadius={26}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroInner}>
+              <View style={styles.heroTopRow}>
+                <AIPulsingCore accentColor={activeTheme.accent} size={46} icon="sparkles" />
+                <View style={styles.heroBadgeCol}>
+                  <NeonBadge label="LIVE INTELLIGENCE" color={activeTheme.accent} />
+                  <ShinyText
+                    text="NEURAL DIGEST"
+                    style={styles.heroShimmerText}
+                    shineColor="#FFFFFF"
+                    baseColor="rgba(255, 255, 255, 0.6)"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.heroTitleWrap}>
+                <DecryptedText
+                  text="The Story So Far."
+                  style={styles.heroTitle}
+                  speed={30}
+                />
+                <Text style={styles.heroDescription}>
+                  The highlights, spicy plot twists, and secret mentions from {groupName}. All in one place.
+                </Text>
+              </View>
+
+              {/* Bento Stat Grid */}
+              <View style={styles.bentoStatsGrid}>
+                <BentoStatBox
+                  icon="at"
+                  iconColor="#A78BFA"
+                  value={recap.mentions.length + privateForMe.length}
+                  label="Mentions"
+                  sublabel="For you"
+                />
+                <BentoStatBox
+                  icon="cafe"
+                  iconColor="#F59E0B"
+                  value={todaysTea.sessions.length}
+                  label="Tea Stories"
+                  sublabel="Spilled"
+                />
+                <BentoStatBox
+                  icon="calendar"
+                  iconColor="#F472B6"
+                  value={dailyHistory.entries.length}
+                  label="Daily Drops"
+                  sublabel="Archive"
+                />
+                <BentoStatBox
+                  icon="people"
+                  iconColor="#38BDF8"
+                  value={members.length}
+                  label="Members"
+                  sublabel="Active"
+                />
+              </View>
+            </View>
+          </SpotlightCard>
+
           {/* TAB 1: MISSED (Vibe, AI Highlights & Mentions) */}
           {activeTab === 'missed' && (
             <>
@@ -626,31 +724,21 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                   .easing(easing.out)
                   .reduceMotion(reduceMotion)}
               >
-                <GlassPanel
-                  borderRadius={radius.lg}
-                  style={[styles.vibeCard, { borderColor: colors.border, backgroundColor: colors.surfaceLow }]}
+                <SpotlightCard
+                  spotlightColor={`${activeTheme.accent}28`}
+                  borderColor={`${activeTheme.accent}38`}
+                  borderRadius={22}
+                  style={styles.vibeCard}
                 >
-                  <View style={styles.vibeLabelRow}>
-                    <Ionicons name="pulse" size={12} color={activeTheme.accent} />
-                    <Text style={[styles.vibeLabel, { color: colors.onSurfaceVariant }]}>
-                      Today's mood
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.vibePill,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.surfaceHigh,
-                      },
-                    ]}
-                  >
+                  <View style={styles.vibeCardInner}>
+                    <View style={styles.vibeLabelRow}>
+                      <NeonBadge label="LIVE MOOD / TODAY" color={activeTheme.accent} />
+                      <View style={[styles.moodPulseOrb, { backgroundColor: activeTheme.accent, shadowColor: activeTheme.accent }]} />
+                    </View>
                     <Text style={styles.vibeValue}>{recap.vibe.label}</Text>
+                    <Text style={styles.vibeDetail}>{recap.vibe.detail}</Text>
                   </View>
-
-                  <Text style={styles.vibeDetail}>{recap.vibe.detail}</Text>
-                </GlassPanel>
+                </SpotlightCard>
               </Animated.View>
 
               {/* The recap stack */}
@@ -742,17 +830,15 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 ) : !ai.loading && ai.error ? (
                   <AIErrorState error={ai.error} onRetry={handleCatchUp} />
                 ) : !ai.loading && !serverNote ? (
-                  <View style={styles.emptyRecapWrap}>
-                    <Text style={styles.emptyRecapHeadline}>
-                      {ai.result?.headline || "You're caught up, chill 👀"}
-                    </Text>
-                    <Text style={styles.emptyMentions}>
-                      {ai.result?.summary ||
-                        (history.entries.length > 0
-                          ? 'Previous recap expired (10m limit). Tap Catch Up above if new messages arrive! ✨'
-                          : 'Literally nothing happened, bhai. Go outside or something.')}
-                    </Text>
-                  </View>
+                  <AIEmptyStory
+                    icon="checkmark-done-outline"
+                    accent={activeTheme.accent}
+                    title={ai.result?.headline || "You're all caught up"}
+                    description={ai.result?.summary ||
+                      (history.entries.length > 0
+                        ? 'Your previous recap expired. Tap Catch Up when new messages arrive.'
+                        : 'No new messages to summarize right now.')}
+                  />
                 ) : null}
               </Section>
 
@@ -815,9 +901,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 })}
 
                 {recap.mentions.length === 0 && privateForMe.length === 0 ? (
-                  <Text style={styles.emptyMentions}>
-                    Nobody @'d you today. Free of obligations, free of relevance.
-                  </Text>
+                  <AIEmptyStory icon="at" accent={colors.secondary} title="No mentions today" description="When someone tags you or replies privately, you'll find it here." />
                 ) : (
                   recap.mentions.map((m) => (
                     <PressableScale
@@ -876,36 +960,37 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 {todaysTea.loading ? (
                   <AIThinking />
                 ) : todaysTea.sessions.length === 0 ? (
-                  <Text style={styles.emptyMentions}>
-                    Nothing has happened yet... unfortunately. 😔
-                  </Text>
+                  <AIEmptyStory icon="cafe-outline" accent={colors.yellow} title="The kettle is quiet" description="Tea reports appear here when a session wraps up in your GC." />
                 ) : (
                   <View style={styles.dailyList}>
                     {todaysTea.sessions.map((s) => (
-                      <PressableScale
+                      <SpotlightCard
                         key={s.id}
-                        style={styles.teaRow}
-                        scaleTo={0.98}
-                        haptic="light"
+                        spotlightColor="rgba(245, 158, 11, 0.22)"
+                        borderColor="rgba(245, 158, 11, 0.28)"
+                        borderRadius={16}
                         onPress={() => setOpenTea(s)}
+                        style={styles.teaRow}
                       >
-                        <Text style={styles.teaRowEmoji}>
-                          {s.status === 'failed' ? '💀' : s.report && s.report.dramaLevel >= 4 ? '🔥' : '🍵'}
-                        </Text>
-                        <View style={styles.dailyRowCopy}>
-                          <Text style={styles.teaRowTitle} numberOfLines={1}>
-                            {s.status === 'completed' && s.report
-                              ? s.report.title
-                              : s.status === 'failed'
-                                ? 'Report failed — tap to retry'
-                                : 'Still brewing...'}
+                        <View style={styles.teaRowInner}>
+                          <Text style={styles.teaRowEmoji}>
+                            {s.status === 'failed' ? '💀' : s.report && s.report.dramaLevel >= 4 ? '🔥' : '🍵'}
                           </Text>
-                          <Text style={styles.dailyRowMeta}>
-                            {s.endedAt ? clockTime(s.endedAt) : ''} · Started by {s.startedByName}
-                          </Text>
+                          <View style={styles.dailyRowCopy}>
+                            <Text style={styles.teaRowTitle} numberOfLines={1}>
+                              {s.status === 'completed' && s.report
+                                ? s.report.title
+                                : s.status === 'failed'
+                                  ? 'Report failed — tap to retry'
+                                  : 'Still brewing...'}
+                            </Text>
+                            <Text style={styles.dailyRowMeta}>
+                              {s.endedAt ? clockTime(s.endedAt) : ''} · Started by {s.startedByName}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={16} color={colors.outline} />
                         </View>
-                        <Ionicons name="chevron-forward" size={16} color={colors.outline} />
-                      </PressableScale>
+                      </SpotlightCard>
                     ))}
                   </View>
                 )}
@@ -923,9 +1008,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 {weeklyAwards.loading ? (
                   <AIThinking />
                 ) : !weeklyAwards.thisWeek && weeklyAwards.previousWeeks.length === 0 ? (
-                  <Text style={styles.emptyMentions}>
-                    First awards land this Sunday at noon. Behave until then. 🏆
-                  </Text>
+                  <AIEmptyStory icon="trophy-outline" accent={colors.yellow} title="Ceremony is coming" description="The first awards arrive Sunday at noon, once your GC has enough to celebrate." />
                 ) : (
                   <View style={styles.dailyList}>
                     {weeklyAwards.thisWeek && (
@@ -957,9 +1040,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 {dailyHistory.loading ? (
                   <AIThinking />
                 ) : dailyHistory.entries.length === 0 ? (
-                  <Text style={styles.emptyMentions}>
-                    No daily recaps yet — check back after the day's first one lands.
-                  </Text>
+                  <AIEmptyStory icon="calendar-outline" accent={colors.tertiary} title="No recaps yet" description="Your daily stories will collect here as the group makes memories." />
                 ) : (
                   <View style={styles.dailyList}>
                     {dailyHistory.entries.map((entry) => (
@@ -1231,28 +1312,140 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1 },
-  hero: { alignItems: 'flex-start', gap: 4, paddingVertical: spacing.lg, paddingHorizontal: CONTAINER_MARGIN },
-  heroTitle: {
-    ...typography.title,
-    fontSize: 24,
-    color: colors.onSurface,
-    fontWeight: '800',
-    textAlign: 'left',
+  modernTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
-  heroSub: {
-    ...typography.caption,
-    color: colors.onSurfaceVariant,
-    textAlign: 'left',
+  topBackCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  topBarCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  topBarGroupName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  topBarStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  topLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  topBarStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  heroCard: {
+    marginBottom: spacing.xs,
+  },
+  heroInner: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  heroBadgeCol: {
+    gap: 4,
+  },
+  heroShimmerText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  heroTitleWrap: {
+    gap: 6,
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  heroDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.65)',
+    lineHeight: 20,
+  },
+  bentoStatsGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginTop: spacing.xs,
+  },
+  vibeCardInner: {
+    padding: spacing.lg,
+    gap: 6,
+  },
+  moodPulseOrb: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 'auto',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  teaRowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  awardsRowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  dailyRowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  highlightInner: {
+    padding: spacing.md,
+    gap: 6,
+  },
+  recapInner: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  highlightsStack: {
+    gap: spacing.sm,
   },
   tabTrack: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radius.md,
-    padding: 3,
+    backgroundColor: colors.appRoot,
+    borderRadius: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     marginHorizontal: CONTAINER_MARGIN,
-    marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderBottomWidth: 1,
+    borderColor: colors.borderBright,
   },
   tab: {
     flex: 1,
@@ -1262,18 +1455,17 @@ const styles = StyleSheet.create({
     // 44pt minimum, less the 3px padding on the track either side.
     minHeight: 42,
     paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: radius.sm,
-    gap: 6,
+    paddingHorizontal: 3,
+    borderRadius: radius.md,
+    gap: 4,
   },
   tabActive: {
     backgroundColor: colors.surfaceHigh,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    borderWidth: 0,
   },
   tabText: {
     ...typography.label,
-    fontSize: 13,
+    fontSize: 11,
     color: colors.onSurfaceVariant,
     fontWeight: '600',
     letterSpacing: 0.2,
@@ -1306,20 +1498,26 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: CONTAINER_MARGIN,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.section + 40,
     gap: spacing.lg,
     // Prose-heavy screen: capped and centred so paragraphs stay near the
     // 65-75 character measure instead of running the full width of a tablet
     // or the desktop shell's pane.
     width: '100%',
-    maxWidth: 720,
+    maxWidth: 760,
     alignSelf: 'center',
   },
+  heroFacts: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroFact: { flex: 1, gap: 2 },
+  heroFactValue: { fontSize: 21, fontWeight: '800', color: colors.onSurface, lineHeight: 25 },
+  heroFactLabel: { ...typography.micro, fontSize: 9, letterSpacing: 0.8, color: colors.onSurfaceVariant },
+  heroFactDivider: { width: 1, height: 29, backgroundColor: colors.borderBright },
+  moodDot: { width: 7, height: 7, borderRadius: 4 },
   vibeCard: {
-    padding: spacing.lg,
+    padding: spacing.xl,
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    gap: 5,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -1333,18 +1531,20 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   vibeValue: {
-    ...typography.titleMd,
-    fontSize: 19,
+    ...typography.headline,
+    fontSize: 27,
+    lineHeight: 33,
     color: colors.onSurface,
     fontWeight: '800',
     textAlign: 'left',
   },
-  vibeDetail: { ...typography.caption, color: colors.onSurfaceVariant, textAlign: 'left' },
-  card: { padding: spacing.lg, backgroundColor: colors.surfaceLow, borderColor: colors.border },
+  vibeDetail: { ...typography.caption, color: colors.onSurfaceVariant, textAlign: 'left', lineHeight: 20 },
+  card: { padding: spacing.xl, backgroundColor: colors.surfaceLow, borderColor: colors.border, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  cardTitle: { ...typography.title, fontSize: 18, color: colors.onSurface },
+  cardIcon: { width: 31, height: 31, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { ...typography.title, fontSize: 19, color: colors.onSurface },
   spacer: { flex: 1 },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
+  divider: { height: 1, backgroundColor: colors.borderBright, marginVertical: spacing.lg },
   aiBody: { gap: spacing.lg },
   aiChip: {
     paddingHorizontal: 6,
@@ -1366,10 +1566,10 @@ const styles = StyleSheet.create({
   aiHeadline: { ...typography.title, fontSize: 20, color: colors.onSurface, flex: 1 },
   aiSummary: { ...typography.body, color: colors.onSurfaceVariant, lineHeight: 21 },
   highlight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
   highlightHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -1384,11 +1584,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    padding: spacing.md,
+    borderColor: colors.borderBright,
+    padding: spacing.lg,
   },
   dailyRowDate: {
     backgroundColor: `${colors.tertiary}1A`,
@@ -1406,11 +1606,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(245, 158, 11, 0.06)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.18)',
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderColor: 'rgba(233, 189, 105, 0.24)',
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
   teaRowEmoji: { fontSize: 20 },
   teaRowTitle: { ...typography.bodyMedium, color: colors.onSurface },
@@ -1418,20 +1618,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(251, 191, 36, 0.06)',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.18)',
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderColor: 'rgba(233, 189, 105, 0.24)',
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
   awardsRowEmoji: { fontSize: 20 },
   awardsRowTitle: { ...typography.bodyMedium, color: colors.onSurface },
   statRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    padding: spacing.md,
+    borderColor: colors.borderBright,
+    padding: spacing.lg,
     marginBottom: spacing.sm,
     gap: 2,
   },
@@ -1479,11 +1679,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   mention: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    padding: spacing.md,
+    borderColor: colors.borderBright,
+    padding: spacing.lg,
     marginBottom: spacing.sm,
     gap: spacing.sm,
   },
@@ -1649,10 +1849,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderBright,
   },
   nameRowQuiet: { backgroundColor: 'rgba(255, 255, 255, 0.02)', opacity: 0.75 },
   nameCopy: { flex: 1, gap: 4 },

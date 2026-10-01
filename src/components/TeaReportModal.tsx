@@ -2,17 +2,27 @@ import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
+import {
+  AuroraBackground,
+  SpotlightCard,
+  ShinyText,
+  DecryptedText,
+  NeonBadge,
+  AIPulsingCore,
+  BentoStatBox,
+} from './reactbits';
 import { GlassPanel } from './ui/Glass';
 import { PressableScale } from './ui/PressableScale';
 import { AmbientBackground } from './ui/AmbientBackground';
 import { AIThinking } from './ui/AIState';
+import { AIStoryHero } from './ui/AIStoryHero';
 import { GCButton } from './ui/Buttons';
 import type { TeaSession } from '../hooks/useTeaSession';
 
-const TEA_ACCENT = '#FBBF24';
+const TEA_ACCENT = colors.yellow;
 
 function Section({
   label,
@@ -28,7 +38,9 @@ function Section({
       entering={FadeInDown.delay(delay).duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
       style={styles.section}
     >
-      <Text style={styles.sectionLabel}>{label}</Text>
+      <View style={styles.sectionHeading}>
+        <NeonBadge label={label.toUpperCase()} color={TEA_ACCENT} />
+      </View>
       {children}
     </Animated.View>
   );
@@ -96,26 +108,72 @@ export function TeaReportModal({
 
       {!!report && !generating && !failed && (
         <>
-          <Animated.View
-            entering={FadeIn.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
-            style={styles.hero}
+          <SpotlightCard
+            spotlightColor="rgba(245, 158, 11, 0.28)"
+            borderColor="rgba(245, 158, 11, 0.35)"
+            borderRadius={26}
+            style={styles.heroCard}
           >
-            <Text style={styles.title}>{report.title}</Text>
-            <Text style={styles.meta}>
-              Started by {session.startedByName} · {report.messageCount} message
-              {report.messageCount === 1 ? '' : 's'}
-            </Text>
-          </Animated.View>
+            <View style={styles.teaHeroInner}>
+              <View style={styles.teaHeroTopRow}>
+                <AIPulsingCore accentColor={TEA_ACCENT} size={46} icon="cafe" />
+                <View style={styles.teaHeroBadgeCol}>
+                  <NeonBadge label="TODAY'S TEA" color={TEA_ACCENT} />
+                  <ShinyText
+                    text="LIVE DRAMA REPORT"
+                    style={styles.teaHeroShimmer}
+                    shineColor="#FFFFFF"
+                    baseColor="rgba(253, 224, 71, 0.7)"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.teaHeroTitleWrap}>
+                <DecryptedText
+                  text={report.title}
+                  style={styles.teaHeroTitle}
+                  speed={28}
+                />
+                <Text style={styles.teaHeroDesc}>
+                  The conversation, condensed into the spicy moments that mattered.
+                </Text>
+              </View>
+
+              <View style={styles.teaBentoRow}>
+                <BentoStatBox
+                  icon="person"
+                  iconColor="#F59E0B"
+                  value={session.startedByName}
+                  label="Spilled By"
+                  sublabel="Host"
+                />
+                <BentoStatBox
+                  icon="chatbubble-ellipses"
+                  iconColor="#EF4444"
+                  value={report.messageCount}
+                  label="Messages"
+                  sublabel="In session"
+                />
+                <BentoStatBox
+                  icon="people"
+                  iconColor="#10B981"
+                  value={report.people.length}
+                  label="Cast"
+                  sublabel="Involved"
+                />
+              </View>
+            </View>
+          </SpotlightCard>
 
           <Section label="The story" delay={60}>
-            <GlassPanel borderRadius={radius.lg} style={styles.card}>
+            <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.18)" borderColor="rgba(255, 255, 255, 0.10)" borderRadius={20} style={styles.card}>
               <Text style={styles.body}>{report.summary}</Text>
-            </GlassPanel>
+            </SpotlightCard>
           </Section>
 
           {report.people.length > 0 && (
             <Section label="People involved" delay={120}>
-              <GlassPanel borderRadius={radius.lg} style={styles.card}>
+              <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.18)" borderColor="rgba(255, 255, 255, 0.10)" borderRadius={20} style={styles.card}>
                 {report.people.map((p, i) => (
                   <View
                     key={`${p.name}-${i}`}
@@ -140,13 +198,13 @@ export function TeaReportModal({
                     )}
                   </View>
                 ))}
-              </GlassPanel>
+              </SpotlightCard>
             </Section>
           )}
 
           {report.plotTwists.length > 0 && (
             <Section label="Key moments" delay={180}>
-              <GlassPanel borderRadius={radius.lg} style={styles.card}>
+              <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.18)" borderColor="rgba(255, 255, 255, 0.10)" borderRadius={20} style={styles.card}>
                 {report.plotTwists.map((t, i) => (
                   <View
                     key={i}
@@ -174,32 +232,32 @@ export function TeaReportModal({
                     </View>
                   </View>
                 ))}
-              </GlassPanel>
+              </SpotlightCard>
             </Section>
           )}
 
           <Section label="Intensity" delay={240}>
-            <GlassPanel borderRadius={radius.lg} style={styles.card}>
+            <SpotlightCard spotlightColor="rgba(239, 68, 68, 0.22)" borderColor="rgba(239, 68, 68, 0.35)" borderRadius={20} style={styles.card}>
               <View style={styles.dramaRow}>
                 <Text style={styles.drama}>{'🔥'.repeat(Math.min(5, Math.max(1, report.dramaLevel)))}</Text>
                 <View style={styles.dramaPill}>
                   <Text style={styles.dramaMeta}>{report.dramaLevel} / 5</Text>
                 </View>
               </View>
-            </GlassPanel>
+            </SpotlightCard>
           </Section>
 
           {!!report.outcome && (
             <Section label="Outcome" delay={300}>
-              <GlassPanel borderRadius={radius.lg} style={styles.card}>
+              <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.18)" borderColor="rgba(255, 255, 255, 0.10)" borderRadius={20} style={styles.card}>
                 <Text style={styles.body}>{report.outcome}</Text>
-              </GlassPanel>
+              </SpotlightCard>
             </Section>
           )}
 
           {report.receiptMessageIds.length > 0 && (
             <Section label="Messages" delay={360}>
-              <GlassPanel borderRadius={radius.lg} style={styles.card}>
+              <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.18)" borderColor="rgba(255, 255, 255, 0.10)" borderRadius={20} style={styles.card}>
                 <View style={styles.receiptList}>
                   {report.receiptMessageIds.map((id, i) => (
                     <PressableScale
@@ -214,7 +272,7 @@ export function TeaReportModal({
                     </PressableScale>
                   ))}
                 </View>
-              </GlassPanel>
+              </SpotlightCard>
             </Section>
           )}
 
@@ -248,7 +306,7 @@ export function TeaReportModal({
           <Pressable style={styles.webBackdrop} onPress={onClose} />
 
           <View style={styles.webCard}>
-            <AmbientBackground variant="vivid" />
+            <AuroraBackground color1="#F59E0B" color2="#EF4444" color3="#10B981" opacity={0.34} />
 
             {/* Web Header */}
             <View style={styles.webHeader}>
@@ -262,8 +320,8 @@ export function TeaReportModal({
                   <Ionicons name="close" size={20} color="#FFFFFF" />
                 </PressableScale>
                 <View style={styles.webHeaderTitles}>
-                  <Text style={styles.webHeaderTitle}>Tea Report</Text>
-                  <Text style={styles.webHeaderSub}>Live Gossip & Group Tea</Text>
+                  <Text style={styles.webHeaderTitle}>Today's Tea</Text>
+                  <Text style={styles.webHeaderSub}>The story behind the conversation</Text>
                 </View>
               </View>
 
@@ -296,7 +354,7 @@ export function TeaReportModal({
     >
       <View style={styles.root}>
         <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
-        <AmbientBackground />
+        <AuroraBackground color1="#F59E0B" color2="#EF4444" color3="#10B981" opacity={0.34} />
 
         {/* Safe Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 20) }]}>
@@ -379,11 +437,11 @@ const styles = StyleSheet.create({
   },
   scroll: {
     width: '100%',
-    maxWidth: 720,
+    maxWidth: 760,
     alignSelf: 'center',
     paddingHorizontal: CONTAINER_MARGIN,
     paddingTop: spacing.xs,
-    gap: spacing.lg,
+    gap: spacing.xl,
   },
   webModalLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -398,12 +456,12 @@ const styles = StyleSheet.create({
   },
   webCard: {
     width: '100%',
-    maxWidth: 1040,
-    maxHeight: 780,
+    maxWidth: 800,
+    maxHeight: 820,
     flex: 1,
     borderRadius: radius.xl,
     overflow: 'hidden',
-    backgroundColor: colors.bgElevated,
+    backgroundColor: colors.appRoot,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
     shadowColor: '#000',
@@ -444,9 +502,9 @@ const styles = StyleSheet.create({
     padding: CONTAINER_MARGIN,
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl + 20,
-    gap: spacing.lg,
+    gap: spacing.xl,
     width: '100%',
-    maxWidth: 720,
+    maxWidth: 760,
     alignSelf: 'center',
   },
   stateBox: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.section },
@@ -462,16 +520,21 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   meta: { ...typography.caption, color: colors.onSurfaceVariant },
-  section: { gap: spacing.xs },
-  sectionLabel: { ...typography.label, fontSize: 11, color: colors.onSurfaceVariant, letterSpacing: 1 },
+  heroDetails: { flexDirection: 'row', gap: 22, flexWrap: 'wrap' },
+  heroDetail: { ...typography.micro, fontSize: 10, letterSpacing: 0.8, color: colors.onSurfaceVariant },
+  heroDetailValue: { color: colors.onSurface, fontWeight: '800' },
+  section: { gap: spacing.sm },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionMark: { width: 13, height: 2, backgroundColor: TEA_ACCENT, borderRadius: 1 },
+  sectionLabel: { ...typography.label, fontSize: 11, color: colors.onSurfaceVariant, letterSpacing: 1, textTransform: 'uppercase' },
   card: {
-    padding: spacing.lg,
+    padding: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: colors.outline,
+    borderColor: colors.borderBright,
     backgroundColor: colors.surfaceLow,
   },
-  body: { ...typography.body, color: colors.onSurface, lineHeight: 21, flexShrink: 1 },
+  body: { ...typography.body, color: colors.onSurface, lineHeight: 25, flexShrink: 1 },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   rowDivider: {
     paddingBottom: spacing.md,
@@ -530,5 +593,46 @@ const styles = StyleSheet.create({
   },
   ctaWrap: {
     marginTop: spacing.sm,
+  },
+  heroCard: {
+    padding: spacing.lg,
+    overflow: 'hidden',
+  },
+  teaHeroInner: {
+    gap: spacing.md,
+  },
+  teaHeroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  teaHeroBadgeCol: {
+    gap: 3,
+  },
+  teaHeroShimmer: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  teaHeroTitleWrap: {
+    gap: 6,
+  },
+  teaHeroTitle: {
+    ...typography.displayXl,
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  teaHeroDesc: {
+    ...typography.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.onSurfaceVariant,
+  },
+  teaBentoRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

@@ -35,6 +35,7 @@ import {
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from '../components/ui/PressableScale';
 import { GCButton } from '../components/ui/Buttons';
+import { AIStoryHero } from '../components/ui/AIStoryHero';
 import { AwardCard } from '../components/AwardCard';
 import { useAuth } from '../context/AuthContext';
 import { useAppearance } from '../context/AppearanceContext';
@@ -97,10 +98,8 @@ function AwardsAuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
 
 /** A compact award counter also opens the ceremony guide. */
 function AuroraTrophyHero({
-  count,
   onPress,
 }: {
-  count: number;
   onPress: () => void;
 }) {
   const { theme } = useAppearance();
@@ -113,11 +112,11 @@ function AuroraTrophyHero({
       accessibilityLabel="How GC Awards work"
     >
       <View style={styles.heroSymbol}>
-        <Ionicons name="trophy-outline" size={26} color={colors.yellow} />
+        <Ionicons name="information-circle-outline" size={22} color={colors.yellow} />
       </View>
       <View style={styles.heroMetric}>
-        <Text style={[styles.heroMetricValue, { color: theme.palette.onSurface }]}>{count}</Text>
-        <Text style={[styles.heroMetricLabel, { color: theme.palette.onSurfaceVariant }]}>{count === 1 ? 'current title' : 'current titles'}</Text>
+        <Text style={[styles.heroMetricValue, { color: theme.palette.onSurface }]}>How awards work</Text>
+        <Text style={[styles.heroMetricLabel, { color: theme.palette.onSurfaceVariant }]}>A new ceremony every Sunday</Text>
       </View>
       <Ionicons name="arrow-forward" size={18} color={theme.palette.onSurfaceVariant} />
     </PressableScale>
@@ -352,17 +351,23 @@ export default function ExploreScreen({ navigation }: Props) {
           entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
         >
           <Animated.View style={[styles.hero, heroStyle]}>
-            <Text style={styles.heroEyebrow}>THE TROPHY ROOM</Text>
-            <Text style={[styles.mainTitle, { color: theme.palette.onSurface }]} numberOfLines={2}>
-              Awards
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.palette.onSurfaceVariant }]}>
-              {currentWeekLabel
-                ? `Your current titles across GCs · ${currentWeekLabel}`
+            <AIStoryHero
+              accent="#E9BD69"
+              icon="trophy-outline"
+              eyebrow="THE TROPHY ROOM"
+              edition="GC / HONORS"
+              title="The people make the story."
+              description={currentWeekLabel
+                ? `The titles you hold across your GCs · ${currentWeekLabel}`
                 : 'The titles you earn with your people, updated each Sunday.'}
-            </Text>
+              footer={
+                <View style={styles.heroCountRow}>
+                  <Text style={styles.heroCount}>{claimedAwards.length}</Text>
+                  <Text style={styles.heroCountLabel}>{claimedAwards.length === 1 ? 'CURRENT TITLE' : 'CURRENT TITLES'}</Text>
+                </View>
+              }
+            />
             <AuroraTrophyHero
-              count={claimedAwards.length}
               onPress={() => {
                 selectFeedback();
                 setGuideModalVisible(true);
@@ -699,32 +704,35 @@ const styles = StyleSheet.create({
 
   // Hero and section hierarchy
   hero: { alignItems: 'flex-start', gap: spacing.sm, paddingTop: spacing.lg },
+  heroCountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 9 },
+  heroCount: { fontFamily: fontFamily.display, fontSize: 25, lineHeight: 29, color: colors.onSurface },
+  heroCountLabel: { ...typography.micro, fontSize: 10, letterSpacing: 1, color: colors.onSurfaceVariant },
   heroEyebrow: { ...typography.label, color: colors.yellow, letterSpacing: 1.1 },
   mainTitle: { ...typography.headline, fontSize: 42, lineHeight: 48, color: colors.onSurface },
   subtitle: { ...typography.body, fontSize: 14, lineHeight: 21, color: colors.onSurfaceVariant, maxWidth: 440 },
   heroWrap: {
     width: '100%',
-    minHeight: 84,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
     backgroundColor: colors.surfaceLow,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
   heroSymbol: {
-    width: 48,
-    height: 48,
+    width: 39,
+    height: 39,
     borderRadius: radius.md,
     backgroundColor: 'rgba(233,189,105,0.11)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroMetric: { flex: 1, gap: 1 },
-  heroMetricValue: { fontFamily: fontFamily.displayBold, fontSize: 23, lineHeight: 28, color: colors.onSurface },
+  heroMetricValue: { fontFamily: fontFamily.bodySemi, fontSize: 14, lineHeight: 19, color: colors.onSurface },
   heroMetricLabel: { ...typography.caption, fontSize: 12, color: colors.onSurfaceVariant },
   sectionDivider: { marginTop: spacing.lg },
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center' },

@@ -42,10 +42,12 @@ export function AIThinking({ tint = colors.primary }: { tint?: string }) {
 
   return (
     <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.center}>
-      <Animated.View style={[styles.orb, { backgroundColor: `${tint}26` }, dotStyle]}>
-        <Ionicons name="sparkles" size={22} color={tint} />
+      <Animated.View style={[styles.orb, { backgroundColor: `${tint}1C`, borderColor: `${tint}55` }, dotStyle]}>
+        <Ionicons name="sparkles-outline" size={21} color={tint} />
       </Animated.View>
+      <Text style={[styles.statusLabel, { color: tint }]}>GC AI / IN PROGRESS</Text>
       <Text style={styles.thinkingText}>Putting the pieces together…</Text>
+      <View style={styles.progressTrack}><Animated.View style={[styles.progressFill, { backgroundColor: tint }, dotStyle]} /></View>
     </Animated.View>
   );
 }
@@ -83,9 +85,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   orb: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.pill,
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -94,6 +97,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     textAlign: 'center',
   },
+  statusLabel: { ...typography.label, fontSize: 10, letterSpacing: 1.2, fontWeight: '800' },
+  progressTrack: { width: 112, height: 2, backgroundColor: colors.borderBright, borderRadius: 1, overflow: 'hidden' },
+  progressFill: { width: 54, height: 2, borderRadius: 1 },
   errorIcon: {
     width: 52,
     height: 52,

@@ -27,22 +27,22 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'sparkles-outline' as const,
-    color: '#818CF8',
-    title: 'Modern Linear Blur Header',
-    desc: 'New chat header with progressive linear glass blur, centered group avatar, title badge, and quick AI access.',
+    icon: 'sparkles' as const,
+    color: '#8B5CF6',
+    title: 'Next-Gen AI Intelligence',
+    desc: 'Catch-up completely redesigned with React Bits spotlight cards, cosmic aurora backgrounds, and live decrypted sci-fi telemetry.',
   },
   {
-    icon: 'color-palette-outline' as const,
-    color: '#38BDF8',
-    title: 'A fresh look across GC',
-    desc: 'Chats, group details, Awards, Create, and Profile share clearer layouts and easier-to-read surfaces.',
+    icon: 'cafe' as const,
+    color: '#F59E0B',
+    title: 'Tea & Awards Unleashed',
+    desc: 'Live drama reports and weekly trophy ceremonies now feature pulsating AI cores, glowing neon badges, and bento stat matrices.',
   },
   {
-    icon: 'people-outline' as const,
-    color: '#F472B6',
-    title: 'Find people and commands faster',
-    desc: 'Mentions show profile photos and member colors in a compact scrolling grid, with matching quick commands above the composer.',
+    icon: 'trophy' as const,
+    color: '#10B981',
+    title: 'Futuristic Daily Recap & Wordy',
+    desc: 'Daily wrapped reveals with interactive decrypted keywords, glowing glass cards, and high-stakes Wordy leaderboards.',
   },
 ];
 

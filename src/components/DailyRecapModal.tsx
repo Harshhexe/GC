@@ -4,13 +4,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors, fontFamily, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { GlassPanel } from './ui/Glass';
 import { Avatar } from './ui/Avatar';
 import { GCButton } from './ui/Buttons';
 import { PressableScale } from './ui/PressableScale';
+import { AIStoryHero } from './ui/AIStoryHero';
+import {
+  AuroraBackground,
+  SpotlightCard,
+  ShinyText,
+  DecryptedText,
+  NeonBadge,
+  AIPulsingCore,
+  BentoStatBox,
+} from './reactbits';
 import { supabase } from '../lib/supabase';
 import type { DailyRecapResult } from '../lib/ai';
 import type { WordleGroupResult, WordleState } from '../hooks/useWordle';
@@ -48,12 +58,11 @@ function StatCard({
   accentBorderColor?: string;
 }) {
   const content = (
-    <GlassPanel
-      borderRadius={radius.xl}
-      style={[
-        styles.card,
-        !!accentBorderColor && { borderColor: accentBorderColor },
-      ]}
+    <SpotlightCard
+      spotlightColor={`${iconColor}2a`}
+      borderColor={accentBorderColor || 'rgba(255, 255, 255, 0.12)'}
+      borderRadius={22}
+      style={styles.card}
     >
       <View style={styles.cardHead}>
         <View style={[styles.cardIconWrap, { backgroundColor: `${iconColor}22` }]}>
@@ -68,7 +77,7 @@ function StatCard({
         )}
       </View>
       <View style={styles.cardBody}>{children}</View>
-    </GlassPanel>
+    </SpotlightCard>
   );
 
   return (
@@ -170,39 +179,64 @@ export function DailyRecapModal({
 
   const modalBody = (
     <>
-      {/* Hero: Word of the Day */}
-      <Animated.View
-        entering={FadeIn.duration(duration.page).easing(easing.out).reduceMotion(reduceMotion)}
-        style={styles.hero}
+      <SpotlightCard
+        spotlightColor={`${gradientColors[0]}44`}
+        borderColor={`${gradientColors[0]}55`}
+        borderRadius={26}
+        style={styles.heroCard}
       >
-        <Text style={styles.dateLabel}>{dateLabel.toUpperCase()}</Text>
+        <View style={styles.recapHeroInner}>
+          <View style={styles.recapHeroTopRow}>
+            <AIPulsingCore accentColor={gradientColors[0]} size={46} icon="sparkles" />
+            <View style={styles.recapHeroBadgeCol}>
+              <NeonBadge label="THE DAILY RECAP" color={gradientColors[0]} />
+              <ShinyText
+                text="AI INTELLIGENCE REPORT • DAY / 01"
+                style={styles.recapHeroShimmer}
+                shineColor="#FFFFFF"
+                baseColor="rgba(255, 255, 255, 0.65)"
+              />
+            </View>
+          </View>
 
-        <View style={styles.wordWrapper}>
-          <LinearGradient
-            colors={[`${gradientColors[0]}29`, `${gradientColors[0]}1A`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.wordChip}
-          >
-            <Text style={[styles.wordText, { color: gradientColors[0] }]}>{recap.oneWord}</Text>
-          </LinearGradient>
-        </View>
-
-        <View style={styles.metaRow}>
-          <View style={styles.statPill}>
-            <Ionicons name="chatbubbles" size={13} color={colors.primary} />
-            <Text style={styles.totalText}>
-              {recap.totalMessages} message{recap.totalMessages === 1 ? '' : 's'} recorded
+          <View style={styles.recapHeroTitleWrap}>
+            <DecryptedText
+              text={recap.oneWord.toUpperCase()}
+              style={styles.recapHeroTitle}
+              speed={32}
+            />
+            <Text style={styles.recapHeroDesc}>
+              {recap.truncated
+                ? 'A busy day, distilled to its most important moments.'
+                : 'One day in your GC, remembered in a few good moments.'}
             </Text>
           </View>
-        </View>
 
-        {recap.truncated && (
-          <Text style={styles.truncatedNote}>
-            This recap covers the main highlights from a busy day.
-          </Text>
-        )}
-      </Animated.View>
+          <View style={styles.recapBentoRow}>
+            <BentoStatBox
+              icon="calendar"
+              iconColor={gradientColors[0]}
+              value={dateLabel.split(',')[0]}
+              label="Day"
+              sublabel={dateLabel.split(',')[1]?.trim() || 'Today'}
+            />
+            <BentoStatBox
+              icon="chatbubble-ellipses"
+              iconColor={gradientColors[1]}
+              value={recap.totalMessages}
+              label="Messages"
+              sublabel="Activity"
+            />
+            <BentoStatBox
+              icon={recap.userOfTheDay ? 'flame' : 'sparkles'}
+              iconColor="#F59E0B"
+              value={recap.userOfTheDay?.name || 'All Active'}
+              label="Top Contributor"
+              sublabel={recap.userOfTheDay ? `${recap.userOfTheDay.messageCount} msgs` : 'Squad'}
+            />
+          </View>
+        </View>
+      </SpotlightCard>
 
       {/* User of the Day */}
       {recap.userOfTheDay && (
@@ -441,7 +475,7 @@ export function DailyRecapModal({
           <Pressable style={styles.webBackdrop} onPress={onClose} />
 
           <View style={styles.webCard}>
-            <ThemedGlowBackground colors={gradientColors} />
+            <AuroraBackground color1={gradientColors[0]} color2={gradientColors[1]} color3="#06B6D4" opacity={0.34} />
 
             {/* Web Header */}
             <View style={styles.webHeader}>
@@ -455,7 +489,7 @@ export function DailyRecapModal({
                   <Ionicons name="close" size={20} color="#FFFFFF" />
                 </PressableScale>
                 <View style={styles.webHeaderTitles}>
-                  <Text style={styles.webHeaderTitle}>Daily Stats & Recap</Text>
+                  <Text style={styles.webHeaderTitle}>Daily Recap</Text>
                   <Text style={styles.webHeaderSub}>{dateLabel}</Text>
                 </View>
               </View>
@@ -488,7 +522,7 @@ export function DailyRecapModal({
       onRequestClose={onClose}
     >
       <View style={styles.root}>
-        <ThemedGlowBackground colors={gradientColors} />
+        <AuroraBackground color1={gradientColors[0]} color2={gradientColors[1]} color3="#06B6D4" opacity={0.34} />
 
         {/* Safe Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 20) }]}>
@@ -541,10 +575,10 @@ const styles = StyleSheet.create({
   },
   webCard: {
     width: '100%',
-    maxWidth: 640,
+    maxWidth: 760,
     height: '88%',
     maxHeight: 820,
-    borderRadius: radius.xxl,
+    borderRadius: radius.xl,
     overflow: 'hidden',
     backgroundColor: colors.appRoot,
     borderWidth: 1,
@@ -564,7 +598,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     zIndex: 10,
-    backgroundColor: colors.surfaceLow,
+    backgroundColor: '#151A21',
   },
   webHeaderLeft: {
     flexDirection: 'row',
@@ -586,8 +620,8 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   webScroll: {
-    padding: spacing.lg,
-    gap: spacing.lg,
+    padding: spacing.xl,
+    gap: spacing.xl,
     paddingBottom: spacing.xxl,
   },
 
@@ -626,8 +660,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scroll: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.lg,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.xl,
     paddingTop: spacing.sm,
   },
   hero: {
@@ -689,13 +726,16 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
 
+  heroDetails: { flexDirection: 'row', alignItems: 'center', gap: 20, flexWrap: 'wrap' },
+  heroDetail: { ...typography.micro, fontSize: 10, fontWeight: '800', letterSpacing: 0.9, color: colors.onSurface },
+
   // Stat Card
   card: {
-    padding: spacing.lg,
+    padding: spacing.xl,
     gap: spacing.md,
-    backgroundColor: 'rgba(25, 20, 38, 0.65)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.borderBright,
   },
   cardHead: {
     flexDirection: 'row',
@@ -987,5 +1027,46 @@ const styles = StyleSheet.create({
 
   ctaWrap: {
     marginTop: spacing.md,
+  },
+  heroCard: {
+    padding: spacing.lg,
+    overflow: 'hidden',
+  },
+  recapHeroInner: {
+    gap: spacing.md,
+  },
+  recapHeroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  recapHeroBadgeCol: {
+    gap: 3,
+  },
+  recapHeroShimmer: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  recapHeroTitleWrap: {
+    gap: 6,
+  },
+  recapHeroTitle: {
+    ...typography.displayXl,
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  recapHeroDesc: {
+    ...typography.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.onSurfaceVariant,
+  },
+  recapBentoRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });
