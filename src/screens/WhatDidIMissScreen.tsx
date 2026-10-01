@@ -45,7 +45,6 @@ import { useWeeklyAwards } from '../hooks/useWeeklyAwards';
 import { GCAwardsModal } from '../components/GCAwardsModal';
 import type { WeeklyAwardsResult } from '../lib/ai';
 import { AIThinking, AIErrorState } from '../components/ui/AIState';
-import { AIStoryHero } from '../components/ui/AIStoryHero';
 import { AIEmptyStory } from '../components/ui/AIEmptyStory';
 import { DailyRecapModal } from '../components/DailyRecapModal';
 import { useAuth } from '../context/AuthContext';
@@ -57,13 +56,6 @@ import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WhatDidIMiss'>;
 type MissedTab = 'missed' | 'tea' | 'pulse' | 'names';
-
-const TABS: { id: MissedTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { id: 'missed', label: 'Catch up', icon: 'sparkles-outline' },
-  { id: 'tea', label: 'Stories', icon: 'cafe-outline' },
-  { id: 'pulse', label: 'Pulse', icon: 'pulse-outline' },
-  { id: 'names', label: 'Names', icon: 'pricetag-outline' },
-];
 
 function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
   return (
@@ -1539,7 +1531,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   vibeDetail: { ...typography.caption, color: colors.onSurfaceVariant, textAlign: 'left', lineHeight: 20 },
-  card: { padding: spacing.xl, backgroundColor: colors.surfaceLow, borderColor: colors.border, borderWidth: 1 },
+  card: { padding: spacing.xl, backgroundColor: 'transparent', borderColor: colors.border, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   cardIcon: { width: 31, height: 31, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   cardTitle: { ...typography.title, fontSize: 19, color: colors.onSurface },
@@ -1584,7 +1576,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderBright,
@@ -1606,7 +1598,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: 'rgba(233, 189, 105, 0.24)',
     borderRadius: radius.lg,
@@ -1618,7 +1610,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: 'rgba(233, 189, 105, 0.24)',
     borderRadius: radius.lg,

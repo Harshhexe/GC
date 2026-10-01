@@ -29,8 +29,8 @@ interface SpotlightCardProps {
 
 /**
  * SpotlightCard inspired by React Bits Spotlight Card.
- * Features an illuminated frosted glass surface, dynamic interactive glow,
- * and delicate gradient border highlights.
+ * Clean, high-end frosted glass with native BlurView, delicate specular top sheen,
+ * and illuminated perimeter border.
  */
 export function SpotlightCard({
   children,
@@ -41,29 +41,27 @@ export function SpotlightCard({
   onPress,
   disabled = false,
 }: SpotlightCardProps) {
-  const glowX = useSharedValue(50);
-  const glowY = useSharedValue(30);
-  const glowOpacity = useSharedValue(0.6);
+  const glowX = useSharedValue(60);
+  const glowY = useSharedValue(40);
+  const glowOpacity = useSharedValue(0.5);
 
   const handleTouch = (e: GestureResponderEvent) => {
     const { locationX, locationY } = e.nativeEvent;
-    glowX.value = withSpring(locationX, { damping: 15 });
-    glowY.value = withSpring(locationY, { damping: 15 });
-    glowOpacity.value = withTiming(1, { duration: 150 });
+    glowX.value = withSpring(locationX, { damping: 18 });
+    glowY.value = withSpring(locationY, { damping: 18 });
+    glowOpacity.value = withTiming(0.9, { duration: 150 });
   };
 
   const handleTouchEnd = () => {
-    glowOpacity.value = withTiming(0.6, { duration: 600 });
+    glowOpacity.value = withTiming(0.5, { duration: 500 });
   };
 
-  const glowStyle = useAnimatedStyle(() => {
+  const webGlowStyle = useAnimatedStyle(() => {
+    if (Platform.OS !== 'web') return {};
     return {
       opacity: glowOpacity.value,
-      transform: [
-        { translateX: glowX.value - 120 },
-        { translateY: glowY.value - 120 },
-      ],
-    };
+      background: `radial-gradient(280px circle at ${glowX.value}px ${glowY.value}px, ${spotlightColor}, transparent 70%)`,
+    } as any;
   });
 
   const CardContent = (
@@ -71,21 +69,22 @@ export function SpotlightCard({
       onTouchStart={handleTouch}
       onTouchEnd={handleTouchEnd}
       style={[
-        styles.outerBorder,
+        styles.cardRoot,
         { borderRadius, borderColor },
         style,
       ]}
     >
-      {/* Background blur & tint */}
-      {Platform.OS === 'ios' ? (
+      {/* Native dynamic blur for frosted glass on iOS/Android */}
+      {Platform.OS !== 'web' ? (
         <BlurView
-          intensity={28}
+          intensity={32}
           tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
           style={[StyleSheet.absoluteFill, { borderRadius }]}
         />
       ) : null}
 
-      {/* Dark frosted glass ground */}
+      {/* Dark frosted glass background tint */}
       <View
         style={[
           StyleSheet.absoluteFill,
@@ -94,21 +93,23 @@ export function SpotlightCard({
         ]}
       />
 
-      {/* Dynamic Spotlight Glow */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.spotlightOrb,
-          { backgroundColor: spotlightColor },
-          glowStyle,
-        ]}
-      />
+      {/* Web-only radial spotlight */}
+      {Platform.OS === 'web' && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { borderRadius },
+            webGlowStyle,
+          ]}
+        />
+      )}
 
-      {/* Top ambient highlight gradient */}
+      {/* Top delicate specular sheen */}
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.01)', 'transparent']}
+        colors={['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.015)', 'transparent']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 0.8 }}
+        end={{ x: 0, y: 0.6 }}
         style={[StyleSheet.absoluteFill, { borderRadius }]}
         pointerEvents="none"
       />
@@ -137,23 +138,16 @@ export function SpotlightCard({
 }
 
 const styles = StyleSheet.create({
-  outerBorder: {
+  cardRoot: {
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: 'rgba(15, 18, 28, 0.65)',
+    backgroundColor: 'rgba(15, 19, 29, 0.72)',
   },
   glassGround: {
-    backgroundColor: Platform.OS === 'web' ? 'rgba(16, 21, 33, 0.72)' : 'rgba(12, 16, 26, 0.85)',
-    ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(20px)' } as any) : {}),
+    backgroundColor: Platform.OS === 'web' ? 'rgba(16, 21, 33, 0.75)' : 'rgba(14, 18, 28, 0.45)',
+    ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(24px)' } as any) : {}),
   },
-  spotlightOrb: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    filter: 'blur(45px)',
-  } as any,
   contentWrap: {
     position: 'relative',
     zIndex: 2,

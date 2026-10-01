@@ -47,23 +47,26 @@ type Props = CompositeScreenProps<
 >;
 
 const DEAD_CHAT_MS = 1000 * 60 * 60 * 24;
-/** One quiet brand wash leaves room for each group's own colour. */
+/** A quiet canvas behind the list; individual GC colours stay on their cards. */
 function GroupListAtmosphericBackground() {
   const { theme } = useAppearance();
   return (
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot, { backgroundColor: theme.palette.bg }]} pointerEvents="none">
       <LinearGradient
-        colors={[theme.palette.bg, theme.palette.appChrome]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        colors={[theme.palette.bg, theme.palette.bg, theme.palette.appChrome]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={theme.isDark ? ['rgba(176, 182, 255, 0.075)', 'transparent'] : ['rgba(79,70,229,0.025)', 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={styles.topWash}
+        colors={[`${theme.palette.primary}${theme.isDark ? '14' : '0B'}`, `${theme.palette.primary}05`, 'transparent']}
+        locations={[0, 0.43, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cornerWash}
       />
+      <View style={[styles.fineArc, { borderColor: `${theme.palette.primary}${theme.isDark ? '16' : '13'}` }]} />
     </View>
   );
 }
@@ -474,7 +477,16 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1, minHeight: 0 },
   glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topWash: { position: 'absolute', top: 0, left: 0, right: 0, height: 300 },
+  cornerWash: { position: 'absolute', top: 0, left: 0, right: 0, height: 460 },
+  fineArc: {
+    position: 'absolute',
+    top: -210,
+    right: -215,
+    width: 430,
+    height: 430,
+    borderRadius: 215,
+    borderWidth: 1,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',

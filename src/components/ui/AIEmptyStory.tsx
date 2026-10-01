@@ -20,8 +20,38 @@ export function AIEmptyStory({ icon, accent, title, description }: {
 }
 
 const styles = StyleSheet.create({
-  card: { alignItems: 'center', paddingVertical: 29, paddingHorizontal: 21, gap: 7, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderBright },
-  symbol: { width: 44, height: 44, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  title: { ...typography.title, fontSize: 17, lineHeight: 22, textAlign: 'center', color: colors.onSurface },
-  description: { ...typography.caption, fontSize: 12, lineHeight: 18, maxWidth: 300, textAlign: 'center', color: colors.onSurfaceVariant },
+  card: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    gap: 7,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  symbol: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  title: {
+    ...typography.title,
+    fontSize: 17,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: colors.onSurface,
+  },
+  description: {
+    ...typography.caption,
+    fontSize: 12,
+    lineHeight: 18,
+    maxWidth: 300,
+    textAlign: 'center',
+    color: colors.onSurfaceVariant,
+  },
 });
