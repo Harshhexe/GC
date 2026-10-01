@@ -19,11 +19,8 @@ import {
   AuroraBackground,
   SpotlightCard,
   ShinyText,
-  DecryptedText,
-  AIPulsingCore,
   NeonBadge,
   ElasticTabBar,
-  BentoStatBox,
 } from '../components/reactbits';
 import { GlassPanel } from '../components/ui/Glass';
 import { GCButton } from '../components/ui/Buttons';
@@ -643,78 +640,6 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           {/* TAB 1: MISSED (Vibe, AI Highlights & Mentions) */}
           {activeTab === 'missed' && (
             <>
-              {/* React Bits AI Hero */}
-              <Animated.View
-                entering={FadeInDown.duration(duration.slow)
-                  .easing(easing.out)
-                  .reduceMotion(reduceMotion)}
-              >
-                <SpotlightCard
-                  spotlightColor={`${activeTheme.accent}26`}
-                  borderColor="rgba(255, 255, 255, 0.12)"
-                  borderRadius={26}
-                  style={styles.heroCard}
-                >
-                  <View style={styles.heroInner}>
-                    <View style={styles.heroTopRow}>
-                      <AIPulsingCore accentColor={activeTheme.accent} size={46} icon="sparkles" />
-                      <View style={styles.heroBadgeCol}>
-                        <NeonBadge label="LIVE INTELLIGENCE" color={activeTheme.accent} />
-                        <ShinyText
-                          text="NEURAL DIGEST"
-                          style={styles.heroShimmerText}
-                          shineColor="#FFFFFF"
-                          baseColor="rgba(255, 255, 255, 0.6)"
-                        />
-                      </View>
-                    </View>
-
-                    <View style={styles.heroTitleWrap}>
-                      <DecryptedText
-                        text="The Story So Far."
-                        style={styles.heroTitle}
-                        speed={30}
-                      />
-                      <Text style={styles.heroDescription}>
-                        The highlights, spicy plot twists, and secret mentions from {groupName}. All in one place.
-                      </Text>
-                    </View>
-
-                    {/* Bento Stat Grid */}
-                    <View style={styles.bentoStatsGrid}>
-                      <BentoStatBox
-                        icon="at"
-                        iconColor="#A78BFA"
-                        value={recap.mentions.length + privateForMe.length}
-                        label="Mentions"
-                        sublabel="For you"
-                      />
-                      <BentoStatBox
-                        icon="cafe"
-                        iconColor="#F59E0B"
-                        value={todaysTea.sessions.length}
-                        label="Tea Stories"
-                        sublabel="Spilled"
-                      />
-                      <BentoStatBox
-                        icon="calendar"
-                        iconColor="#F472B6"
-                        value={dailyHistory.entries.length}
-                        label="Daily Drops"
-                        sublabel="Archive"
-                      />
-                      <BentoStatBox
-                        icon="people"
-                        iconColor="#38BDF8"
-                        value={members.length}
-                        label="Members"
-                        sublabel="Active"
-                      />
-                    </View>
-                  </View>
-                </SpotlightCard>
-              </Animated.View>
-
               {/* Vibe check */}
               <Animated.View
                 entering={FadeInDown.delay(STAGGER_MS)
@@ -1341,47 +1266,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
-  },
-  heroCard: {
-    marginBottom: spacing.xs,
-    width: '100%',
-  },
-  heroInner: {
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  heroBadgeCol: {
-    gap: 4,
-  },
-  heroShimmerText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  heroTitleWrap: {
-    gap: 6,
-  },
-  heroTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  heroDescription: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.65)',
-    lineHeight: 20,
-  },
-  bentoStatsGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginTop: spacing.xs,
   },
   vibeCardInner: {
     padding: spacing.lg,

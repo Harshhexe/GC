@@ -719,6 +719,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: spacing.md,
   },
   cardIconWrap: {
     width: 28,
