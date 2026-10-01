@@ -8,12 +8,12 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { reduceMotion } from '../theme/motion';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
+import { useAppearance } from '../context/AppearanceContext';
 
 type Props = {
   visible: boolean;
@@ -27,22 +27,22 @@ type Props = {
 
 const CHANGELOG_ITEMS = [
   {
-    icon: 'color-palette-outline' as const,
+    icon: 'sparkles-outline' as const,
     color: '#818CF8',
-    title: 'Three ways to make GC yours',
-    desc: 'Choose Gen Z, Light, or Dark from your profile. Your preference is remembered and updates the app chrome, navigation, glass surfaces, and shared controls.',
+    title: 'Modern Linear Blur Header',
+    desc: 'New chat header with progressive linear glass blur, centered group avatar, title badge, and quick AI access.',
   },
   {
-    icon: 'person-circle-outline' as const,
+    icon: 'color-palette-outline' as const,
     color: '#38BDF8',
-    title: 'A calmer profile, with more personality',
-    desc: 'The profile experience now gives your identity, quick actions, and appearance a cleaner visual hierarchy without losing GC’s energy.',
+    title: 'A fresh look across GC',
+    desc: 'Chats, group details, Awards, Create, and Profile share clearer layouts and easier-to-read surfaces.',
   },
   {
-    icon: 'layers-outline' as const,
+    icon: 'people-outline' as const,
     color: '#F472B6',
-    title: 'A more cohesive visual system',
-    desc: 'Navigation and shared UI now respond to the active appearance, keeping contrast, surfaces, and accents coordinated across the experience.',
+    title: 'Find people and commands faster',
+    desc: 'Mentions show profile photos and member colors in a compact scrolling grid, with matching quick commands above the composer.',
   },
 ];
 
@@ -55,6 +55,8 @@ export function AppUpdateModal({
   onUpdate,
   onDismiss,
 }: Props) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   if (!visible) return null;
 
   const isWhatsNew = type === 'whats_new';
@@ -68,43 +70,30 @@ export function AppUpdateModal({
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
-        {/* Dark Backing */}
-        <View style={StyleSheet.absoluteFill} />
-
-        <Animated.View entering={FadeInUp.duration(300).reduceMotion(reduceMotion)} style={styles.card}>
-          {/* Top Accent Strip */}
-          <LinearGradient
-            colors={isWhatsNew ? ['#10B981', '#38BDF8', '#818CF8'] : ['#818CF8', '#C084FC', '#F472B6']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.accentBar}
-          />
+        <Animated.View entering={FadeInUp.duration(300).reduceMotion(reduceMotion)} style={[styles.card, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
+          <View style={[styles.accentBar, { backgroundColor: palette.primary }]} />
 
           {/* Badge Icon */}
-          <View style={styles.iconCircle}>
-            <LinearGradient
-              colors={['#1E1B2E', '#161426']}
-              style={StyleSheet.absoluteFill}
-            />
-            <Text style={styles.iconEmoji}>{isWhatsNew ? '✨' : '🚀'}</Text>
+          <View style={[styles.iconCircle, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+            <Ionicons name={isWhatsNew ? 'sparkles-outline' : 'arrow-up-circle-outline'} size={25} color={palette.primary} />
           </View>
 
           {/* Title & Subtitle */}
-          <Text style={styles.title}>
-            {isWhatsNew ? "What's New in GC" : 'Update Available!'}
+          <Text style={[styles.title, { color: palette.onSurface }]}>
+            {isWhatsNew ? "What's new in GC" : 'Update available'}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: palette.onSurfaceVariant }]}>
             {isWhatsNew
-              ? "Here's what just dropped in this latest version:"
-              : 'A new version of GC is ready to install with fresh features and improvements.'}
+              ? 'A few things that will feel better today.'
+              : 'A new version of GC is ready to install.'}
           </Text>
 
           {/* If Pre-Update: Show dynamic release note from EAS Update */}
           {!isWhatsNew && (
-            <View style={styles.preUpdateNoteCard}>
-              <Ionicons name="sparkles" size={16} color="#818CF8" />
-              <Text style={styles.preUpdateNoteText}>
-                {updateMessage || 'Includes the latest features, improvements, and performance boosts.'}
+            <View style={[styles.preUpdateNoteCard, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+              <Ionicons name="sparkles-outline" size={16} color={palette.primary} />
+              <Text style={[styles.preUpdateNoteText, { color: palette.onSurfaceVariant }]}>
+                {updateMessage || 'Includes the latest improvements to GC.'}
               </Text>
             </View>
           )}
@@ -112,15 +101,15 @@ export function AppUpdateModal({
           {/* If Post-Update: Show full changelog */}
           {isWhatsNew && (
             <ScrollView style={styles.changelogScroll} showsVerticalScrollIndicator={false}>
-              <View style={styles.featuresBox}>
+              <View style={[styles.featuresBox, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
                 {CHANGELOG_ITEMS.map((item, idx) => (
                   <View key={idx} style={styles.featureRow}>
                     <View style={[styles.featureBullet, { backgroundColor: `${item.color}22` }]}>
                       <Ionicons name={item.icon} size={15} color={item.color} />
                     </View>
                     <View style={styles.featureCopy}>
-                      <Text style={styles.featureTitle}>{item.title}</Text>
-                      <Text style={styles.featureDesc}>{item.desc}</Text>
+                      <Text style={[styles.featureTitle, { color: palette.onSurface }]}>{item.title}</Text>
+                      <Text style={[styles.featureDesc, { color: palette.onSurfaceVariant }]}>{item.desc}</Text>
                     </View>
                   </View>
                 ))}
@@ -140,51 +129,39 @@ export function AppUpdateModal({
           <View style={styles.actionColumn}>
             {isWhatsNew ? (
               <PressableScale
-                style={styles.updateBtn}
+                style={[styles.updateBtn, { backgroundColor: palette.primary }]}
                 scaleTo={0.97}
                 onPress={onDismiss}
               >
-                <LinearGradient
-                  colors={['#10B981', '#38BDF8']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={StyleSheet.absoluteFill}
-                />
                 <View style={styles.btnContent}>
-                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                  <Text style={styles.btnText}>Let's Go! 🚀</Text>
+                  <Ionicons name="checkmark" size={18} color={palette.onPrimary} />
+                  <Text style={[styles.btnText, { color: palette.onPrimary }]}>Continue</Text>
                 </View>
               </PressableScale>
             ) : (
               <>
                 <PressableScale
-                  style={[styles.updateBtn, isDownloading && styles.updateBtnDisabled]}
+                  style={[styles.updateBtn, { backgroundColor: palette.primary }, isDownloading && styles.updateBtnDisabled]}
                   scaleTo={0.97}
                   disabled={isDownloading}
                   onPress={onUpdate}
                 >
-                  <LinearGradient
-                    colors={isDownloading ? ['#312E4A', '#242238'] : ['#6366F1', '#8B5CF6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={StyleSheet.absoluteFill}
-                  />
                   {isDownloading ? (
                     <View style={styles.btnContent}>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                      <Text style={styles.btnText}>Updating & Restarting...</Text>
+                      <ActivityIndicator size="small" color={palette.onPrimary} />
+                      <Text style={[styles.btnText, { color: palette.onPrimary }]}>Updating…</Text>
                     </View>
                   ) : (
                     <View style={styles.btnContent}>
-                      <Ionicons name="refresh" size={18} color="#FFFFFF" />
-                      <Text style={styles.btnText}>Update & Restart Now</Text>
+                      <Ionicons name="refresh" size={18} color={palette.onPrimary} />
+                      <Text style={[styles.btnText, { color: palette.onPrimary }]}>Update and restart</Text>
                     </View>
                   )}
                 </PressableScale>
 
                 {!isDownloading && (
                   <PressableScale style={styles.laterBtn} scaleTo={0.97} onPress={onDismiss}>
-                    <Text style={styles.laterText}>Remind Me Later</Text>
+                    <Text style={[styles.laterText, { color: palette.onSurfaceVariant }]}>Maybe later</Text>
                   </PressableScale>
                 )}
               </>
@@ -199,7 +176,7 @@ export function AppUpdateModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.82)',
+    backgroundColor: 'rgba(4, 6, 10, 0.68)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
@@ -208,10 +185,10 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     maxHeight: '85%',
-    backgroundColor: '#12111D',
-    borderRadius: radius.xxl,
-    borderWidth: 1.5,
-    borderColor: '#2B2844',
+    backgroundColor: '#151A21',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.09)',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
@@ -221,11 +198,11 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.55,
-        shadowRadius: 20,
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
       },
       android: {
-        elevation: 16,
+        elevation: 8,
       },
     }),
   },
@@ -234,13 +211,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 4,
+    height: 3,
   },
   iconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#3D385E',
     alignItems: 'center',
     justifyContent: 'center',
@@ -260,7 +237,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.caption,
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#94A3B8',
     textAlign: 'center',
     marginTop: 2,
@@ -271,7 +248,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    backgroundColor: 'rgba(129, 140, 248, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(129, 140, 248, 0.3)',
     borderRadius: radius.lg,
@@ -281,7 +258,7 @@ const styles = StyleSheet.create({
   },
   preUpdateNoteText: {
     ...typography.bodyMedium,
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#E0E7FF',
     flex: 1,
     lineHeight: 18,
@@ -319,13 +296,13 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     ...typography.body,
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#F1F5F9',
   },
   featureDesc: {
     ...typography.caption,
-    fontSize: 11.5,
+    fontSize: 12.5,
     color: '#94A3B8',
     lineHeight: 16,
   },
@@ -354,8 +331,8 @@ const styles = StyleSheet.create({
   },
   updateBtn: {
     width: '100%',
-    height: 48,
-    borderRadius: radius.pill,
+    minHeight: 48,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -378,7 +355,7 @@ const styles = StyleSheet.create({
   laterBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    minHeight: 44,
   },
   laterText: {
     ...typography.caption,

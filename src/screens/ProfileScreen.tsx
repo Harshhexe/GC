@@ -23,7 +23,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect } from '@react-navigation/native';
 import Animated, {
-  Easing as ReaEasing,
   Extrapolation,
   FadeIn,
   FadeInDown,
@@ -31,8 +30,6 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withTiming,
 } from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
@@ -83,19 +80,11 @@ const HEADER_HEIGHT = 56;
 const HANDOVER_START = 130;
 const HANDOVER_END = 200;
 
-const AVATAR_SIZE = 112;
-const RING_SIZE = 128;
-/** Thickness of the aurora band drawn around the avatar. */
-const RING_BAND = 3;
-const HALO_SIZE = 152;
+const AVATAR_SIZE = 78;
 
 const FEEDBACK_MAX = 1000;
 
-/**
- * The screen's atmosphere: a near-black base lit from the top by the same
- * indigo→rose pair the hero avatar spins, so the glow reads as coming *off*
- * the person rather than being wallpaper behind them.
- */
+/** A low contrast wash gives the profile a sense of place. */
 function AuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
   const { theme } = useAppearance();
   const glow = theme.palette.primary;
@@ -108,47 +97,18 @@ function AuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Overhead spotlight, centred on where the avatar sits. */}
       <LinearGradient
-        colors={[`${glow}33`, `${theme.palette.secondary}16`, 'transparent']}
+        colors={[`${glow}14`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.backdropSpotlight}
       />
 
-      <LinearGradient
-        colors={[`${glow}1F`, 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.75, y: 0.55 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={[`${theme.palette.secondary}18`, 'transparent']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.25, y: 0.55 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Vignette — keeps the lower half from competing with the cards. */}
-      <LinearGradient
-        colors={theme.isDark ? ['transparent', 'rgba(0, 0, 0, 0.72)'] : ['transparent', 'rgba(236,236,232,0.58)']}
-        start={{ x: 0.5, y: 0.55 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
     </Animated.View>
   );
 }
 
-/**
- * The hero avatar: a gradient band that slowly sweeps around the picture.
- *
- * The sweep is a *linear* gradient on an oversized square spun inside a
- * circular clip, not a conic gradient — React Native has no conic fill, and
- * this reads identically at ring thickness while staying one GPU transform.
- * The square is 1.5× the clip so its corners never rotate into view, and the
- * gradient's first and last stops match so each 360° lap loops seamlessly.
- */
+/** Identity photo is the edit entry point. */
 function AuroraAvatar({
   emoji,
   imageUrl,
@@ -164,20 +124,6 @@ function AuroraAvatar({
 }) {
   const { theme } = useAppearance();
   const { palette } = theme;
-  const spin = useSharedValue(0);
-
-  useEffect(() => {
-    spin.value = withRepeat(
-      withTiming(360, { duration: 7000, easing: ReaEasing.linear, reduceMotion }),
-      -1,
-      false
-    );
-  }, [spin]);
-
-  const spinStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spin.value}deg` }],
-  }));
-
   return (
     <PressableScale
       style={styles.avatarWrap}
@@ -188,33 +134,12 @@ function AuroraAvatar({
       accessibilityRole="button"
       accessibilityLabel="Edit profile picture, display name and username"
     >
-      <View style={styles.avatarHalo} pointerEvents="none">
-        <LinearGradient
-          colors={[`${palette.primary}4D`, `${palette.secondary}1F`, 'transparent']}
-          start={{ x: 0.15, y: 0 }}
-          end={{ x: 0.85, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
-
-      <View style={styles.ringClip} pointerEvents="none">
-        <Animated.View style={[styles.ringSweep, spinStyle]}>
-          <LinearGradient
-            colors={[palette.primary, palette.secondary, palette.tertiary, palette.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
-        <View style={[styles.ringHole, { backgroundColor: palette.appRoot }]} />
-      </View>
-
       <Avatar
         emoji={emoji}
         imageUrl={imageUrl}
         label={label}
         size={AVATAR_SIZE}
-        ring={false}
+        ring
       />
 
       <View style={[styles.cameraBadge, { backgroundColor: palette.primaryContainer, borderColor: palette.appRoot }]}>
@@ -280,14 +205,7 @@ function StatCard({
   const { theme } = useAppearance();
   return (
     <View style={[styles.statCard, { backgroundColor: theme.glass.fill, borderColor: theme.glass.stroke }]} accessibilityLabel={`${value} ${label}`}>
-      <LinearGradient
-        colors={[`${accent}1A`, 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <View style={[styles.statIcon, { backgroundColor: `${accent}22`, borderColor: `${accent}3D` }]}>
+      <View style={[styles.statIcon, { backgroundColor: `${accent}16` }]}>
         <Ionicons name={icon} size={14} color={accent} />
       </View>
       <Text style={[styles.statValue, { color: theme.palette.onSurface }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -300,11 +218,6 @@ function StatCard({
   );
 }
 
-/**
- * A bento tile. Quick actions used to be a stack of list rows, which made four
- * equally-weighted destinations read as a settings menu; as a grid they read
- * as places to go, which is what they are.
- */
 function ActionTile({
   icon,
   accent,
@@ -321,21 +234,14 @@ function ActionTile({
   const { theme } = useAppearance();
   return (
     <PressableScale
-      style={[styles.tile, { borderColor: `${accent}2E`, backgroundColor: theme.glass.fillStrong }]}
+      style={[styles.tile, { borderColor: theme.palette.border, backgroundColor: theme.palette.surfaceLow }]}
       scaleTo={0.96}
       haptic="light"
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${title}. ${subtitle}`}
     >
-      <LinearGradient
-        colors={[`${accent}1F`, 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <View style={[styles.tileIcon, { backgroundColor: `${accent}24`, borderColor: `${accent}45` }]}>
+      <View style={[styles.tileIcon, { backgroundColor: `${accent}16` }]}>
         <Ionicons name={icon} size={20} color={accent} />
       </View>
       <View style={styles.tileCopy}>
@@ -357,12 +263,6 @@ function SectionLabel({ text }: { text: string }) {
       <Text style={[styles.sectionLabelText, { color: theme.palette.onSurfaceVariant }]} accessibilityRole="header">
         {text}
       </Text>
-      <LinearGradient
-        colors={[theme.palette.borderBright, 'transparent']}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={styles.sectionRule}
-      />
     </View>
   );
 }
@@ -415,11 +315,11 @@ function SettingsRow({
 function AppearancePicker() {
   const { appearance, setAppearance, theme } = useAppearance();
   return (
-    <View style={[styles.appearanceCard, { backgroundColor: theme.glass.fillStrong, borderColor: theme.glass.stroke }]}>
+    <View style={[styles.appearanceCard, { backgroundColor: theme.palette.surfaceLow, borderColor: theme.palette.border }]}>
       <View style={styles.appearanceHeader}>
         <View>
-          <Text style={[styles.appearanceTitle, { color: theme.palette.onSurface }]}>Make GC yours</Text>
-          <Text style={[styles.appearanceSubtitle, { color: theme.palette.onSurfaceVariant }]}>A look that follows you everywhere.</Text>
+          <Text style={[styles.appearanceTitle, { color: theme.palette.onSurface }]}>Choose your look</Text>
+          <Text style={[styles.appearanceSubtitle, { color: theme.palette.onSurfaceVariant }]}>Your theme across GC.</Text>
         </View>
         <Ionicons name="color-palette-outline" size={20} color={theme.palette.primary} />
       </View>
@@ -990,71 +890,50 @@ export default function ProfileScreen({ navigation }: Props) {
         <Animated.View
           entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
         >
-          <Animated.View style={[styles.hero, heroStyle]}>
-            <AuroraAvatar
-              emoji={profile?.avatar_emoji ?? undefined}
-              imageUrl={profile?.avatar_url}
-              label={displayName}
-              uploading={uploadingAvatar}
-              onPress={openEditProfile}
-            />
-
-            <Text style={[styles.displayName, { color: palette.onSurface }]} numberOfLines={2}>
-              {displayName}
-            </Text>
-
-            <PressableScale
-              style={[styles.handleChip, { backgroundColor: theme.glass.fillStrong, borderColor: theme.glass.stroke }]}
-              scaleTo={0.94}
-              haptic="light"
-              hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-              onPress={copyHandle}
-              accessibilityRole="button"
-              accessibilityLabel={handleCopied ? 'Username copied' : `Copy username @${username}`}
-            >
-              <Text style={[styles.handleText, { color: palette.onSurfaceVariant }, handleCopied && styles.handleTextCopied]}>
-                {handleCopied ? 'Copied!' : `@${username}`}
-              </Text>
-              <Ionicons
-                name={handleCopied ? 'checkmark-circle' : 'copy-outline'}
-                size={13}
-                color={handleCopied ? palette.lime : palette.onSurfaceVariant}
+          <Animated.View style={[styles.hero, { backgroundColor: palette.surfaceLow, borderColor: palette.border }, heroStyle]}>
+            <View style={styles.heroIdentityRow}>
+              <AuroraAvatar
+                emoji={profile?.avatar_emoji ?? undefined}
+                imageUrl={profile?.avatar_url}
+                label={displayName}
+                uploading={uploadingAvatar}
+                onPress={openEditProfile}
               />
-            </PressableScale>
-
-            <View style={styles.heroMetaRow}>
-              <View style={[styles.alphaChip, { backgroundColor: `${palette.secondary}1F`, borderColor: `${palette.secondary}45` }]}>
-                <Ionicons name="flask" size={11} color={palette.secondary} />
-                <Text style={[styles.alphaChipText, { color: palette.secondary }]}>ALPHA TESTER</Text>
-              </View>
-              {!!joined && (
-                <Text style={styles.heroMeta}>
-                  Joined {joined.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+              <View style={styles.heroCopy}>
+                <Text style={[styles.displayName, { color: palette.onSurface }]} numberOfLines={2}>
+                  {displayName}
                 </Text>
-              )}
+                <PressableScale
+                  style={[styles.handleChip, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}
+                  scaleTo={0.96}
+                  onPress={copyHandle}
+                  accessibilityLabel={handleCopied ? 'Username copied' : `Copy username @${username}`}
+                >
+                  <Text style={[styles.handleText, { color: palette.onSurfaceVariant }, handleCopied && styles.handleTextCopied]}>
+                    {handleCopied ? 'Copied' : `@${username}`}
+                  </Text>
+                  <Ionicons
+                    name={handleCopied ? 'checkmark' : 'copy-outline'}
+                    size={13}
+                    color={handleCopied ? palette.lime : palette.onSurfaceVariant}
+                  />
+                </PressableScale>
+                {!!joined && (
+                  <Text style={styles.heroMeta}>
+                    Joined {joined.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                  </Text>
+                )}
+              </View>
             </View>
-
-            <PressableScale
-              scaleTo={0.96}
-              haptic="light"
+            <GCButton
+              label={uploadingAvatar ? 'Uploading…' : 'Edit profile'}
+              variant="ghost"
+              full={false}
               onPress={openEditProfile}
               disabled={uploadingAvatar}
               style={styles.editProfileBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Edit profile: picture, display name and username"
-            >
-              <LinearGradient
-                colors={theme.gradients}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.editProfileGradient}
-              >
-                <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.editProfileText}>
-                  {uploadingAvatar ? 'Uploading…' : 'Edit Profile'}
-                </Text>
-              </LinearGradient>
-            </PressableScale>
+              icon={<Ionicons name="create-outline" size={16} color={palette.primary} />}
+            />
           </Animated.View>
         </Animated.View>
 
@@ -1089,7 +968,7 @@ export default function ProfileScreen({ navigation }: Props) {
             .reduceMotion(reduceMotion)}
           style={styles.section}
         >
-          <SectionLabel text="APPEARANCE" />
+          <SectionLabel text="Appearance" />
           <AppearancePicker />
         </Animated.View>
 
@@ -1101,7 +980,7 @@ export default function ProfileScreen({ navigation }: Props) {
             .reduceMotion(reduceMotion)}
           style={styles.section}
         >
-          <SectionLabel text="QUICK ACTIONS" />
+          <SectionLabel text="Explore GC" />
 
           <View style={styles.bentoRow}>
             <ActionTile
@@ -1146,9 +1025,9 @@ export default function ProfileScreen({ navigation }: Props) {
             .reduceMotion(reduceMotion)}
           style={styles.section}
         >
-          <SectionLabel text="ALPHA FEEDBACK" />
+          <SectionLabel text="Feedback" />
 
-          <GlassPanel borderRadius={radius.lg} style={styles.feedbackCard}>
+          <GlassPanel borderRadius={radius.lg} style={[styles.feedbackCard, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
             <View style={styles.feedbackHead}>
               <View style={styles.feedbackHeadIcon}>
                 <Ionicons name="bug" size={17} color="#C084FC" />
@@ -1223,14 +1102,13 @@ export default function ProfileScreen({ navigation }: Props) {
             {feedbackSent && (
               <Animated.View entering={FadeIn.duration(duration.fast)} style={styles.sentBanner}>
                 <Ionicons name="checkmark-circle" size={16} color={colors.green} />
-                <Text style={styles.sentText}>Feedback received. Thanks for testing GC 💜</Text>
+                <Text style={styles.sentText}>Feedback received. Thanks for helping improve GC.</Text>
               </Animated.View>
             )}
 
             <GCButton
               label={submittingFeedback ? 'Sending…' : 'Send Feedback'}
-              variant="gradient"
-              neo
+              variant="primary"
               disabled={submittingFeedback || (!feedbackText.trim() && !feedbackPhoto)}
               onPress={submitFeedback}
               icon={<Ionicons name="send" size={15} color="#FFFFFF" />}
@@ -1246,9 +1124,9 @@ export default function ProfileScreen({ navigation }: Props) {
             .reduceMotion(reduceMotion)}
           style={styles.section}
         >
-          <SectionLabel text="ACCOUNT" />
+          <SectionLabel text="Account" />
 
-          <GlassPanel borderRadius={radius.lg} style={styles.listCard}>
+          <GlassPanel borderRadius={radius.lg} style={[styles.listCard, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
             <SettingsRow
               icon="cloud-download-outline"
               accent="#818CF8"
@@ -1299,13 +1177,13 @@ export default function ProfileScreen({ navigation }: Props) {
               style={StyleSheet.absoluteFill}
             />
           )}
-          <View style={styles.headerChromeFill} />
-          <View style={styles.headerHairline} />
+          <View style={[styles.headerChromeFill, { backgroundColor: palette.surfaceLow }]} />
+          <View style={[styles.headerHairline, { backgroundColor: palette.border }]} />
         </Animated.View>
 
         <View style={styles.headerBar} pointerEvents="box-none">
           <Animated.Text
-            style={[styles.headerTitle, headerTitleStyle]}
+            style={[styles.headerTitle, { color: palette.onSurface }, headerTitleStyle]}
             numberOfLines={1}
             pointerEvents="none"
           >
@@ -1318,13 +1196,13 @@ export default function ProfileScreen({ navigation }: Props) {
               imageUrl={profile?.avatar_url}
               label={displayName}
               size={30}
-              ringColors={['#818CF8', '#F472B6']}
+              ringColors={[palette.primary, palette.secondary]}
             />
             <View style={styles.headerIdentityCopy}>
-              <Text style={styles.headerIdentityName} numberOfLines={1}>
+              <Text style={[styles.headerIdentityName, { color: palette.onSurface }]} numberOfLines={1}>
                 {displayName}
               </Text>
-              <Text style={styles.headerIdentityHandle} numberOfLines={1}>
+              <Text style={[styles.headerIdentityHandle, { color: palette.onSurfaceVariant }]} numberOfLines={1}>
                 @{username}
               </Text>
             </View>
@@ -1601,7 +1479,7 @@ const styles = StyleSheet.create({
   headerWrap: { position: 'absolute', top: 0, left: 0, right: 0 },
   headerChromeFill: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Platform.OS === 'web' ? 'rgba(10, 9, 18, 0.86)' : 'rgba(10, 9, 18, 0.55)',
+    backgroundColor: 'rgba(9,12,16,0.96)',
   },
   headerHairline: {
     position: 'absolute',
@@ -1619,13 +1497,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...typography.title,
     color: colors.onSurface,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   headerIdentity: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: spacing.sm + 2,
     paddingHorizontal: spacing.lg,
   },
@@ -1642,131 +1520,33 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // ── Hero ──────────────────────────────────────────────────────────────
-  hero: { alignItems: 'center', gap: spacing.sm },
-  avatarWrap: {
-    width: HALO_SIZE,
-    height: HALO_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
+  // ── Identity ────────────────────────────────────────────────────────
+  hero: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceLow,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  avatarHalo: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: HALO_SIZE,
-    height: HALO_SIZE,
-    borderRadius: HALO_SIZE / 2,
-    overflow: 'hidden',
-  },
-  ringClip: {
-    position: 'absolute',
-    top: (HALO_SIZE - RING_SIZE) / 2,
-    left: (HALO_SIZE - RING_SIZE) / 2,
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    overflow: 'hidden',
-  },
-  // 1.5× the clip so the rotating square's corners never swing into view.
-  ringSweep: {
-    position: 'absolute',
-    top: -RING_SIZE * 0.25,
-    left: -RING_SIZE * 0.25,
-    width: RING_SIZE * 1.5,
-    height: RING_SIZE * 1.5,
-  },
-  ringHole: {
-    position: 'absolute',
-    top: RING_BAND,
-    left: RING_BAND,
-    width: RING_SIZE - RING_BAND * 2,
-    height: RING_SIZE - RING_BAND * 2,
-    borderRadius: (RING_SIZE - RING_BAND * 2) / 2,
-    backgroundColor: '#0B0A12',
-  },
+  heroIdentityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  heroCopy: { flex: 1, alignItems: 'flex-start', gap: spacing.xs },
+  avatarWrap: { width: AVATAR_SIZE, height: AVATAR_SIZE },
   cameraBadge: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.primaryContainer,
-    borderWidth: 2,
-    borderColor: '#0B0A12',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
+    position: 'absolute', right: -2, bottom: -2,
+    width: 26, height: 26, borderRadius: 13, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center',
   },
-  displayName: {
-    ...typography.headline,
-    fontSize: 32,
-    lineHeight: 38,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
+  displayName: { ...typography.headlineSm, fontWeight: '800' },
   handleChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 32,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    minHeight: 30, paddingHorizontal: spacing.sm + 2,
+    borderRadius: radius.sm, borderWidth: 1,
   },
-  handleText: {
-    ...typography.caption,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-  },
+  handleText: { ...typography.caption, fontSize: 13, fontWeight: '600' },
   handleTextCopied: { color: colors.green },
-  heroMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: 2,
-  },
-  alphaChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.35)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  alphaChipText: {
-    ...typography.micro,
-    fontSize: 10.5,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-    color: '#C084FC',
-  },
   heroMeta: { ...typography.micro, fontSize: 12, color: colors.textMuted },
-  editProfileBtn: { marginTop: spacing.sm, borderRadius: radius.pill },
-  editProfileGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    minHeight: 46,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: radius.pill,
-  },
-  editProfileText: { ...typography.label, fontSize: 15, color: '#FFFFFF', fontWeight: '700' },
+  editProfileBtn: { alignSelf: 'flex-start' },
 
   // ── Stats ─────────────────────────────────────────────────────────────
   statsRow: { flexDirection: 'row', gap: spacing.md },
@@ -1806,33 +1586,26 @@ const styles = StyleSheet.create({
   // ── Sections ──────────────────────────────────────────────────────────
   section: { gap: spacing.md },
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  sectionLabelText: {
-    ...typography.label,
-    fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-    color: colors.onSurfaceVariant,
-  },
+  sectionLabelText: { ...typography.titleMd, fontSize: 18, fontWeight: '700', color: colors.onSurface },
   sectionRule: { flex: 1, height: 1, borderRadius: 1 },
 
   // ── Bento tiles ───────────────────────────────────────────────────────
   bentoRow: { flexDirection: 'row', gap: spacing.md },
   tile: {
     flex: 1,
-    minHeight: 132,
+    minHeight: 112,
     padding: spacing.lg - 2,
     borderRadius: radius.lg,
     borderWidth: 1,
     backgroundColor: 'rgba(255,255,255,0.035)',
     overflow: 'hidden',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     gap: spacing.md,
   },
   tileIcon: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 36,
     borderRadius: radius.md,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1856,7 +1629,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.25)',
+    borderColor: colors.border,
   },
   feedbackHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   feedbackHeadIcon: {
@@ -1865,9 +1638,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.32)',
+    backgroundColor: colors.surfaceHigh,
   },
   feedbackHeadCopy: { flex: 1, gap: 3 },
   feedbackTitle: {

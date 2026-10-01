@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   FadeIn,
@@ -50,13 +49,13 @@ const APP_LOGO_TRANSPARENT = require('../../assets/gc_app_logo-transparent.png')
 
 type SignUpStep = 0 | 1;
 
-/** Deep moody atmospheric glow background with high blur for Auth Screen */
+/** Quiet canvas with a single brand light behind the form. */
 function AuthAtmosphericBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
       {/* Deep Obsidian Base */}
       <LinearGradient
-        colors={['#0C0A14', '#06050A', colors.appChrome]}
+        colors={['#11111A', '#09090F', colors.appChrome]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -64,55 +63,10 @@ function AuthAtmosphericBackground() {
 
       {/* Top Atmosphere Spotlight */}
       <LinearGradient
-        colors={['rgba(139, 92, 246, 0.20)', 'rgba(99, 102, 241, 0.08)', 'transparent']}
+        colors={['rgba(99, 102, 241, 0.13)', 'rgba(99, 102, 241, 0.035)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.topSpotlight}
-      />
-
-      {/* 4-Corner Luminous Glowing Blobs */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={['rgba(139, 92, 246, 0.32)', 'rgba(236, 72, 153, 0.15)', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={['rgba(76, 215, 246, 0.22)', 'rgba(99, 102, 241, 0.14)', 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={['rgba(251, 113, 133, 0.18)', 'rgba(139, 92, 246, 0.14)', 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={['rgba(99, 102, 241, 0.22)', 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* High-intensity dark blur */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 85 : 95}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
       />
 
       {/* Subtle Ambient Sheen */}
@@ -813,61 +767,54 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
 
-  // Glow Background
+  // Background
   glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
   topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  cornerBlob: { position: 'absolute', borderRadius: 999 },
-  blobFill: { flex: 1, borderRadius: 999 },
-  blobTopLeft: { top: -70, left: -70, width: 280, height: 280, opacity: 0.75 },
-  blobTopRight: { top: -60, right: -60, width: 270, height: 270, opacity: 0.7 },
-  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.65 },
-  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.7 },
 
   // Brand Header
   brandHeader: {
     alignItems: 'center',
-    gap: 4,
-    paddingTop: spacing.xs,
+    gap: spacing.sm,
+    paddingTop: spacing.md,
   },
   brandLogo: {
-    width: 110,
-    height: 44,
-    marginBottom: 2,
+    width: 126,
+    height: 50,
+    marginBottom: spacing.xs,
   },
   brandWelcomeTitle: {
     ...typography.headline,
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 27,
     color: '#FFFFFF',
     letterSpacing: -0.5,
     textAlign: 'center',
   },
   brandWelcomeSubtitle: {
     ...typography.body,
-    fontSize: 13,
-    color: '#94A3B8',
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: spacing.sm,
+    lineHeight: 21,
+    paddingHorizontal: spacing.lg,
   },
 
   // Card
   card: {
-    padding: spacing.lg + 2,
-    gap: spacing.md + 2,
-    backgroundColor: '#12111A',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    padding: spacing.xl,
+    gap: spacing.lg,
+    backgroundColor: 'rgba(15, 15, 23, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
   },
 
   // Segment Track
   segmentTrack: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    borderRadius: radius.md,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.075)',
   },
   segmentBtn: {
     flex: 1,
@@ -876,16 +823,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 9,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
   },
   segmentBtnActive: {
-    backgroundColor: '#6366F1',
+    backgroundColor: '#393B76',
     borderWidth: 1,
-    borderColor: '#818CF8',
+    borderColor: 'rgba(165, 170, 255, 0.25)',
   },
   segmentText: {
     ...typography.label,
-    fontSize: 13,
+    fontSize: 12,
     color: colors.onSurfaceVariant,
     fontWeight: '600',
   },
@@ -923,21 +870,20 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...typography.label,
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#C7D2FE',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.45,
     marginLeft: 2,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
     borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingHorizontal: spacing.md,
-    height: 50,
+    height: 54,
     gap: spacing.sm,
   },
   inputIcon: {
@@ -945,7 +891,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontFamily: fontFamily.bodyBold,
+    fontFamily: fontFamily.body,
     fontSize: 15,
     color: '#FFFFFF',
     height: '100%',
@@ -1045,7 +991,7 @@ const styles = StyleSheet.create({
 
   // Submit Button
   submitBtnWrap: {
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     marginTop: spacing.xs,
   },
   submitBtnGradient: {
@@ -1054,9 +1000,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: glass.strokeBright,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
   },
   submitBtnText: {
     ...typography.label,

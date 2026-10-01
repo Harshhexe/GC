@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, glass, radius, spacing, typography } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
@@ -82,11 +81,12 @@ export default function NotificationsScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <AmbientBackground tint="#818CF8" />
+      <AmbientBackground tint={colors.bg} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.webContainer}>
           <AppHeader
-            title="Mentions & Activity"
+            title="Activity"
+            subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'Mentions and replies'}
             left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
             right={
               unreadCount > 0 ? (
@@ -96,7 +96,7 @@ export default function NotificationsScreen({ navigation }: Props) {
                   onPress={handleMarkAllRead}
                   style={styles.markAllBtn}
                 >
-                  <Ionicons name="checkmark-done" size={15} color="#818CF8" />
+                  <Ionicons name="checkmark-done" size={15} color={colors.primary} />
                   <Text style={styles.markAllText}>Mark all read</Text>
                 </PressableScale>
               ) : undefined
@@ -124,11 +124,13 @@ export default function NotificationsScreen({ navigation }: Props) {
                       styles.filterPill,
                       isActive && styles.filterPillActive,
                     ]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: isActive }}
                   >
                     <Ionicons
                       name={f.icon}
                       size={13}
-                      color={isActive ? '#FFFFFF' : colors.onSurfaceVariant}
+                      color={isActive ? colors.onSurface : colors.onSurfaceVariant}
                     />
                     <Text
                       style={[
@@ -145,10 +147,11 @@ export default function NotificationsScreen({ navigation }: Props) {
           )}
 
           {loading ? (
-            <EmptyState emoji="⏳" text="Catching up on mentions..." />
+            <EmptyState emoji="◌" title="Loading activity" text="Catching up on mentions…" />
           ) : filteredMentions.length === 0 ? (
             <EmptyState
-              emoji="✨"
+              emoji="@"
+              title={filter === 'all' ? 'All caught up' : 'Nothing here yet'}
               text={
                 filter === 'all'
                   ? "No mentions yet. You're all caught up!"
@@ -179,16 +182,6 @@ export default function NotificationsScreen({ navigation }: Props) {
                       haptic="light"
                       onPress={() => openNotification(item)}
                     >
-                      {isUnread && (
-                        <LinearGradient
-                          colors={['rgba(129, 140, 248, 0.14)', 'rgba(99, 102, 241, 0.03)']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
-                          pointerEvents="none"
-                        />
-                      )}
-
                       {isUnread && <View style={styles.unreadDot} />}
 
                       {isComment ? (
@@ -280,18 +273,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    paddingHorizontal: 12,
+    minHeight: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.28)',
+    borderColor: colors.border,
   },
   markAllText: {
     ...typography.caption,
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#818CF8',
+    color: colors.onSurface,
   },
 
   filterRow: {
@@ -301,7 +294,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_MARGIN,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
     flexWrap: 'wrap',
   },
   filterPill: {
@@ -309,14 +302,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 11,
-    paddingVertical: 5.5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    minHeight: 38,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceHigh,
     borderColor: colors.primary,
   },
   filterPillText: {
@@ -326,13 +320,13 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    color: colors.onSurface,
     fontWeight: '700',
   },
 
   list: {
     padding: CONTAINER_MARGIN,
-    gap: spacing.sm + 2,
+    gap: 0,
     paddingBottom: spacing.xxl,
   },
   row: {
@@ -340,16 +334,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.md,
     padding: spacing.md + 1,
-    borderRadius: radius.xl,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
     overflow: 'hidden',
     position: 'relative',
   },
   rowUnread: {
-    backgroundColor: 'rgba(21, 20, 36, 0.95)',
-    borderColor: 'rgba(129, 140, 248, 0.40)',
+    backgroundColor: colors.surfaceLow,
   },
   unreadDot: {
     position: 'absolute',
@@ -358,7 +350,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#818CF8',
+    backgroundColor: colors.primary,
   },
 
   everyoneIcon: {
@@ -367,9 +359,7 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(129, 140, 248, 0.16)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(129, 140, 248, 0.35)',
+    backgroundColor: colors.surfaceHigh,
   },
   commentAvatarWrap: {
     width: 46,
@@ -377,9 +367,7 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(167, 139, 250, 0.16)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(167, 139, 250, 0.35)',
+    backgroundColor: colors.surfaceHigh,
   },
 
   copy: {
@@ -404,16 +392,14 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.25)',
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceHigh,
   },
   groupBadgeText: {
     ...typography.caption,
     fontSize: 10.5,
     fontWeight: '600',
-    color: '#A5B4FC',
+    color: colors.onSurfaceVariant,
   },
   label: {
     ...typography.caption,
@@ -425,14 +411,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: radius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderLeftWidth: 2,
-    borderLeftColor: '#818CF8',
+    borderLeftColor: colors.primary,
   },
   snippet: {
     ...typography.caption,
     fontSize: 12.5,
-    color: '#E2E8F0',
+    color: colors.onSurfaceVariant,
     lineHeight: 18,
   },
 
@@ -453,8 +439,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.25)',
+    backgroundColor: colors.surfaceHigh,
   },
 });

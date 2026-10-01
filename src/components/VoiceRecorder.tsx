@@ -298,7 +298,13 @@ export function VoiceRecorder({
       )}
 
       <GestureDetector gesture={gesture}>
-        <Animated.View style={styles.micSlot}>
+        <Animated.View
+          style={styles.micSlot}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={recording ? 'Recording voice note. Release to send or slide left to cancel' : 'Hold to record a voice note'}
+          accessibilityState={{ disabled: disabled || uploading, busy: uploading }}
+        >
           {recording && (
             <>
               <Animated.View

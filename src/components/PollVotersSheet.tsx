@@ -7,6 +7,7 @@ import { Avatar } from './ui/Avatar';
 import { PressableScale } from './ui/PressableScale';
 import { DraggableSheet } from './ui/DraggableSheet';
 import { fetchPollVoters, type Poll, type PollVoter } from '../lib/polls';
+import { useAppearance } from '../context/AppearanceContext';
 
 /**
  * Who voted for what, on a non-anonymous poll.
@@ -30,6 +31,8 @@ export function PollVotersSheet({
   tint: string;
   onClose: () => void;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const insets = useSafeAreaInsets();
   const [voters, setVoters] = useState<Record<string, PollVoter[]>>({});
   const [loading, setLoading] = useState(true);
@@ -60,16 +63,16 @@ export function PollVotersSheet({
       visible={visible}
       onClose={onClose}
       dragHandleOnly
-      style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}
+      style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + 12, 24), backgroundColor: palette.surfaceLow, borderColor: palette.border }]}
     >
 
           <View style={styles.header}>
             <Ionicons name="people" size={16} color={tint} />
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={[styles.title, { color: palette.onSurface }]} numberOfLines={2}>
               {poll.question}
             </Text>
           </View>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: palette.onSurfaceVariant }]}>
             {total} vote{total === 1 ? '' : 's'}
           </Text>
 
@@ -78,22 +81,22 @@ export function PollVotersSheet({
               <ActivityIndicator color={tint} />
             </View>
           ) : error ? (
-            <Text style={styles.error}>Couldn't load who voted.</Text>
+            <Text style={[styles.error, { color: palette.error }]}>Couldn't load who voted.</Text>
           ) : (
             <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
               {poll.options.map((option) => {
                 const list = voters[option.id] ?? [];
                 return (
                   <View key={option.id} style={styles.optionBlock}>
-                    <View style={styles.optionHead}>
-                      <Text style={styles.optionText} numberOfLines={1}>
+                    <View style={[styles.optionHead, { borderBottomColor: palette.border }]}>
+                      <Text style={[styles.optionText, { color: palette.onSurface }]} numberOfLines={1}>
                         {option.text}
                       </Text>
-                      <Text style={styles.optionCount}>{list.length}</Text>
+                      <Text style={[styles.optionCount, { color: palette.onSurfaceVariant }]}>{list.length}</Text>
                     </View>
 
                     {list.length === 0 ? (
-                      <Text style={styles.noVoters}>No votes</Text>
+                      <Text style={[styles.noVoters, { color: palette.onSurfaceVariant }]}>No votes</Text>
                     ) : (
                       list.map((v) => (
                         <View key={v.userId} style={styles.voterRow}>
@@ -104,7 +107,7 @@ export function PollVotersSheet({
                             size={28}
                             ringColors={[v.avatarColor ?? tint, tint]}
                           />
-                          <Text style={styles.voterName} numberOfLines={1}>
+                          <Text style={[styles.voterName, { color: palette.onSurface }]} numberOfLines={1}>
                             {v.name}
                           </Text>
                         </View>
@@ -116,8 +119,8 @@ export function PollVotersSheet({
             </ScrollView>
           )}
 
-          <PressableScale style={styles.doneBtn} scaleTo={0.97} onPress={onClose}>
-            <Text style={styles.doneText}>Done</Text>
+          <PressableScale style={[styles.doneBtn, { backgroundColor: palette.surfaceHigh }]} scaleTo={0.97} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close poll voters">
+            <Text style={[styles.doneText, { color: palette.onSurface }]}>Done</Text>
           </PressableScale>
     </DraggableSheet>
   );

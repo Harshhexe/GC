@@ -28,6 +28,7 @@ import { PressableScale } from '../components/ui/PressableScale';
 import { EmptyState } from '../components/EmptyState';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useAppearance } from '../context/AppearanceContext';
 import { successFeedback } from '../utils/haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -68,6 +69,8 @@ type Instruction = {
 export default function GroupInstructionsScreen({ route, navigation }: Props) {
   const { groupId } = route.params;
   const { session } = useAuth();
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [loading, setLoading] = useState(true);
   const [newInstruction, setNewInstruction] = useState('');
@@ -182,14 +185,15 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
       : 'e.g. Roast someone when they say anything related.....';
 
   return (
-    <View style={styles.root}>
-      <AmbientBackground tint="#818CF8" />
+    <View style={[styles.root, { backgroundColor: palette.appRoot }]}>
+      <AmbientBackground tint={palette.bg} />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <AppHeader
-          title="Custom Instructions"
+          title="GC memory"
+          subtitle="Inside jokes, names and rules"
           left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
           right={
-            <Text style={styles.headerCounter}>
+            <Text style={[styles.headerCounter, { color: palette.onSurfaceVariant }]}>
               {myCount}/{MAX_PER_USER}
             </Text>
           }
@@ -206,8 +210,8 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
             keyboardShouldPersistTaps="handled"
           >
             {/* Clean Subtitle */}
-            <Text style={styles.subtitle}>
-              Teach GC inside jokes, nicknames, and rules. GC uses these as ground truth in this chat.
+            <Text style={[styles.subtitle, { color: palette.onSurfaceVariant }]}>
+              Help GC understand your group. Everyone can add a memory, nickname or rule.
             </Text>
 
             {/* Filter Tabs (minimal) */}
@@ -219,13 +223,19 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                   onPress={() => setFilterCategory('all')}
                   style={[
                     styles.filterPill,
+                    { backgroundColor: palette.surfaceLow, borderColor: palette.border },
                     filterCategory === 'all' && styles.filterPillActive,
+                    filterCategory === 'all' && { backgroundColor: palette.surfaceHigh, borderColor: palette.primary },
                   ]}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: filterCategory === 'all' }}
                 >
                   <Text
                     style={[
                       styles.filterPillText,
+                      { color: palette.onSurfaceVariant },
                       filterCategory === 'all' && styles.filterPillTextActive,
+                      filterCategory === 'all' && { color: palette.onSurface },
                     ]}
                   >
                     All ({instructions.length})
@@ -244,21 +254,24 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                       onPress={() => setFilterCategory(c.key)}
                       style={[
                         styles.filterPill,
-                        isActive && {
-                          backgroundColor: `${c.color}18`,
-                          borderColor: `${c.color}55`,
-                        },
+                        { backgroundColor: palette.surfaceLow, borderColor: palette.border },
+                        isActive && styles.filterPillActive,
+                        isActive && { backgroundColor: palette.surfaceHigh, borderColor: palette.primary },
                       ]}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: isActive }}
                     >
                       <Ionicons
                         name={c.icon}
                         size={12}
-                        color={isActive ? c.color : colors.onSurfaceVariant}
+                        color={isActive ? palette.onSurface : palette.onSurfaceVariant}
                       />
                       <Text
                         style={[
                           styles.filterPillText,
-                          isActive && { color: c.color, fontWeight: '700' },
+                          { color: palette.onSurfaceVariant },
+                          isActive && styles.filterPillTextActive,
+                          isActive && { color: palette.onSurface },
                         ]}
                       >
                         {c.label}s ({count})
@@ -272,11 +285,12 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
             {/* Clean List */}
             {loading ? (
               <View style={styles.centered}>
-                <Text style={styles.loadingText}>Loading...</Text>
+                <Text style={[styles.loadingText, { color: palette.onSurfaceVariant }]}>Loading...</Text>
               </View>
             ) : filtered.length === 0 ? (
               <EmptyState
                 emoji="💡"
+                title={filterCategory === 'all' ? 'No memories yet' : 'Nothing in this category'}
                 text={
                   filterCategory === 'all'
                     ? 'No instructions yet. Add a note or nickname below.'
@@ -284,7 +298,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                 }
               />
             ) : (
-              <GlassPanel borderRadius={radius.lg} style={styles.listCard}>
+              <GlassPanel borderRadius={radius.lg} style={[styles.listCard, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
                 {filtered.map((inst, i) => {
                   const isOwn = inst.user_id === session?.user.id;
                   const isEditing = editingId === inst.id;
@@ -293,7 +307,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
 
                   if (isEditing) {
                     return (
-                      <View key={inst.id} style={[styles.itemRow, i > 0 && styles.itemDivider]}>
+                      <View key={inst.id} style={[styles.itemRow, i > 0 && styles.itemDivider, i > 0 && { borderTopColor: palette.border }]}>
                         <View style={styles.editContainer}>
                           <View style={styles.categoryPicker}>
                             {CATEGORIES.map((c) => {
@@ -306,10 +320,9 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                                   onPress={() => setEditingCategory(c.key)}
                                   style={[
                                     styles.pillBtn,
-                                    isSel && {
-                                      backgroundColor: `${c.color}22`,
-                                      borderColor: `${c.color}66`,
-                                    },
+                                    { backgroundColor: palette.surfaceHigh, borderColor: palette.border },
+                                    isSel && styles.filterPillActive,
+                                    isSel && { borderColor: palette.primary },
                                   ]}
                                 >
                                   <Ionicons
@@ -320,6 +333,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                                   <Text
                                     style={[
                                       styles.pillBtnText,
+                                      { color: palette.onSurfaceVariant },
                                       isSel && { color: c.color, fontWeight: '700' },
                                     ]}
                                   >
@@ -331,7 +345,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                           </View>
 
                           <TextInput
-                            style={styles.editInput}
+                            style={[styles.editInput, { color: palette.onSurface, backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}
                             value={editingText}
                             onChangeText={setEditingText}
                             autoFocus
@@ -346,7 +360,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                               onPress={cancelEditing}
                               style={styles.editCancelBtn}
                             >
-                              <Text style={styles.editCancelText}>Cancel</Text>
+                              <Text style={[styles.editCancelText, { color: palette.onSurfaceVariant }]}>Cancel</Text>
                             </PressableScale>
                             <PressableScale
                               scaleTo={0.95}
@@ -366,15 +380,11 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                   }
 
                   return (
-                    <View key={inst.id} style={[styles.itemRow, i > 0 && styles.itemDivider]}>
-                      {/* Category Icon indicator */}
+                    <View key={inst.id} style={[styles.itemRow, i > 0 && styles.itemDivider, i > 0 && { borderTopColor: palette.border }]}>
                       <View
                         style={[
                           styles.catIconWrap,
-                          {
-                            backgroundColor: `${cat.color}15`,
-                            borderColor: `${cat.color}35`,
-                          },
+                          { backgroundColor: palette.surfaceHigh, borderColor: palette.border },
                         ]}
                       >
                         <Ionicons name={cat.icon} size={15} color={cat.color} />
@@ -382,13 +392,13 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
 
                       {/* Content */}
                       <View style={styles.itemContent}>
-                        <Text style={styles.itemText}>{inst.instruction}</Text>
+                        <Text style={[styles.itemText, { color: palette.onSurface }]}>{inst.instruction}</Text>
                         <View style={styles.itemMetaRow}>
-                          <Text style={styles.itemAuthor}>
+                          <Text style={[styles.itemAuthor, { color: palette.onSurfaceVariant }]}>
                             {profile?.display_name ?? 'Someone'}
                           </Text>
-                          <Text style={styles.itemDot}>·</Text>
-                          <Text style={styles.itemTime}>{formatRelative(inst.created_at)}</Text>
+                          <Text style={[styles.itemDot, { color: palette.onSurfaceVariant }]}>·</Text>
+                          <Text style={[styles.itemTime, { color: palette.onSurfaceVariant }]}>{formatRelative(inst.created_at)}</Text>
                         </View>
                       </View>
 
@@ -401,7 +411,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                             onPress={() => startEditing(inst)}
                             style={styles.actionBtn}
                           >
-                            <Ionicons name="pencil-outline" size={15} color={colors.primary} />
+                            <Ionicons name="pencil-outline" size={15} color={palette.primary} />
                           </PressableScale>
                           <PressableScale
                             scaleTo={0.88}
@@ -409,7 +419,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                             onPress={() => confirmDelete(inst.id)}
                             style={styles.actionBtn}
                           >
-                            <Ionicons name="trash-outline" size={15} color={colors.error} />
+                            <Ionicons name="trash-outline" size={15} color={palette.error} />
                           </PressableScale>
                         </View>
                       )}
@@ -421,7 +431,7 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
           </ScrollView>
 
           {/* Clean Bottom Composer */}
-          <View style={styles.composerBar}>
+          <View style={[styles.composerBar, { backgroundColor: palette.surfaceLow, borderTopColor: palette.border }]}>
             {/* Category selection row */}
             <View style={styles.categoryPicker}>
               {CATEGORIES.map((c) => {
@@ -434,21 +444,22 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                     onPress={() => setNewCategory(c.key)}
                     style={[
                       styles.pillBtn,
-                      isSelected && {
-                        backgroundColor: `${c.color}20`,
-                        borderColor: `${c.color}66`,
-                      },
+                      { backgroundColor: palette.surfaceHigh, borderColor: palette.border },
+                      isSelected && styles.filterPillActive,
+                      isSelected && { borderColor: palette.primary },
                     ]}
                   >
                     <Ionicons
                       name={c.icon}
                       size={12}
-                      color={isSelected ? c.color : colors.outline}
+                      color={isSelected ? palette.onSurface : palette.onSurfaceVariant}
                     />
                     <Text
                       style={[
                         styles.pillBtnText,
-                        isSelected && { color: c.color, fontWeight: '700' },
+                        { color: palette.onSurfaceVariant },
+                        isSelected && styles.filterPillTextActive,
+                        isSelected && { color: palette.onSurface },
                       ]}
                     >
                       {c.label}
@@ -462,9 +473,9 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
             <View style={styles.inputRow}>
               <TextInput
                 ref={inputRef}
-                style={styles.input}
+                style={[styles.input, { color: palette.onSurface, backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}
                 placeholder={placeholderText}
-                placeholderTextColor={colors.outline}
+                placeholderTextColor={palette.onSurfaceVariant}
                 value={newInstruction}
                 onChangeText={setNewInstruction}
                 multiline
@@ -477,13 +488,15 @@ export default function GroupInstructionsScreen({ route, navigation }: Props) {
                 onPress={handleAdd}
                 style={[
                   styles.sendBtn,
+                  { backgroundColor: palette.surfaceHigh },
                   newInstruction.trim() && styles.sendBtnActive,
+                  newInstruction.trim() && { backgroundColor: palette.primary },
                 ]}
               >
                 <Ionicons
                   name="arrow-up"
                   size={18}
-                  color={newInstruction.trim() ? '#FFFFFF' : colors.outline}
+                  color={newInstruction.trim() ? palette.onPrimary : palette.onSurfaceVariant}
                 />
               </PressableScale>
             </View>
@@ -529,9 +542,9 @@ const styles = StyleSheet.create({
 
   subtitle: {
     ...typography.body,
-    fontSize: 13.5,
+    fontSize: 14,
     color: colors.onSurfaceVariant,
-    lineHeight: 19,
+    lineHeight: 21,
     paddingHorizontal: 2,
     marginBottom: spacing.xs,
   },
@@ -547,15 +560,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    minHeight: 38,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.primary,
   },
   filterPillText: {
     ...typography.caption,
@@ -570,7 +584,7 @@ const styles = StyleSheet.create({
 
   listCard: {
     overflow: 'hidden',
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -585,8 +599,8 @@ const styles = StyleSheet.create({
     borderTopColor: glass.stroke,
   },
   catIconWrap: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     borderRadius: radius.md,
     borderWidth: 1,
     alignItems: 'center',
@@ -631,9 +645,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   actionBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -662,8 +676,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   editCancelBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    minHeight: 40,
+    justifyContent: 'center',
   },
   editCancelText: {
     ...typography.label,
@@ -671,8 +686,9 @@ const styles = StyleSheet.create({
     color: colors.outline,
   },
   editSaveBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 18,
+    minHeight: 40,
+    justifyContent: 'center',
     borderRadius: radius.md,
     backgroundColor: colors.primary,
   },
@@ -687,9 +703,9 @@ const styles = StyleSheet.create({
   composerBar: {
     paddingHorizontal: CONTAINER_MARGIN,
     paddingVertical: spacing.sm + 2,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surfaceLow,
     borderTopWidth: 1,
-    borderTopColor: glass.stroke,
+    borderTopColor: colors.border,
     gap: spacing.xs + 2,
   },
   categoryPicker: {
@@ -702,11 +718,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    minHeight: 36,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   pillBtnText: {
     ...typography.caption,
@@ -733,10 +750,10 @@ const styles = StyleSheet.create({
     maxHeight: 90,
   },
   sendBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,

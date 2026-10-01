@@ -4,11 +4,7 @@ import { BlurView } from 'expo-blur';
 import { colors, glass, radius } from '../../theme/theme';
 import { useAppearance } from '../../context/AppearanceContext';
 
-/**
- * Frosted Glass Panel:
- * Clean blurred opacity aesthetic (iOS / VisionOS style) with smooth backdrop blur,
- * refined 1px border stroke, and zero glossy reflection noise.
- */
+/** The shared content surface. Blur is reserved for the few overlays that need it. */
 export function GlassPanel({
   children,
   style,
@@ -34,15 +30,14 @@ export function GlassPanel({
         ? `${theme.palette.secondary}40`
         : tone === 'tertiary'
           ? `${theme.palette.tertiary}40`
-          : theme.glass.stroke;
+          : theme.palette.border;
 
   return (
     <View
       style={[
         styles.panel,
         { borderRadius, borderColor: strokeColor },
-        Platform.OS === 'web' && [styles.panelWeb, { backgroundColor: theme.glass.fillStrong }],
-        { backgroundColor: theme.glass.fill },
+        { backgroundColor: blur && Platform.OS !== 'web' ? theme.glass.fill : theme.palette.surfaceLow },
         style,
       ]}
     >
@@ -77,7 +72,7 @@ export function Chip({
         ? `${theme.palette.secondary}1F`
         : tone === 'tertiary'
           ? `${theme.palette.tertiary}1F`
-          : theme.glass.fill;
+          : theme.palette.surfaceHigh;
   const border =
     tone === 'primary'
       ? `${theme.palette.primary}40`
@@ -85,7 +80,7 @@ export function Chip({
         ? `${theme.palette.secondary}40`
         : tone === 'tertiary'
           ? `${theme.palette.tertiary}40`
-          : theme.glass.stroke;
+          : theme.palette.border;
 
   return <View style={[styles.chip, { backgroundColor: bg, borderColor: border }, style]}>{children}</View>;
 }
@@ -96,11 +91,8 @@ const styles = StyleSheet.create({
     borderWidth: glass.borderWidth,
     backgroundColor: glass.fill,
   },
-  panelWeb: {
-    backgroundColor: 'rgba(20, 20, 32, 0.80)',
-  },
   chip: {
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 5,

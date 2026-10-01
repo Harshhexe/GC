@@ -21,6 +21,7 @@ import { AmbientBackground } from './ui/AmbientBackground';
 import { WebModalCard } from './ui/WebModalCard';
 import { DismissibleModalPage } from './ui/DismissibleModalPage';
 import { searchGifs, type GifResult } from '../lib/giphy';
+import { useAppearance } from '../context/AppearanceContext';
 
 const COLUMNS = 3;
 const GAP = 4;
@@ -42,6 +43,8 @@ export function GifPicker({
   onClose: () => void;
   onSelect: (gif: GifResult) => void;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GifResult[]>([]);
@@ -103,7 +106,7 @@ export function GifPicker({
   }, [visible]);
 
   const content = (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: palette.appRoot }]}>
       <AmbientBackground variant="default" />
 
         {/* Safe Top Header with Search Bar and Cancel Button */}
@@ -114,24 +117,26 @@ export function GifPicker({
               paddingTop: Math.max(insets.top + 8, 20),
               paddingLeft: Math.max(insets.left + 16, 16),
               paddingRight: Math.max(insets.right + 16, 16),
+              backgroundColor: palette.surfaceLow,
+              borderBottomColor: palette.border,
             },
           ]}
         >
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color={colors.onSurfaceVariant} style={styles.searchIcon} />
+          <View style={[styles.searchBar, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+            <Ionicons name="search" size={16} color={palette.onSurfaceVariant} style={styles.searchIcon} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Search GIPHY..."
-              placeholderTextColor={colors.outline}
-              style={styles.searchInput}
+              placeholderTextColor={palette.onSurfaceVariant}
+              style={[styles.searchInput, { color: palette.onSurface }]}
               autoFocus={true}
               autoCorrect={false}
               returnKeyType="search"
             />
             {!!query && (
-              <PressableScale onPress={() => setQuery('')} hitSlop={10} scaleTo={0.88}>
-                <Ionicons name="close-circle" size={17} color={colors.outline} />
+              <PressableScale onPress={() => setQuery('')} hitSlop={10} scaleTo={0.88} accessibilityRole="button" accessibilityLabel="Clear GIF search">
+                <Ionicons name="close-circle" size={17} color={palette.onSurfaceVariant} />
               </PressableScale>
             )}
           </View>
@@ -141,8 +146,10 @@ export function GifPicker({
             scaleTo={0.92}
             hitSlop={10}
             onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close GIF picker"
           >
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={[styles.cancelText, { color: palette.primary }]}>Cancel</Text>
           </PressableScale>
         </View>
 
@@ -153,11 +160,11 @@ export function GifPicker({
         >
           {loading && results.length === 0 ? (
             <View style={styles.centerState}>
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color={palette.primary} />
             </View>
           ) : results.length === 0 && searchedOnce ? (
             <View style={styles.centerState}>
-              <Text style={styles.emptyText}>No GIFs found for "{query}"</Text>
+              <Text style={[styles.emptyText, { color: palette.onSurfaceVariant }]}>No GIFs found for "{query}"</Text>
             </View>
           ) : (
             <FlatList
@@ -178,9 +185,11 @@ export function GifPicker({
                 const isGifVisible = visibleGifIds.size === 0 || visibleGifIds.has(item.id);
                 return (
                   <PressableScale
-                    style={styles.cell}
+                    style={[styles.cell, { backgroundColor: palette.surfaceHigh }]}
                     scaleTo={0.95}
                     haptic="light"
+                    accessibilityRole="button"
+                    accessibilityLabel="Send GIF"
                     onPress={() => {
                       onSelect(item);
                       onClose();
@@ -205,7 +214,7 @@ export function GifPicker({
             entering={FadeIn.duration(duration.fast).easing(easing.out).reduceMotion(reduceMotion)}
             style={styles.attribution}
           >
-            <Text style={styles.attributionText}>Powered by GIPHY</Text>
+            <Text style={[styles.attributionText, { color: palette.onSurfaceVariant }]}>Powered by GIPHY</Text>
           </Animated.View>
         </KeyboardAvoidingView>
       </View>

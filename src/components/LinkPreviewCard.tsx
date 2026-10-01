@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
+import { useAppearance } from '../context/AppearanceContext';
 
 export function extractFirstUrl(text: string): string | null {
   if (!text) return null;
@@ -32,6 +33,8 @@ export function LinkPreviewCard({
   url: string;
   accentColor: string;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const domain = extractDomain(url);
   const [imgError, setImgError] = useState(false);
   const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
@@ -47,10 +50,12 @@ export function LinkPreviewCard({
 
   return (
     <PressableScale
-      style={[styles.card, { borderColor: `${accentColor}40` }]}
+      style={[styles.card, { borderColor: palette.border, backgroundColor: palette.surfaceHigh }]}
       scaleTo={0.97}
       haptic="light"
       onPress={handlePress}
+      accessibilityRole="link"
+      accessibilityLabel={`Open ${domain}`}
     >
       <View style={[styles.iconWrap, { backgroundColor: `${accentColor}20` }]}>
         {!imgError ? (
@@ -65,14 +70,14 @@ export function LinkPreviewCard({
         )}
       </View>
       <View style={styles.copyArea}>
-        <Text style={[styles.domainText, { color: accentColor }]} numberOfLines={1}>
+        <Text style={[styles.domainText, { color: palette.onSurface }]} numberOfLines={1}>
           {domain}
         </Text>
-        <Text style={styles.urlText} numberOfLines={1}>
+        <Text style={[styles.urlText, { color: palette.onSurfaceVariant }]} numberOfLines={1}>
           {url}
         </Text>
       </View>
-      <Ionicons name="open-outline" size={14} color={colors.onSurfaceVariant} style={styles.openIcon} />
+      <Ionicons name="open-outline" size={14} color={palette.onSurfaceVariant} style={styles.openIcon} />
     </PressableScale>
   );
 }

@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/theme';
+import { useAppearance } from '../context/AppearanceContext';
 import { duration } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { AmbientBackground } from './ui/AmbientBackground';
@@ -67,6 +68,8 @@ export function StickerCreator({
   onCreated: (sticker: Sticker) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [box, setBox] = useState({ width: MAX_BOX_WIDTH, height: MAX_BOX_WIDTH });
@@ -177,7 +180,7 @@ export function StickerCreator({
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={handleClose}>
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: palette.appRoot }]}>
         <AmbientBackground variant="default" />
 
         <View
@@ -187,18 +190,20 @@ export function StickerCreator({
               paddingTop: Math.max(insets.top + 8, 20),
               paddingLeft: Math.max(insets.left + 16, 16),
               paddingRight: Math.max(insets.right + 16, 16),
+              backgroundColor: palette.surfaceLow,
+              borderBottomColor: palette.border,
             },
           ]}
         >
-          <PressableScale hitSlop={10} scaleTo={0.92} onPress={handleClose} disabled={saving}>
-            <Text style={styles.cancelText}>Cancel</Text>
+          <PressableScale hitSlop={10} scaleTo={0.92} onPress={handleClose} disabled={saving} accessibilityRole="button" accessibilityLabel="Close sticker creator">
+            <Text style={[styles.cancelText, { color: palette.onSurfaceVariant }]}>Cancel</Text>
           </PressableScale>
-          <Text style={styles.title}>New Sticker</Text>
-          <PressableScale hitSlop={10} scaleTo={0.92} onPress={handleSave} disabled={!photoBase64 || saving}>
+          <Text style={[styles.title, { color: palette.onSurface }]}>New sticker</Text>
+          <PressableScale hitSlop={10} scaleTo={0.92} onPress={handleSave} disabled={!photoBase64 || saving} accessibilityRole="button" accessibilityLabel="Send sticker">
             {saving ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color={palette.primary} />
             ) : (
-              <Text style={[styles.saveText, !photoBase64 && styles.saveTextDisabled]}>Send</Text>
+              <Text style={[styles.saveText, { color: photoBase64 ? palette.primary : palette.outline }]}>Send</Text>
             )}
           </PressableScale>
         </View>
@@ -214,17 +219,19 @@ export function StickerCreator({
           >
             {!photoUri ? (
               <PressableScale
-                style={[styles.pickButton, { width: MAX_BOX_WIDTH, height: MAX_BOX_WIDTH }]}
+                style={[styles.pickButton, { width: MAX_BOX_WIDTH, height: MAX_BOX_WIDTH, borderColor: palette.border }]}
                 scaleTo={0.97}
                 haptic="medium"
                 onPress={pickPhoto}
+                accessibilityRole="button"
+                accessibilityLabel="Choose a photo for your sticker"
               >
                 {picking ? (
-                  <ActivityIndicator color={colors.primary} />
+                  <ActivityIndicator color={palette.primary} />
                 ) : (
                   <>
-                    <Ionicons name="image-outline" size={30} color={colors.primary} />
-                    <Text style={styles.pickLabel}>Choose a photo</Text>
+                    <Ionicons name="image-outline" size={30} color={palette.primary} />
+                    <Text style={[styles.pickLabel, { color: palette.onSurfaceVariant }]}>Choose a photo</Text>
                   </>
                 )}
               </PressableScale>
@@ -234,20 +241,20 @@ export function StickerCreator({
                     portrait photo used to push "Add text" out of view
                     entirely when it lived below the image. */}
                 <View style={styles.toolbar}>
-                  <View style={styles.toolbarInputRow}>
-                    <Ionicons name="text" size={17} color={colors.primary} style={styles.toolbarIcon} />
+                  <View style={[styles.toolbarInputRow, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+                    <Ionicons name="text" size={17} color={palette.primary} style={styles.toolbarIcon} />
                     <TextInput
                       value={text}
                       onChangeText={(v: string) => setText(v.replace(/\n/g, '').slice(0, 60))}
                       placeholder="Add text..."
-                      placeholderTextColor={colors.outline}
-                      style={styles.textInput}
+                      placeholderTextColor={palette.onSurfaceVariant}
+                      style={[styles.textInput, { color: palette.onSurface }]}
                       returnKeyType="done"
                       autoCorrect={false}
                     />
                     {!!text && (
-                      <PressableScale onPress={() => setText('')} hitSlop={10} scaleTo={0.88}>
-                        <Ionicons name="close-circle" size={17} color={colors.outline} />
+                      <PressableScale onPress={() => setText('')} hitSlop={10} scaleTo={0.88} accessibilityRole="button" accessibilityLabel="Clear sticker text">
+                        <Ionicons name="close-circle" size={17} color={palette.onSurfaceVariant} />
                       </PressableScale>
                     )}
                   </View>
@@ -259,10 +266,14 @@ export function StickerCreator({
                         scaleTo={0.85}
                         haptic="light"
                         onPress={() => setColor(c)}
+                        accessibilityRole="radio"
+                        accessibilityLabel={`Text color ${c}`}
+                        accessibilityState={{ selected: color === c }}
                         style={[
                           styles.swatch,
                           { backgroundColor: c },
                           color === c && styles.swatchActive,
+                          color === c && { borderColor: palette.primary },
                         ]}
                       >
                         <></>
@@ -273,7 +284,7 @@ export function StickerCreator({
 
                 <Animated.View
                   entering={FadeIn.duration(duration.base)}
-                  style={[styles.imageBox, { width: box.width, height: box.height }]}
+                  style={[styles.imageBox, { width: box.width, height: box.height, backgroundColor: palette.surfaceHigh }]}
                 >
                   <Image source={photoUri} style={StyleSheet.absoluteFill} contentFit="contain" />
                   {!!text && (
@@ -292,10 +303,10 @@ export function StickerCreator({
                   )}
                 </Animated.View>
 
-                <Text style={styles.hint}>Drag the text to place it, then tap Send</Text>
+                <Text style={[styles.hint, { color: palette.onSurfaceVariant }]}>Drag the text to place it, then tap Send</Text>
 
-                <PressableScale scaleTo={0.96} haptic="light" onPress={pickPhoto} style={styles.changePhoto}>
-                  <Text style={styles.changePhotoText}>Change photo</Text>
+                <PressableScale scaleTo={0.96} haptic="light" onPress={pickPhoto} style={styles.changePhoto} accessibilityRole="button" accessibilityLabel="Change sticker photo">
+                  <Text style={[styles.changePhotoText, { color: palette.primary }]}>Change photo</Text>
                 </PressableScale>
               </>
             )}

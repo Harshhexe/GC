@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, memo } from 'react';
 import { FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,19 +14,19 @@ import {
   CONTAINER_MARGIN,
   DOCK_HEIGHT,
   colors,
-  glass,
-  gradients,
+  fontFamily,
   radius,
-  shadows,
   spacing,
   typography,
 } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
-import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
+import { usePersonalGroupTheme } from '../theme/groupThemes';
 import { setBadgeCount } from '../lib/push';
 import { EmptyState } from '../components/EmptyState';
 import { PressableScale } from '../components/ui/PressableScale';
 import { GlassPanel } from '../components/ui/Glass';
+import { GCButton } from '../components/ui/Buttons';
+import { GCWordmark } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { timeAgo } from '../utils/time';
 import { Group } from '../types';
@@ -35,6 +34,7 @@ import { useGroups } from '../hooks/useGroups';
 import { useNotifications } from '../hooks/useNotifications';
 import { useWebNotificationSetup } from '../hooks/useWebNotificationSetup';
 import { useAuth } from '../context/AuthContext';
+import { useAppearance } from '../context/AppearanceContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
@@ -47,74 +47,22 @@ type Props = CompositeScreenProps<
 >;
 
 const DEAD_CHAT_MS = 1000 * 60 * 60 * 24;
-const APP_LOGO_TRANSPARENT = require('../../assets/gc_app_logo-transparent.png');
-
-/** Deep moody atmospheric glow background for Group List */
-/**
- * The room the group list sits in.
- *
- * What this replaces stacked four corner blobs in four different colours
- * (violet, cyan, rose, indigo) and then ran a full-screen BlurView over the
- * top of them. Two problems with that. Four accents is the same as no accent,
- * and every row in this list already carries its own group's colour on the
- * avatar ring and its action chip, so a multi-colour field underneath was
- * competing with the only colour that carries meaning here. The blur was also
- * doing no visible work: these layers are already smooth gradients, and
- * blurring a gradient returns the same gradient while still costing a
- * full-screen GPU pass on a surface that scrolls.
- *
- * So this is deliberately quieter than the chat background. A chat screen
- * belongs to one group and can take that group's colour everywhere. The list
- * belongs to the app, and its job is to let three differently-coloured cards
- * sit on it without any of them clashing.
- */
+/** One quiet brand wash leaves room for each group's own colour. */
 function GroupListAtmosphericBackground() {
+  const { theme } = useAppearance();
   return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Base, deepening toward the floor. */}
+    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot, { backgroundColor: theme.palette.bg }]} pointerEvents="none">
       <LinearGradient
-        colors={['#0D0B16', '#08070E', colors.appChrome]}
-        locations={[0, 0.5, 1]}
+        colors={[theme.palette.bg, theme.palette.appChrome]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-
-      {/*
-        One key light, in the app's own indigo, raking down from the top-left.
-        Full-bleed rather than a rounded blob: a gradient inside a circle
-        leaves a hard arc wherever it is still opaque at the circle's edge, and
-        on a tall screen that arc reads as a smudge across the list.
-      */}
       <LinearGradient
-        colors={['rgba(129, 140, 248, 0.20)', 'rgba(99, 102, 241, 0.06)', 'transparent']}
-        locations={[0, 0.32, 0.66]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 0.78 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/*
-        A floor under the content. With only a few groups the lower half of
-        this screen is empty, and a flat black void reads as something failing
-        to load. A gradient that falls away instead reads as depth, and gives
-        the dock something to sit against.
-      */}
-      <LinearGradient
-        colors={['transparent', 'rgba(99, 102, 241, 0.05)', 'rgba(3, 2, 6, 0.55)']}
-        locations={[0, 0.55, 1]}
-        start={{ x: 0.5, y: 0.45 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Sheen at the very top, so the header does not start on a hard edge. */}
-      <LinearGradient
-        colors={['rgba(255, 255, 255, 0.03)', 'transparent']}
-        locations={[0, 0.18]}
+        colors={theme.isDark ? ['rgba(176, 182, 255, 0.075)', 'transparent'] : ['rgba(79,70,229,0.025)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
+        style={styles.topWash}
       />
     </View>
   );
@@ -130,14 +78,11 @@ function isDeadChat(group: Group) {
  */
 function getLiveBadgeConfig(
   group: Group,
-  theme: GroupTheme,
   onOpenChat: () => void,
   onCatchUp: () => void
 ): {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  gradient: readonly [string, string];
-  glowStyle: object;
   onPress: () => void;
 } {
   const dead = isDeadChat(group);
@@ -147,8 +92,6 @@ function getLiveBadgeConfig(
     return {
       icon: 'cafe-outline',
       label: 'Live Tea',
-      gradient: ['#10B981', '#059669'],
-      glowStyle: shadows.glowCyan,
       onPress: onOpenChat,
     };
   }
@@ -158,8 +101,6 @@ function getLiveBadgeConfig(
     return {
       icon: 'trophy-outline',
       label: 'GC Awards',
-      gradient: ['#F59E0B', '#D97706'],
-      glowStyle: shadows.glow,
       onPress: onCatchUp,
     };
   }
@@ -169,8 +110,6 @@ function getLiveBadgeConfig(
     return {
       icon: 'flame-outline',
       label: 'Popping Off',
-      gradient: ['#F43F5E', '#BE185D'],
-      glowStyle: shadows.glowPink,
       onPress: onCatchUp,
     };
   }
@@ -180,8 +119,6 @@ function getLiveBadgeConfig(
     return {
       icon: 'sparkles-outline',
       label: `Catch Up (${group.unreadCount})`,
-      gradient: theme.colors,
-      glowStyle: shadows.glow,
       onPress: onCatchUp,
     };
   }
@@ -191,8 +128,6 @@ function getLiveBadgeConfig(
     return {
       icon: 'pulse-outline',
       label: 'Revive Chat',
-      gradient: ['#374151', '#1F2937'],
-      glowStyle: {},
       onPress: onOpenChat,
     };
   }
@@ -201,8 +136,6 @@ function getLiveBadgeConfig(
   return {
     icon: 'sparkles-outline',
     label: 'Catch Up',
-    gradient: theme.colors,
-    glowStyle: shadows.glow,
     onPress: onCatchUp,
   };
 }
@@ -223,6 +156,7 @@ const GroupCard = memo(function GroupCardImpl({
   const dead = isDeadChat(group);
   const unread = group.unreadCount > 0;
   const { theme } = usePersonalGroupTheme(group.id, group.theme);
+  const { theme: appTheme } = useAppearance();
   // These three handlers are passed the same stable reference for every row
   // (bound in the parent with useCallback), so this memo() actually holds —
   // wrapping them here per-group keeps getLiveBadgeConfig's zero-arg contract
@@ -230,7 +164,7 @@ const GroupCard = memo(function GroupCardImpl({
   const handleOpen = useCallback(() => onOpen(group), [onOpen, group]);
   const handleCatchUp = useCallback(() => onCatchUp(group), [onCatchUp, group]);
   const handleCrew = useCallback(() => onCrew(group), [onCrew, group]);
-  const badge = getLiveBadgeConfig(group, theme, handleOpen, handleCatchUp);
+  const badge = getLiveBadgeConfig(group, handleOpen, handleCatchUp);
 
   return (
     <Animated.View
@@ -244,61 +178,34 @@ const GroupCard = memo(function GroupCardImpl({
       style={styles.cardWrap}
     >
       <GlassPanel
-        borderRadius={radius.xl}
-        style={[
-          styles.themedCard,
-          {
-            // Unread is the one thing this list exists to surface, so it drives
-            // border, fill and glow together rather than being left to a 20px
-            // badge. Read rows deliberately recede.
-            borderColor: unread ? `${theme.accent}66` : `${theme.accent}1F`,
-            backgroundColor: unread ? 'rgba(24, 20, 38, 0.82)' : 'rgba(16, 14, 24, 0.62)',
-          },
-          unread && { shadowColor: theme.accent, ...styles.unreadGlow },
-        ]}
+        borderRadius={radius.lg}
+        style={[styles.themedCard, { backgroundColor: appTheme.palette.surfaceLow, borderColor: unread ? `${theme.accent}66` : appTheme.palette.border }]}
       >
-        {/* One diagonal wash instead of the two stacked full-bleed gradients
-            this had before: they read as a single tint anyway, and every extra
-            translucent layer is another full-card composite per row. */}
-        <LinearGradient
-          colors={
-            unread
-              ? [`${theme.colors[0]}2E`, `${theme.colors[1]}0F`, 'transparent']
-              : [`${theme.colors[0]}14`, 'transparent']
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
-          pointerEvents="none"
-        />
-
-        {/* Unread rail — a single glance down the left edge tells you which
-            chats are waiting, without reading a word. */}
-        {unread && <View style={[styles.unreadRail, { backgroundColor: theme.accent }]} />}
-
-        <PressableScale style={styles.cardTop} scaleTo={0.985} onPress={handleOpen}>
+        <PressableScale
+          style={styles.cardTop}
+          scaleTo={0.985}
+          onPress={handleOpen}
+          accessibilityLabel={`Open ${group.name}`}
+        >
           <Avatar
             imageUrl={dead ? undefined : group.avatarUrl}
             label={group.name}
             ringColors={theme.colors}
-            size={56}
-            glow={unread}
+            size={52}
+            glow={false}
             status={dead ? 'offline' : 'online'}
           />
 
           <View style={styles.cardCopy}>
             <View style={styles.cardTitleRow}>
               <Text
-                style={[styles.groupName, unread && styles.groupNameUnread]}
-                numberOfLines={2}
+                style={[styles.groupName, unread && styles.groupNameUnread, { color: appTheme.palette.onSurface }]}
+                numberOfLines={1}
               >
                 {group.name}
               </Text>
               {!!group.lastMessageAt && (
-                // Muted unless there is something waiting: the accent is the
-                // unread signal, and spending it on every timestamp is what
-                // made the old list read as uniformly loud.
-                <Text style={[styles.time, unread && { color: theme.accent }]}>
+                <Text style={[styles.time, { color: appTheme.palette.textMuted }]}>
                   {timeAgo(group.lastMessageAt)}
                 </Text>
               )}
@@ -310,15 +217,16 @@ const GroupCard = memo(function GroupCardImpl({
                   styles.lastMessage,
                   unread && styles.lastMessageUnread,
                   dead && styles.lastMessageDead,
+                  { color: unread ? appTheme.palette.onSurfaceVariant : appTheme.palette.textMuted },
                 ]}
-                numberOfLines={2}
+                numberOfLines={1}
               >
                 {dead ? (
                   'Chat has been quiet for a while'
                 ) : group.lastMessage ? (
                   <>
                     {!!group.lastMessageAuthor && (
-                      <Text style={styles.lastMessageAuthor}>{group.lastMessageAuthor}: </Text>
+                      <Text style={[styles.lastMessageAuthor, { color: appTheme.palette.onSurface }]}>{group.lastMessageAuthor}: </Text>
                     )}
                     {group.lastMessage}
                   </>
@@ -330,10 +238,10 @@ const GroupCard = memo(function GroupCardImpl({
                 <View
                   style={[
                     styles.badge,
-                    { backgroundColor: theme.accent, shadowColor: theme.accent },
+                    { backgroundColor: theme.accent },
                   ]}
                 >
-                  <Text style={styles.badgeText}>
+                  <Text style={[styles.badgeText, { color: appTheme.palette.onPrimary }]}>
                     {group.unreadCount > 99 ? '99+' : group.unreadCount}
                   </Text>
                 </View>
@@ -342,44 +250,26 @@ const GroupCard = memo(function GroupCardImpl({
           </View>
         </PressableScale>
 
-        {/* Action Row with Dynamic Live Pill Badge and Crew Button */}
-        <View style={styles.actionRow}>
+        <View style={[styles.actionRow, { borderTopColor: appTheme.palette.border }]}>
           <PressableScale
             style={styles.dynamicBadgeWrap}
-            haptic="medium"
-            scaleTo={0.94}
-            // Pills are ~32px tall by design; hitSlop is what actually brings
-            // the tappable area up to the 44px minimum without bloating them.
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            scaleTo={0.97}
             onPress={badge.onPress}
+            accessibilityLabel={`${badge.label} in ${group.name}`}
           >
-            <LinearGradient
-              colors={badge.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[
-                styles.dynamicBadgeButton,
-                badge.glowStyle,
-                { borderColor: `${theme.accent}55` },
-              ]}
-            >
-              <Ionicons name={badge.icon} size={14} color="#FFFFFF" />
-              <Text style={styles.dynamicBadgeText}>{badge.label}</Text>
-            </LinearGradient>
+            <Ionicons name={badge.icon} size={15} color={unread ? theme.accent : appTheme.palette.onSurfaceVariant} />
+            <Text style={[styles.dynamicBadgeText, { color: unread ? theme.accent : appTheme.palette.onSurfaceVariant }]}>{badge.label}</Text>
+            <Ionicons name="arrow-forward" size={14} color={unread ? theme.accent : appTheme.palette.onSurfaceVariant} />
           </PressableScale>
 
           <PressableScale
-            style={[
-              styles.crewButton,
-              { backgroundColor: `${theme.accent}14`, borderColor: `${theme.accent}33` },
-            ]}
-            scaleTo={0.94}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            style={styles.crewButton}
+            scaleTo={0.97}
             onPress={handleCrew}
+            accessibilityLabel={`View ${group.memberCount} members in ${group.name}`}
           >
-            <Ionicons name="people-outline" size={14} color={theme.accent} />
-            <Text style={[styles.crewText, { color: theme.accent }]}>{group.memberCount}</Text>
-            <Ionicons name="chevron-forward" size={13} color={theme.accent} />
+            <Ionicons name="people-outline" size={15} color={appTheme.palette.onSurfaceVariant} />
+            <Text style={[styles.crewText, { color: appTheme.palette.onSurfaceVariant }]}>{group.memberCount}</Text>
           </PressableScale>
         </View>
       </GlassPanel>
@@ -430,6 +320,7 @@ function GroupCardSkeleton({ index }: { index: number }) {
 }
 
 export default function GroupListScreen({ navigation }: Props) {
+  const { theme } = useAppearance();
   const { session } = useAuth();
   const { groups, loading, refetch } = useGroups();
   const { unreadCount: unreadNotifications } = useNotifications(session?.user?.id);
@@ -492,27 +383,21 @@ export default function GroupListScreen({ navigation }: Props) {
   );
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: theme.palette.bg }]}>
       <GroupListAtmosphericBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Modern Top Header Bar */}
         <View style={styles.topBar}>
-          <PressableScale scaleTo={0.94} style={styles.appLogoButton}>
-            <Image
-              source={APP_LOGO_TRANSPARENT}
-              style={styles.headerAppLogo}
-              contentFit="contain"
-            />
-          </PressableScale>
+          <GCWordmark />
 
           <View style={styles.headerRight}>
             <PressableScale
-              style={styles.bellButton}
+              style={[styles.bellButton, { backgroundColor: theme.palette.surfaceLow, borderColor: theme.palette.border }]}
               scaleTo={0.88}
               hitSlop={6}
               onPress={() => navigation.navigate('Notifications')}
+              accessibilityLabel="Notifications"
             >
-              <Ionicons name="notifications-outline" size={20} color={colors.onSurface} />
+              <Ionicons name="notifications-outline" size={20} color={theme.palette.onSurface} />
               {unreadNotifications > 0 && (
                 <View style={styles.bellBadge}>
                   <Text style={styles.bellBadgeText}>
@@ -524,18 +409,14 @@ export default function GroupListScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Hero Title Section */}
         <View style={styles.heroSection}>
           <View style={styles.heroRow}>
-            <View style={styles.heroTextCol}>
-              <Text style={styles.heroTitle}>Chats</Text>
-              <View style={styles.countPill}>
-                <Text style={styles.countPillText}>
-                  {groups.length} {groups.length === 1 ? 'group' : 'groups'}
-                </Text>
-              </View>
-            </View>
+            <Text style={[styles.heroTitle, { color: theme.palette.onSurface }]}>Your GCs</Text>
+            <Text style={[styles.countPillText, { color: theme.palette.onSurfaceVariant }]}>
+              {groups.length} {groups.length === 1 ? 'group' : 'groups'}
+            </Text>
           </View>
+          <Text style={[styles.heroSubtitle, { color: theme.palette.onSurfaceVariant }]}>The conversations that keep you close.</Text>
         </View>
 
         {Platform.OS === 'web' && permission === 'default' && (
@@ -556,9 +437,11 @@ export default function GroupListScreen({ navigation }: Props) {
           <View style={styles.emptyContainer}>
             <EmptyState
               icon="chatbubbles-outline"
-              text="No group chats yet."
+              title="Your chats start here"
+              text="Create a GC for your people, or join one with an invite."
               iconColor={colors.primary}
             />
+            <GCButton label="Create or join a GC" onPress={() => navigation.navigate('AddGC')} style={styles.emptyAction} />
           </View>
         ) : (
           <FlatList
@@ -591,26 +474,13 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1, minHeight: 0 },
   glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  blobCenterAnimated: { top: '15%', left: '15%', width: 280, height: 280 },
+  topWash: { position: 'absolute', top: 0, left: 0, right: 0, height: 300 },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     paddingHorizontal: CONTAINER_MARGIN,
-    height: 48,
-    position: 'relative',
-  },
-  appLogoButton: {
-    position: 'absolute',
-    left: -10,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  headerAppLogo: {
-    width: 120,
-    height: 56,
-    transform: [{ scale: 1.25 }],
+    height: 64,
   },
   headerRight: {
     flexDirection: 'row',
@@ -619,12 +489,12 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   bellButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -645,45 +515,31 @@ const styles = StyleSheet.create({
   bellBadgeText: { ...typography.micro, fontSize: 9, color: '#FFFFFF', fontWeight: '700' },
   heroSection: {
     paddingHorizontal: CONTAINER_MARGIN,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm + 2,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
+    gap: spacing.xs,
   },
   heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  heroTextCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-  },
   heroTitle: {
     ...typography.headline,
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
+    fontSize: 32,
+    color: colors.onSurface,
   },
-  countPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
+  heroSubtitle: { ...typography.body, fontSize: 14, color: colors.onSurfaceVariant },
   countPillText: {
-    ...typography.micro,
-    fontSize: 11,
-    fontWeight: '600',
+    ...typography.caption,
+    fontSize: 12,
     color: colors.onSurfaceVariant,
   },
   list: {
     paddingHorizontal: CONTAINER_MARGIN,
-    paddingTop: spacing.xs,
+    paddingTop: 0,
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
-    gap: spacing.md,
+    gap: 10,
   },
   permBanner: {
     flexDirection: 'row',
@@ -691,10 +547,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginHorizontal: CONTAINER_MARGIN,
     marginBottom: spacing.sm,
-    backgroundColor: 'rgba(129,140,248,0.10)',
+    backgroundColor: colors.surfaceLow,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.25)',
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
   },
@@ -703,7 +559,7 @@ const styles = StyleSheet.create({
   skeletonCard: {
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: 'rgba(16, 14, 24, 0.62)',
+    backgroundColor: colors.surfaceLow,
     overflow: 'hidden',
   },
   skeletonAvatar: {
@@ -718,25 +574,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.07)',
   },
   skeletonLineThin: { height: 10, backgroundColor: 'rgba(255, 255, 255, 0.05)' },
-  themedCard: {
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  /* Colour-matched rather than black, so the lift reads as the group's own
-     accent catching light instead of a drop shadow. */
-  unreadGlow: {
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  unreadRail: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-  },
+  themedCard: { borderWidth: 1, overflow: 'hidden', backgroundColor: colors.surfaceLow },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -751,68 +589,58 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   groupName: {
-    ...typography.title,
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.onSurface,
     flex: 1,
   },
-  groupNameUnread: { color: '#FFFFFF', fontWeight: '800' },
-  time: { ...typography.caption, fontSize: 11.5, fontWeight: '600', color: colors.textMuted },
+  groupNameUnread: { color: colors.onSurface },
+  time: { ...typography.caption, fontSize: 11, color: colors.textMuted },
   cardMessageRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  /* Read rows recede, but only as far as AA allows — colors.outline measured
-     3.79:1 against this card. See colors.textMuted. */
   lastMessage: { ...typography.body, fontSize: 13.5, color: colors.textMuted, flex: 1 },
   lastMessageUnread: { color: colors.onSurfaceVariant },
   lastMessageDead: { color: colors.outline },
   lastMessageAuthor: { fontWeight: '600', color: colors.onSurface },
   badge: {
-    minWidth: 22,
-    height: 22,
+    minWidth: 24,
+    height: 24,
     borderRadius: radius.pill,
     paddingHorizontal: 7,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
   },
-  badgeText: { ...typography.micro, fontSize: 11, color: '#FFFFFF', fontWeight: '800' },
+  badgeText: { ...typography.micro, fontSize: 11, color: colors.appChrome, fontWeight: '800' },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    gap: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.lg,
   },
-  dynamicBadgeWrap: { borderRadius: radius.pill },
-  dynamicBadgeButton: {
+  dynamicBadgeWrap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: radius.pill,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: glass.strokeBright,
+    minHeight: 44,
   },
-  dynamicBadgeText: { ...typography.label, fontSize: 12, color: '#FFFFFF', fontWeight: '700' },
+  dynamicBadgeText: { ...typography.caption, fontSize: 12 },
   crewButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderRadius: radius.pill,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderWidth: 1,
+    minHeight: 44,
+    paddingLeft: spacing.sm,
   },
-  crewText: { ...typography.label, fontSize: 12, fontWeight: '600' },
+  crewText: { ...typography.caption, fontSize: 12, color: colors.onSurfaceVariant },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
-  emptyAction: { marginTop: spacing.md, width: '100%', maxWidth: 260 },
+  emptyAction: { marginTop: spacing.md, marginBottom: DOCK_HEIGHT + spacing.lg, width: '100%', maxWidth: 260 },
 });

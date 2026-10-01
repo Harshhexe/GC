@@ -12,8 +12,10 @@ import { colors, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { Reaction } from '../types';
 import { PressableScale } from './ui/PressableScale';
+import { useAppearance } from '../context/AppearanceContext';
 
 export function ReactionPill({ reaction, onPress }: { reaction: Reaction; onPress: () => void }) {
+  const { theme } = useAppearance();
   const pop = useSharedValue(1);
   const prevCount = useRef(reaction.count);
   const prevReacted = useRef(reaction.reactedByMe);
@@ -38,13 +40,16 @@ export function ReactionPill({ reaction, onPress }: { reaction: Reaction; onPres
     >
       <PressableScale
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${reaction.emoji}, ${reaction.count} reaction${reaction.count === 1 ? '' : 's'}`}
+        accessibilityState={{ selected: reaction.reactedByMe }}
         scaleTo={0.88}
         haptic="light"
         style={[styles.pill, reaction.reactedByMe && styles.pillActive]}
       >
         <Text style={styles.emoji}>{reaction.emoji}</Text>
         {reaction.count > 1 && (
-          <Text style={[styles.count, reaction.reactedByMe && styles.countActive]}>
+          <Text style={[styles.count, { color: theme.palette.onSurfaceVariant }, reaction.reactedByMe && { color: theme.palette.primary }]}>
             {reaction.count}
           </Text>
         )}

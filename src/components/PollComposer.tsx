@@ -12,7 +12,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { colors, fontFamily, radius, spacing, typography } from '../theme/theme';
 import { duration, reduceMotion } from '../theme/motion';
@@ -24,95 +23,13 @@ import { WebModalCard } from './ui/WebModalCard';
 import { DismissibleModalPage } from './ui/DismissibleModalPage';
 import { MAX_OPTIONS, MIN_OPTIONS, normalizeDraft, type PollDraft } from '../lib/polls';
 
-/**
- * Themed atmospheric background matching What I Missed and Group Theme
- */
 function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
-  const [c1, c2] = theme.colors;
-  const accent = theme.accent;
-
   return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Dark Base Gradient */}
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]} pointerEvents="none">
       <LinearGradient
-        colors={['#100E17', '#0A0910', '#050508']}
+        colors={[`${theme.accent}0D`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Atmospheric Theme Spotlight */}
-      <LinearGradient
-        colors={[`${c1}36`, `${c2}1C`, 'rgba(5, 5, 8, 0)']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.65 }}
-        style={styles.topSpotlight}
-      />
-
-      {/* Corner Glowing Mesh Blobs */}
-      {/* Top-Left Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={[c1, c2, 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Top-Right Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={[c2, accent, 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Bottom-Left Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={[accent, c1, 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Bottom-Right Corner Blob */}
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={[c2, c1, 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Center Atmosphere Blob */}
-      <View style={[styles.cornerBlob, styles.blobCenter]}>
-        <LinearGradient
-          colors={[`${c1}2E`, `${c2}14`, 'transparent']}
-          start={{ x: 0.5, y: 0.5 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* Deep Blur View diffusing blobs into dreamy glowing ambient clouds */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 75 : 90}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Sheen & Subtle Dark Vignette */}
-      <LinearGradient
-        colors={[`${c1}18`, 'transparent', 'rgba(5, 5, 8, 0.45)']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0.5 }}
         style={StyleSheet.absoluteFill}
       />
     </View>
@@ -183,7 +100,6 @@ export function PollComposer({
     <View style={styles.root}>
       <ThemedGlowBackground theme={activeTheme} />
 
-        {/* Frosted Top Bar */}
         <View style={[styles.topBar, { paddingTop: Math.max(insets.top + 6, 18) }]}>
           <PressableScale
             style={styles.closeBtn}
@@ -192,28 +108,15 @@ export function PollComposer({
             onPress={onClose}
             disabled={submitting}
           >
-            <Ionicons name="close" size={20} color="#FFFFFF" />
+            <Ionicons name="close" size={20} color={colors.onSurface} />
           </PressableScale>
 
           <View style={styles.topBarTitleBlock}>
-            <View
-              style={[
-                styles.pollLogoBadge,
-                {
-                  backgroundColor: `${activeTheme.accent}18`,
-                  borderColor: `${activeTheme.accent}45`,
-                },
-              ]}
-            >
-              <Ionicons name="stats-chart" size={13} color={activeTheme.accent} />
-              <Text style={[styles.pollLogoText, { color: activeTheme.accent }]}>
-                {initial ? 'AI POLL DRAFT' : 'CREATE POLL'}
-              </Text>
-            </View>
+            <Text style={styles.pollLogoText}>{initial ? 'Review poll' : 'Create poll'}</Text>
           </View>
 
           <PressableScale
-            style={[styles.topSendBtn, { backgroundColor: activeTheme.accent }]}
+            style={styles.topSendBtn}
             scaleTo={0.92}
             haptic="medium"
             disabled={submitting}
@@ -250,7 +153,7 @@ export function PollComposer({
                   <Ionicons name="sparkles" size={14} color={activeTheme.accent} />
                 </View>
                 <Text style={styles.aiNoteText}>
-                  GC AI drafted this poll for you. Review or edit any option before sending!
+                  GC drafted this poll. Review the question and options before sending.
                 </Text>
               </Animated.View>
             )}
@@ -259,7 +162,7 @@ export function PollComposer({
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
                 <Ionicons name="help-circle" size={14} color={activeTheme.accent} />
-                <Text style={styles.sectionLabel}>POLL QUESTION</Text>
+                <Text style={styles.sectionLabel}>Question</Text>
                 <View style={styles.spacer} />
                 <Text style={styles.charCounter}>{question.length}/300</Text>
               </View>
@@ -282,7 +185,7 @@ export function PollComposer({
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
                 <Ionicons name="list" size={14} color={activeTheme.accent} />
-                <Text style={styles.sectionLabel}>OPTIONS</Text>
+                <Text style={styles.sectionLabel}>Options</Text>
                 <View style={styles.spacer} />
                 <Text style={styles.charCounter}>
                   {options.length}/{MAX_OPTIONS}
@@ -416,9 +319,8 @@ export function PollComposer({
             {/* Submit Button */}
             <View style={styles.submitWrap}>
               <GCButton
-                label={submitting ? 'Sending Poll...' : 'Send Poll to GC'}
-                variant="gradient"
-                neo
+                label={submitting ? 'Sending poll…' : 'Send poll to GC'}
+                variant="primary"
                 disabled={submitting}
                 onPress={submit}
                 icon={<Ionicons name="send" size={17} color="#FFFFFF" />}
@@ -448,17 +350,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
   flex: { flex: 1 },
 
-  // Glowing Ambient Mesh Background
-  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  cornerBlob: { position: 'absolute', borderRadius: 999 },
-  blobFill: { flex: 1, borderRadius: 999 },
-  blobTopLeft: { top: -60, left: -60, width: 280, height: 280, opacity: 0.75 },
-  blobTopRight: { top: -50, right: -50, width: 270, height: 270, opacity: 0.7 },
-  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.65 },
-  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.7 },
-  blobCenter: { top: '35%', left: '15%', width: 260, height: 260, opacity: 0.5 },
-
   // Top Bar
   topBar: {
     flexDirection: 'row',
@@ -467,16 +358,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm + 2,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
+    borderColor: colors.border,
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   topBarTitleBlock: {
@@ -492,15 +384,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pollLogoText: {
-    ...typography.micro,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.8,
+    ...typography.titleMd,
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.onSurface,
   },
   topSendBtn: {
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
+    minHeight: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -534,7 +427,7 @@ const styles = StyleSheet.create({
   aiNoteText: {
     ...typography.caption,
     fontSize: 12.5,
-    color: '#CBD5E1',
+    color: colors.onSurfaceVariant,
     flex: 1,
     lineHeight: 18,
   },
@@ -549,11 +442,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionLabel: {
-    ...typography.micro,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    color: colors.onSurfaceVariant,
+    ...typography.label,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.onSurface,
   },
   spacer: { flex: 1 },
   charCounter: {
@@ -564,10 +456,10 @@ const styles = StyleSheet.create({
 
   // Question Input (Vertical Centering & Clean Typography)
   questionInputContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     minHeight: 56,
@@ -576,7 +468,7 @@ const styles = StyleSheet.create({
   questionInput: {
     fontFamily: fontFamily.bodySemi,
     fontSize: 15.5,
-    color: '#FFFFFF',
+    color: colors.onSurface,
     padding: 0,
     margin: 0,
     textAlignVertical: 'center',
@@ -610,11 +502,11 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     fontSize: 14.5,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    color: colors.onSurface,
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: Platform.OS === 'ios' ? 12 : 0,
     textAlignVertical: 'center',
@@ -648,9 +540,9 @@ const styles = StyleSheet.create({
   settingsCard: {
     padding: spacing.md,
     gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   settingRow: {
     flexDirection: 'row',
@@ -672,16 +564,16 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   settingHint: {
     ...typography.caption,
     fontSize: 11.5,
-    color: '#94A3B8',
+    color: colors.onSurfaceVariant,
   },
   settingDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.border,
   },
 
   errorBox: {

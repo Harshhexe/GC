@@ -43,8 +43,8 @@ export function AmbientBackground({
   style?: any;
 }) {
   const { theme } = useAppearance();
-  const glow = tint ?? '#6366F1';
-  const strength = variant === 'vivid' ? 0.14 : 0.09;
+  const glow = tint ?? theme.palette.primary;
+  const strength = variant === 'vivid' ? 0.07 : 0.035;
 
   return (
     <View
@@ -73,7 +73,7 @@ export function AmbientBackground({
       {!hideEdgeGlows && (
       <View style={styles.bottomGlow}>
         <LinearGradient
-        colors={theme.isDark ? ['rgba(0,0,0,0)', 'rgba(5,5,10,0.6)'] : ['rgba(255,255,255,0)', 'rgba(236,236,232,0.72)']}
+        colors={theme.isDark ? ['rgba(0,0,0,0)', 'rgba(9,12,16,0.32)'] : ['rgba(255,255,255,0)', 'rgba(236,236,232,0.35)']}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -86,6 +86,6 @@ export function AmbientBackground({
 
 const styles = StyleSheet.create({
   base: { backgroundColor: colors.bg },
-  topGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 320 },
-  bottomGlow: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 240 },
+  topGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 220 },
+  bottomGlow: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 170 },
 });

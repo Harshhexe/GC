@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
 import { fromWebCapture } from '../lib/media';
@@ -153,38 +152,12 @@ export function WebCameraModal({
         <Pressable style={styles.webBackdrop} onPress={close} />
 
         <View style={[styles.webCard, ringLight && styles.cardRingLight]}>
-          {/* Ambient atmospheric spotlight washes inside card */}
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <LinearGradient
-              colors={['#181028', '#0C0A14', '#050409']}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <LinearGradient
-              colors={['rgba(129, 140, 248, 0.22)', 'rgba(192, 132, 252, 0.12)', 'transparent']}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 0.6 }}
-              style={styles.topSpotlight}
-            />
-            <LinearGradient
-              colors={['rgba(244, 114, 182, 0.14)', 'transparent']}
-              start={{ x: 1, y: 1 }}
-              end={{ x: 0.4, y: 0.4 }}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
           {/* Header Bar */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <LinearGradient
-                colors={['#818CF8', '#C084FC', '#F472B6']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.logoBadge}
-              >
+              <View style={styles.logoBadge}>
                 <Ionicons name="camera" size={16} color="#FFFFFF" />
-              </LinearGradient>
+              </View>
 
               <View style={styles.titleColumn}>
                 <View style={styles.titleRow}>
@@ -205,7 +178,8 @@ export function WebCameraModal({
                     style={[styles.actionBtn, ringLight && styles.actionBtnActive]}
                     hitSlop={8}
                     onPress={() => setRingLight(!ringLight)}
-                    aria-label="Ring Light"
+                    accessibilityRole="button"
+                    accessibilityLabel={ringLight ? 'Turn ring light off' : 'Turn ring light on'}
                   >
                     <Ionicons
                       name={ringLight ? 'sunny' : 'sunny-outline'}
@@ -218,7 +192,8 @@ export function WebCameraModal({
                     style={styles.actionBtn}
                     hitSlop={8}
                     onPress={() => setMirrored(!mirrored)}
-                    aria-label="Mirror Preview"
+                    accessibilityRole="button"
+                    accessibilityLabel={mirrored ? 'Turn mirror preview off' : 'Turn mirror preview on'}
                   >
                     <Ionicons name="swap-horizontal" size={18} color={colors.onSurface} />
                   </PressableScale>
@@ -230,13 +205,14 @@ export function WebCameraModal({
                   style={styles.actionBtn}
                   hitSlop={8}
                   onPress={switchCamera}
-                  aria-label="Switch Camera"
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch camera"
                 >
                   <Ionicons name="camera-reverse-outline" size={18} color={colors.onSurface} />
                 </PressableScale>
               )}
 
-              <PressableScale style={styles.closeBtn} hitSlop={8} onPress={close} aria-label="Close">
+              <PressableScale style={styles.closeBtn} hitSlop={8} onPress={close} accessibilityRole="button" accessibilityLabel="Close camera">
                 <Ionicons name="close" size={18} color={colors.onSurface} />
               </PressableScale>
             </View>
@@ -315,16 +291,11 @@ export function WebCameraModal({
                   </View>
                   <Text style={styles.errorTitle}>Camera Unavailable</Text>
                   <Text style={styles.errorText}>{error}</Text>
-                  <PressableScale style={styles.retryBtn} onPress={() => start(deviceId)}>
-                    <LinearGradient
-                      colors={['#6366F1', '#8B5CF6']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.retryGradient}
-                    >
+                  <PressableScale style={styles.retryBtn} onPress={() => start(deviceId)} accessibilityRole="button" accessibilityLabel="Try camera again">
+                    <View style={styles.retryGradient}>
                       <Ionicons name="refresh" size={15} color="#FFFFFF" />
                       <Text style={styles.retryText}>Try Again</Text>
-                    </LinearGradient>
+                    </View>
                   </PressableScale>
                 </View>
               )}
@@ -332,7 +303,7 @@ export function WebCameraModal({
               {/* Captured Review Badge */}
               {shot && (
                 <View style={styles.capturedBadge} pointerEvents="none">
-                  <Ionicons name="sparkles" size={12} color="#F472B6" />
+                  <Ionicons name="checkmark-circle-outline" size={12} color={colors.lime} />
                   <Text style={styles.capturedBadgeText}>Photo Ready</Text>
                 </View>
               )}
@@ -346,6 +317,8 @@ export function WebCameraModal({
                 <PressableScale
                   style={styles.secondaryBtn}
                   scaleTo={0.96}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retake photo"
                   onPress={() => {
                     setShot(null);
                     setViewOnce(false);
@@ -358,6 +331,9 @@ export function WebCameraModal({
                 <PressableScale
                   style={[styles.viewOnceBtn, viewOnce && styles.viewOnceBtnActive]}
                   scaleTo={0.96}
+                  accessibilityRole="button"
+                  accessibilityLabel="View once"
+                  accessibilityState={{ selected: viewOnce }}
                   onPress={() => setViewOnce((prev) => !prev)}
                 >
                   <View style={[styles.viewOnceCircle, viewOnce && styles.viewOnceCircleActive]}>
@@ -368,16 +344,11 @@ export function WebCameraModal({
                   </Text>
                 </PressableScale>
 
-                <PressableScale style={styles.primaryBtnWrap} scaleTo={0.96} haptic="medium" onPress={usePhoto}>
-                  <LinearGradient
-                    colors={['#6366F1', '#A855F7', '#EC4899']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.primaryGradient}
-                  >
+                <PressableScale style={styles.primaryBtnWrap} scaleTo={0.96} haptic="medium" onPress={usePhoto} accessibilityRole="button" accessibilityLabel="Send photo to chat">
+                  <View style={styles.primaryGradient}>
                     <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                     <Text style={styles.primaryText}>Send to Chat</Text>
-                  </LinearGradient>
+                  </View>
                 </PressableScale>
               </View>
             ) : (
@@ -386,6 +357,8 @@ export function WebCameraModal({
                   <PressableScale
                     style={[styles.featurePill, ringLight && styles.featurePillActive]}
                     onPress={() => setRingLight(!ringLight)}
+                    accessibilityRole="button"
+                    accessibilityLabel={ringLight ? 'Turn ring light off' : 'Turn ring light on'}
                   >
                     <Ionicons name="sunny" size={14} color={ringLight ? '#FBBF24' : colors.onSurfaceVariant} />
                     <Text style={[styles.featurePillText, ringLight && styles.featurePillTextActive]}>
@@ -400,20 +373,17 @@ export function WebCameraModal({
                   haptic="medium"
                   disabled={starting || !!error}
                   onPress={capture}
+                  accessibilityRole="button"
+                  accessibilityLabel="Take photo"
                 >
-                  <LinearGradient
-                    colors={['#818CF8', '#C084FC', '#F472B6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.shutterGlowRing}
-                  >
+                  <View style={styles.shutterGlowRing}>
                     <View style={styles.shutterInner} />
-                  </LinearGradient>
+                  </View>
                 </PressableScale>
 
                 <View style={styles.shutterSide}>
                   {devices.length > 1 && (
-                    <PressableScale style={styles.featurePill} onPress={switchCamera}>
+                    <PressableScale style={styles.featurePill} onPress={switchCamera} accessibilityRole="button" accessibilityLabel="Switch camera">
                       <Ionicons name="camera-reverse" size={14} color={colors.onSurfaceVariant} />
                       <Text style={styles.featurePillText}>Flip</Text>
                     </PressableScale>
@@ -443,32 +413,24 @@ const styles = StyleSheet.create({
   webBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
-  topSpotlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '60%',
-  },
   webCard: {
     width: '100%',
     maxWidth: 780,
     maxHeight: 740,
-    backgroundColor: colors.bgElevated,
-    borderRadius: radius.xl,
+    backgroundColor: colors.surfaceLow,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.outlineVariant,
+    borderColor: colors.border,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.5,
-    shadowRadius: 40,
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
     shadowOffset: { width: 0, height: 20 },
   },
   cardRingLight: {
-    borderColor: 'rgba(255, 245, 220, 0.65)',
-    shadowColor: '#FDE047',
-    shadowOpacity: 0.35,
-    shadowRadius: 50,
+    borderColor: colors.borderBright,
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
   },
   header: {
     flexDirection: 'row',
@@ -485,11 +447,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm + 4,
   },
   logoBadge: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.primaryContainer,
   },
   titleColumn: {
     gap: 2,
@@ -541,8 +504,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs + 2,
   },
   actionBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -669,7 +632,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(15, 14, 25, 0.85)',
     borderWidth: 1,
-    borderColor: 'rgba(244, 114, 182, 0.4)',
+    borderColor: colors.borderBright,
   },
   capturedBadgeText: {
     ...typography.label,
@@ -730,8 +693,9 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     marginTop: spacing.sm,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     overflow: 'hidden',
+    backgroundColor: colors.primaryContainer,
   },
   retryGradient: {
     flexDirection: 'row',
@@ -804,6 +768,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 4,
+    backgroundColor: colors.primary,
   },
   shutterInner: {
     width: '100%',
@@ -837,8 +802,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   primaryBtnWrap: {
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     overflow: 'hidden',
+    backgroundColor: colors.primaryContainer,
   },
   primaryGradient: {
     flexDirection: 'row',

@@ -27,7 +27,7 @@ import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MainTabs'>;
 
-const RAIL_WIDTH = 76;
+const RAIL_WIDTH = 52;
 const SIDEBAR_WIDTH = 380;
 
 /**
@@ -93,6 +93,7 @@ export default function WebShell({ navigation, route }: Props) {
   const { session, profile } = useAuth();
   const { groups } = useGroups();
   const [tab, setTab] = useState<Tab>('chats');
+  const [hoveredTab, setHoveredTab] = useState<Tab | null>(null);
 
   // The whole Chat param set, not just the id. `unreadCount` is what seeds
   // ChatScreen's openedWithUnread — which draws the "N unread messages"
@@ -318,19 +319,26 @@ export default function WebShell({ navigation, route }: Props) {
               ]}
               scaleTo={0.92}
               onPress={() => setTab(t.id)}
+              onHoverIn={() => setHoveredTab(t.id)}
+              onHoverOut={() => setHoveredTab(null)}
+              accessibilityRole="tab"
+              accessibilityLabel={t.label}
+              accessibilityHint={`Open ${t.label}`}
+              accessibilityState={{ selected: active }}
             >
+              {active && <View style={[styles.railActiveMark, { backgroundColor: t.id === 'awards' ? GOLD : colors.primary }]} />}
               {t.id === 'profile' ? (
                 /* Your own picture instead of a cog — same as the mobile dock. */
                 <Avatar
                   imageUrl={profile?.avatar_url}
                   label={profile?.display_name ?? 'Me'}
-                  size={22}
+                  size={23}
                   ring={active}
                 />
               ) : (
                 <Ionicons
                   name={active ? t.on : t.off}
-                  size={21}
+                  size={23}
                   color={
                     // Awards keeps its gold even unfocused, as in the dock.
                     t.id === 'awards'
@@ -339,14 +347,11 @@ export default function WebShell({ navigation, route }: Props) {
                   }
                 />
               )}
-              <Text
-                style={[
-                  styles.railLabel,
-                  active && { color: t.id === 'awards' ? GOLD : colors.primary },
-                ]}
-              >
-                {t.label}
-              </Text>
+              {hoveredTab === t.id && (
+                <View pointerEvents="none" style={styles.railTooltip}>
+                  <Text style={styles.railTooltipText}>{t.label}</Text>
+                </View>
+              )}
               {t.id === 'chats' && totalUnread > 0 && (
                 <View style={styles.railBadge}>
                   <Text style={styles.railBadgeText}>
@@ -394,11 +399,11 @@ export default function WebShell({ navigation, route }: Props) {
         ) : (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="chatbubbles-outline" size={44} color={colors.outline} />
+              <Ionicons name="chatbubbles-outline" size={36} color={colors.onSurfaceVariant} />
             </View>
-            <Text style={styles.emptyTitle}>GC for Web</Text>
+            <Text style={styles.emptyTitle}>Your conversations, here.</Text>
             <Text style={styles.emptyBody}>
-              Pick a GC on the left to start reading. Everything stays in sync with your phone.
+              Choose a GC from the list to pick up where you left off.
             </Text>
             <Text style={styles.emptyHint}>Enter sends · Shift+Enter for a new line</Text>
             {permission === 'granted' && (
@@ -462,7 +467,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.outlineVariant,
     shadowColor: '#000',
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.25,
     shadowRadius: 40,
     shadowOffset: { width: 0, height: 20 },
   },
@@ -473,24 +478,48 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLow,
     borderRightWidth: 1,
     borderRightColor: colors.outlineVariant,
-    paddingTop: spacing.lg,
-    gap: spacing.xs,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
     alignItems: 'center',
+    zIndex: 2,
   },
   railItem: {
-    width: RAIL_WIDTH - 16,
-    paddingVertical: spacing.sm + 2,
+    width: 44,
+    height: 48,
     borderRadius: radius.md,
     alignItems: 'center',
-    gap: 3,
+    justifyContent: 'center',
   },
-  railItemActive: { backgroundColor: 'rgba(129,140,248,0.12)' },
-  railItemAwardsActive: { backgroundColor: 'rgba(255,215,106,0.12)' },
-  railLabel: { ...typography.micro, fontSize: 10, color: colors.onSurfaceVariant },
+  railItemActive: { backgroundColor: colors.surfaceHigh },
+  railItemAwardsActive: { backgroundColor: 'rgba(255,215,106,0.09)' },
+  railActiveMark: {
+    position: 'absolute',
+    left: -4,
+    width: 2,
+    height: 20,
+    borderRadius: 1,
+  },
+  railTooltip: {
+    position: 'absolute',
+    left: 50,
+    top: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceHigh,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    zIndex: 10,
+  },
+  railTooltipText: { ...typography.caption, fontSize: 12, color: colors.onSurface },
   railBadge: {
     position: 'absolute',
-    top: 4,
-    right: 12,
+    top: 1,
+    right: 0,
     minWidth: 17,
     height: 17,
     paddingHorizontal: 4,
@@ -517,7 +546,7 @@ const styles = StyleSheet.create({
     width: 92,
     height: 92,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,

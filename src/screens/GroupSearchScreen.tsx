@@ -12,6 +12,7 @@ import { PressableScale } from '../components/ui/PressableScale';
 import { HeaderIconButton } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { EmptyState } from '../components/EmptyState';
+import { useAppearance } from '../context/AppearanceContext';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { supabase } from '../lib/supabase';
 import { describeMedia } from '../lib/media';
@@ -125,6 +126,8 @@ const MIN_CHARS = 2;
 const RESULT_LIMIT = 80;
 
 export default function GroupSearchScreen({ route, navigation }: Props) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const { groupId } = route.params;
   const { members } = useGroupMembers(groupId);
   const [query, setQuery] = useState('');
@@ -217,21 +220,21 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
   const cleanQuery = sanitizeQuery(query);
 
   return (
-    <View style={styles.root}>
-      <AmbientBackground tint="#818CF8" />
+    <View style={[styles.root, { backgroundColor: palette.bg }]}>
+      <AmbientBackground tint={palette.bg} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Search Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: palette.surfaceLow, borderBottomColor: palette.border }]}>
           <HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />
-          <View style={styles.inputWrap}>
-            <Ionicons name="search" size={17} color={colors.primary} />
+          <View style={[styles.inputWrap, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+            <Ionicons name="search" size={17} color={palette.primary} />
             <TextInput
               autoFocus
               value={query}
               onChangeText={setQuery}
-              placeholder="Search chat, sender, file..."
-              placeholderTextColor={colors.outline}
-              style={styles.input}
+              placeholder="Search this GC"
+              placeholderTextColor={palette.textMuted}
+              style={[styles.input, { color: palette.onSurface }]}
               returnKeyType="search"
               clearButtonMode="while-editing"
             />
@@ -245,7 +248,7 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
         </View>
 
         {/* Filter Pills */}
-        <View style={styles.filterRow}>
+        <View style={[styles.filterRow, { borderBottomColor: palette.border }]}>
           {FILTERS.map((f) => {
             const isActive = filter === f.id;
             return (
@@ -256,18 +259,22 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
                 onPress={() => setFilter(f.id)}
                 style={[
                   styles.filterPill,
-                  isActive && styles.filterPillActive,
+                  { backgroundColor: palette.surfaceLow, borderColor: palette.border },
+                  isActive && [styles.filterPillActive, { backgroundColor: palette.surfaceHigh, borderColor: palette.primary }],
                 ]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
               >
                 <Ionicons
                   name={f.icon}
                   size={13}
-                  color={isActive ? '#FFFFFF' : colors.onSurfaceVariant}
+                  color={isActive ? palette.onSurface : palette.onSurfaceVariant}
                 />
                 <Text
                   style={[
                     styles.filterPillText,
                     isActive && styles.filterPillTextActive,
+                    { color: isActive ? palette.onSurface : palette.onSurfaceVariant },
                   ]}
                 >
                   {f.label}
@@ -281,17 +288,17 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
         {cleanQuery.length < MIN_CHARS ? (
           <View style={styles.suggestionContainer}>
             <View style={styles.suggestionHero}>
-              <View style={styles.searchIconRing}>
-                <Ionicons name="search" size={24} color="#818CF8" />
+              <View style={[styles.searchIconRing, { backgroundColor: palette.surfaceHigh }]}>
+                <Ionicons name="search" size={24} color={palette.primary} />
               </View>
-              <Text style={styles.suggestionTitle}>Search Messages in GC</Text>
-              <Text style={styles.suggestionSub}>
+              <Text style={[styles.suggestionTitle, { color: palette.onSurface }]}>Find it in the conversation</Text>
+              <Text style={[styles.suggestionSub, { color: palette.onSurfaceVariant }]}>
                 Find conversations by keywords, member names, shared links, or document filenames.
               </Text>
             </View>
 
             <View style={styles.quickChipsWrap}>
-              <Text style={styles.quickChipsTitle}>POPULAR SEARCHES</Text>
+              <Text style={[styles.quickChipsTitle, { color: palette.onSurfaceVariant }]}>Quick searches</Text>
               <View style={styles.chipGrid}>
                 {['Photos', 'Links', 'PDF', 'Pinned', 'Voice'].map((chip) => (
                   <PressableScale
@@ -299,10 +306,10 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
                     scaleTo={0.94}
                     haptic="light"
                     onPress={() => setQuery(chip)}
-                    style={styles.presetChip}
+                    style={[styles.presetChip, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}
                   >
-                    <Ionicons name="sparkles-outline" size={12} color="#818CF8" />
-                    <Text style={styles.presetChipText}>{chip}</Text>
+                    <Ionicons name="search-outline" size={12} color={palette.onSurfaceVariant} />
+                    <Text style={[styles.presetChipText, { color: palette.onSurface }]}>{chip}</Text>
                   </PressableScale>
                 ))}
               </View>
@@ -311,6 +318,7 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
         ) : searched && filteredResults.length === 0 && !searching ? (
           <EmptyState
             emoji="🔎"
+            title="No results"
             text={`No results found for "${query}" in this category.`}
           />
         ) : (
@@ -334,7 +342,7 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
                     .reduceMotion(reduceMotion)}
                 >
                   <PressableScale scaleTo={0.98} haptic="light" onPress={() => openResult(item.id)}>
-                    <GlassPanel borderRadius={radius.lg} style={styles.card}>
+                    <GlassPanel borderRadius={radius.lg} style={[styles.card, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
                       <View style={styles.cardHeader}>
                         <View style={styles.authorRow}>
                           <Avatar
@@ -344,11 +352,11 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
                             size={28}
                             ringColors={[member?.avatarColor ?? colors.primary, colors.secondary]}
                           />
-                          <Text style={styles.author} numberOfLines={1}>
+                          <Text style={[styles.author, { color: palette.onSurface }]} numberOfLines={1}>
                             {authorName}
                           </Text>
                         </View>
-                        <Text style={styles.time}>
+                        <Text style={[styles.time, { color: palette.textMuted }]}>
                           {dayLabel(item.createdAt)}, {clockTime(item.createdAt)}
                         </Text>
                       </View>
@@ -357,8 +365,8 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
                         <View style={styles.textColumn}>
                           {mediaLabel && (
                             <View style={styles.mediaLabelPill}>
-                              <Ionicons name={mediaLabel.icon ?? 'document'} size={12} color="#818CF8" />
-                              <Text style={styles.mediaLabelText} numberOfLines={1}>
+                              <Ionicons name={mediaLabel.icon ?? 'document'} size={12} color={colors.primary} />
+                              <Text style={[styles.mediaLabelText, { color: palette.onSurfaceVariant }]} numberOfLines={1}>
                                 {mediaLabel.label}
                               </Text>
                             </View>
@@ -368,7 +376,7 @@ export default function GroupSearchScreen({ route, navigation }: Props) {
                             <HighlightedText
                               text={item.text}
                               query={query}
-                              style={styles.snippetText}
+                              style={[styles.snippetText, { color: palette.onSurface }]}
                               numberOfLines={3}
                             />
                           )}
@@ -404,19 +412,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceLow,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   inputWrap: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceHigh,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    height: 42,
+    height: 44,
   },
   input: {
     flex: 1,
@@ -434,21 +445,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_MARGIN,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    minHeight: 38,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceHigh,
     borderColor: colors.primary,
   },
   filterPillText: {
@@ -458,7 +470,7 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    color: colors.onSurface,
     fontWeight: '700',
   },
 
@@ -469,7 +481,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   suggestionHero: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
     paddingVertical: spacing.md,
   },
@@ -477,9 +489,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.30)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,
@@ -494,19 +504,18 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: 13,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 18,
-    maxWidth: 280,
+    maxWidth: 320,
   },
   quickChipsWrap: {
     gap: spacing.sm,
   },
   quickChipsTitle: {
     ...typography.micro,
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.outline,
-    letterSpacing: 0.6,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
   },
   chipGrid: {
     flexDirection: 'row',
@@ -518,11 +527,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    minHeight: 38,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   presetChipText: {
     ...typography.caption,
@@ -540,9 +550,9 @@ const styles = StyleSheet.create({
   card: {
     padding: spacing.md,
     gap: spacing.xs + 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -585,14 +595,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: radius.sm,
-    backgroundColor: 'rgba(129, 140, 248, 0.12)',
+    backgroundColor: colors.surfaceHigh,
     alignSelf: 'flex-start',
   },
   mediaLabelText: {
     ...typography.caption,
     fontSize: 11,
     fontWeight: '600',
-    color: '#818CF8',
+    color: colors.primary,
   },
   snippetText: {
     ...typography.body,

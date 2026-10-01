@@ -28,13 +28,13 @@ export type AppTheme = {
 const STORAGE_KEY = '@gc_app_appearance_v1';
 
 const genz: AppTheme = {
-  id: 'genz', label: 'Gen Z', description: 'The expressive GC universe you know.', icon: 'sparkles-outline', isDark: true,
+  id: 'genz', label: 'Signal', description: 'GC’s focused indigo look.', icon: 'sparkles-outline', isDark: true,
   palette: {
-    appRoot:'#07060B', appChrome:'#030206', bg:'#0A0A0F', surfaceLowest:'#050508', surfaceLow:'#0F0F17', surface:'#151522', surfaceHigh:'#1C1C2C', surfaceHighest:'#242438',
-    onSurface:'#F1F5F9', onSurfaceVariant:'#94A3B8', textMuted:'#8B98AD', outline:'#64748B', outlineVariant:'#334155', primary:'#818CF8', primaryContainer:'#6366F1', onPrimary:'#FFFFFF', secondary:'#F472B6', secondaryContainer:'#DB2777', onSecondary:'#FFFFFF', tertiary:'#38BDF8', tertiaryContainer:'#0284C7', onTertiary:'#FFFFFF', lime:'#10B981', error:'#F87171', onError:'#FFFFFF', border:'rgba(255,255,255,0.08)', borderBright:'rgba(255,255,255,0.16)', scrim:'rgba(5,5,10,0.80)',
+    appRoot:'#0C1015', appChrome:'#090C10', bg:'#0C1015', surfaceLowest:'#0A0D12', surfaceLow:'#151A21', surface:'#1B222B', surfaceHigh:'#252D38', surfaceHighest:'#303946',
+    onSurface:'#F4F6F8', onSurfaceVariant:'#AAB3BE', textMuted:'#96A1AE', outline:'#75808D', outlineVariant:'#35404B', primary:'#B0B6FF', primaryContainer:'#6A6FEB', onPrimary:'#FFFFFF', secondary:'#E4A4B7', secondaryContainer:'#B76486', onSecondary:'#FFFFFF', tertiary:'#86C7D7', tertiaryContainer:'#357E94', onTertiary:'#FFFFFF', lime:'#55BE9D', error:'#F18585', onError:'#FFFFFF', border:'rgba(244,246,248,0.08)', borderBright:'rgba(244,246,248,0.15)', scrim:'rgba(5,8,12,0.80)',
   },
-  gradients:['#6366F1','#4F46E5'], canvas:['#100D1C','#08070E','#040306'],
-  glass:{fill:'rgba(255,255,255,0.04)',fillStrong:'rgba(255,255,255,0.07)',stroke:'rgba(255,255,255,0.08)',strokeBright:'rgba(255,255,255,0.14)',inputFill:'rgba(0,0,0,0.25)'},
+  gradients:['#7378EC','#5C63D7'], canvas:['#111722','#0C1015','#090C10'],
+  glass:{fill:'rgba(255,255,255,0.035)',fillStrong:'rgba(255,255,255,0.055)',stroke:'rgba(255,255,255,0.075)',strokeBright:'rgba(255,255,255,0.13)',inputFill:'rgba(0,0,0,0.25)'},
 };
 
 const dark: AppTheme = {

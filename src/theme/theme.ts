@@ -1,10 +1,4 @@
-/**
- * GC design tokens — "Vibrant Neo-Glass".
- *
- * Neo-Brutalism (heavy type, thick strokes, hard offset shadows) layered over
- * Glassmorphism (translucent panels on vibrant mesh gradients). Values come
- * from the design system spec; see stitch_gc_gen_z_social_platform/DESIGN.md.
- */
+/** GC's shared visual language: confident type, quiet surfaces, and indigo accents. */
 
 export const colors = {
   /**
@@ -18,96 +12,73 @@ export const colors = {
    * splash background, and the far end of the screen gradients. Any surface
    * the OS paints for us has to use `appChrome`, or the seam comes back.
    */
-  appRoot: '#07060B',
-  appChrome: '#030206',
+  appRoot: '#0C1015',
+  appChrome: '#090C10',
 
   // Surface ramp, lowest → highest elevation
-  bg: '#0A0A0F',
-  surfaceLowest: '#050508',
-  surfaceLow: '#0F0F17',
-  surface: '#151522',
-  surfaceHigh: '#1C1C2C',
-  surfaceHighest: '#242438',
+  bg: '#0C1015',
+  surfaceLowest: '#0A0D12',
+  surfaceLow: '#151A21',
+  surface: '#1B222B',
+  surfaceHigh: '#252D38',
+  surfaceHighest: '#303946',
 
-  /**
-   * The neutral ramp is *slate* (cool, blue-tinted), not neutral gray.
-   *
-   * This was the app's single biggest palette inconsistency: these tokens used
-   * to hold the gray family (#9CA3AF, #6B7280, #374151) while the screens
-   * themselves overwhelmingly hardcoded the slate family (#94A3B8 alone
-   * appeared 46 times against 4 uses of the gray token literal). Two neutral
-   * families were being used for the same roles, which is what made muted text
-   * look subtly different from screen to screen.
-   *
-   * Slate is the side worth keeping: the brand accent is indigo, and a cool
-   * neutral is what harmonises with a cool accent. Every value below was
-   * contrast-checked against all six app surfaces before the swap — the muted
-   * text token actually gained contrast in the move (4.84:1 to 5.20:1).
-   */
-  onSurface: '#F1F5F9',
-  onSurfaceVariant: '#94A3B8',
-  /**
-   * Muted body text that still clears WCAG AA (4.5:1) on every surface in the
-   * app. `outline` is dimmer and reads as the natural choice for de-emphasised
-   * copy, but it measures ~3.2:1 against the card fills these screens use —
-   * the gray-on-gray trap. Reach for this for secondary *text*; keep `outline`
-   * for borders, dividers and disabled states, where the rule doesn't apply.
-   */
-  textMuted: '#8B98AD',
-  outline: '#64748B',
-  outlineVariant: '#334155',
+  // Cool neutral type and borders work across the appearance themes.
+  onSurface: '#F4F6F8',
+  onSurfaceVariant: '#AAB3BE',
+  /** Secondary copy; use outline for borders and disabled states. */
+  textMuted: '#96A1AE',
+  outline: '#75808D',
+  outlineVariant: '#35404B',
 
-  // Brand — Refined Indigo identity, Rose counterpart, Sky for functional accents.
-  primary: '#818CF8',
-  primaryContainer: '#6366F1',
+  // Signal violet with rose and blue reserved for meaning.
+  primary: '#B0B6FF',
+  primaryContainer: '#6A6FEB',
   onPrimary: '#FFFFFF',
-  primaryDeep: '#4F46E5',
+  primaryDeep: '#5057C8',
 
-  secondary: '#F472B6',
-  secondaryContainer: '#DB2777',
+  secondary: '#E4A4B7',
+  secondaryContainer: '#B76486',
   onSecondary: '#FFFFFF',
-  secondaryDeep: '#BE185D',
+  secondaryDeep: '#91415F',
 
-  tertiary: '#38BDF8',
-  tertiaryContainer: '#0284C7',
+  tertiary: '#86C7D7',
+  tertiaryContainer: '#357E94',
   onTertiary: '#FFFFFF',
 
-  lime: '#10B981',
-  error: '#F87171',
+  lime: '#55BE9D',
+  error: '#F18585',
   onError: '#FFFFFF',
 
-  // Aliases kept so existing screens keep compiling while they're reworked.
-  // These name the same roles as onSurface/onSurfaceVariant/outline above, so
-  // they carry the same slate values — an alias that resolved to the old gray
-  // family would quietly reintroduce the exact two-palette split the ramp
-  // above exists to remove.
-  textPrimary: '#F1F5F9',
-  textSecondary: '#94A3B8',
-  textFaint: '#64748B',
-  accent: '#818CF8',
-  accentStrong: '#6366F1',
-  accentSoft: 'rgba(129, 140, 248, 0.14)',
-  accentGlow: 'rgba(99, 102, 241, 0.35)',
-  card: '#13131D',
-  cardHigh: '#1A1A28',
-  bgElevated: '#0F0F17',
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderBright: 'rgba(255, 255, 255, 0.16)',
-  pink: '#F472B6',
-  cyan: '#38BDF8',
-  yellow: '#FBBF24',
-  green: '#10B981',
-  red: '#F87171',
+  // Aliases used by screen styles during the layout migration.
+  textPrimary: '#F4F6F8',
+  textSecondary: '#AAB3BE',
+  textFaint: '#75808D',
+  accent: '#B0B6FF',
+  accentStrong: '#6A6FEB',
+  accentSoft: 'rgba(176, 182, 255, 0.12)',
+  accentGlow: 'rgba(106, 111, 235, 0.15)',
+  card: '#151A21',
+  cardHigh: '#1B222B',
+  bgElevated: '#151A21',
+  border: 'rgba(244, 246, 248, 0.08)',
+  borderBright: 'rgba(244, 246, 248, 0.15)',
+  pink: '#E4A4B7',
+  cyan: '#86C7D7',
+  yellow: '#E9BD69',
+  green: '#55BE9D',
+  red: '#F18585',
   onAccent: '#FFFFFF',
-  scrim: 'rgba(5, 5, 10, 0.80)',
+  scrim: 'rgba(5, 8, 12, 0.80)',
 } as const;
 
 /** The frosted glass recipe — clean blurred opacity look. */
 export const glass = {
-  fill: 'rgba(255, 255, 255, 0.04)',
-  fillStrong: 'rgba(255, 255, 255, 0.07)',
-  stroke: 'rgba(255, 255, 255, 0.08)',
-  strokeBright: 'rgba(255, 255, 255, 0.14)',
+  // Quiet, legible surfaces. Reserve translucency for overlays and navigation.
+  fill: 'rgba(255, 255, 255, 0.035)',
+  fillStrong: 'rgba(255, 255, 255, 0.055)',
+  stroke: 'rgba(255, 255, 255, 0.075)',
+  strokeBright: 'rgba(255, 255, 255, 0.13)',
   borderWidth: 1,
   blur: 35,
   /** Inputs sit darker than the surface behind them. */
@@ -116,11 +87,11 @@ export const glass = {
 
 export const gradients = {
   /** "Super actions" — 135° primary → secondary. */
-  brand: ['#6366F1', '#4F46E5'] as const,
-  cta: ['#6366F1', '#4F46E5'] as const,
+  brand: ['#7378EC', '#5C63D7'] as const,
+  cta: ['#7378EC', '#5C63D7'] as const,
   /** Light lavender→pink, as on the Invite Friends button. */
-  brandSoft: ['#818CF8', '#A5B4FC'] as const,
-  cyan: ['#0284C7', '#0369A1'] as const,
+  brandSoft: ['#A8AEF8', '#C3C6FF'] as const,
+  cyan: ['#4F9FB5', '#357E94'] as const,
   /** Background mesh blobs. */
   meshViolet: ['rgba(99, 102, 241, 0.08)', 'rgba(99, 102, 241, 0)'] as const,
   meshPink: ['rgba(236, 72, 153, 0.05)', 'rgba(236, 72, 153, 0)'] as const,
@@ -128,7 +99,7 @@ export const gradients = {
   /** Top-light sheen across glass panels. */
   sheen: ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)'] as const,
   glassPanel: ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.01)'] as const,
-  night: ['#11111A', '#0A0A0F'] as const,
+  night: ['#151A21', '#0C1015'] as const,
 } as const;
 
 /** 8px base rhythm. */
@@ -142,51 +113,51 @@ export const spacing = {
   section: 48,
 } as const;
 
-/** "Hyper-rounded" shape language. */
+/** A compact radius scale keeps cards and controls related without pill overload. */
 export const radius = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
+  sm: 6,
+  md: 12,
+  lg: 18,
+  xl: 24,
+  xxl: 32,
   pill: 999,
 } as const;
 
 export const HIT_TARGET = 44;
 export const CONTAINER_MARGIN = 24;
-/** Floating dock height — screens pad their scroll content by this. */
-export const DOCK_HEIGHT = 124;
+/** Maximum navigation shelf height, including the bottom safe area. */
+export const DOCK_HEIGHT = 0;
 
 export const shadows = {
-  /** Colour-matched glow, never black. */
+  /** A restrained lift for the rare surface that needs separation. */
   glow: {
     shadowColor: colors.primaryContainer,
-    shadowOpacity: 0.55,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   glowPink: {
     shadowColor: colors.secondaryDeep,
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   glowCyan: {
     shadowColor: colors.tertiary,
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 9,
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   /** Neo-brutalist hard offset — no blur, full opacity. */
   hard: {
     shadowColor: '#000000',
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: { width: 3, height: 4 },
-    elevation: 6,
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   soft: {
     shadowColor: '#000000',

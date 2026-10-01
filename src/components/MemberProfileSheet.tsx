@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { colors, glass, radius, spacing, typography } from '../theme/theme';
 import { Avatar } from './ui/Avatar';
@@ -11,10 +10,7 @@ import { DraggableSheet } from './ui/DraggableSheet';
 import { successFeedback } from '../utils/haptics';
 import type { GroupMember } from '../types';
 
-/**
- * A rich, stunning preview of a member — opened by tapping their @mention in a message.
- * Displays large glowing avatar, role identity, copyable username, and instant actions.
- */
+/** Member details and quick actions from a mention or member list. */
 export function MemberProfileSheet({
   visible,
   member,
@@ -74,24 +70,14 @@ export function MemberProfileSheet({
   return (
     <DraggableSheet visible={visible} onClose={onClose} style={styles.sheet}>
       <View style={styles.container}>
-        {/* Glowing Background Radial */}
-        <View style={styles.haloWrap} pointerEvents="none">
-          <LinearGradient
-            colors={[`${member.avatarColor || '#818CF8'}26`, 'transparent']}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0.5, y: 0.2 }}
-            end={{ x: 0.5, y: 0.9 }}
-          />
-        </View>
-
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <Avatar
             emoji={member.avatarEmoji}
             imageUrl={member.avatarUrl}
             label={member.displayName}
-            size={76}
-            ringColors={[member.avatarColor || colors.primary, colors.secondary]}
+            size={64}
+            ringColors={[member.avatarColor || colors.primary, member.avatarColor || colors.primary]}
           />
 
           <View style={styles.nameBlock}>
@@ -102,6 +88,8 @@ export function MemberProfileSheet({
                 scaleTo={0.95}
                 haptic="light"
                 onPress={handleCopyUsername}
+                accessibilityRole="button"
+                accessibilityLabel={`Copy username @${member.username}`}
               >
                 <Text style={styles.usernameText}>@{member.username}</Text>
                 <Ionicons
@@ -146,7 +134,7 @@ export function MemberProfileSheet({
             <View style={[styles.actionIconWrap, { backgroundColor: 'rgba(129, 140, 248, 0.15)' }]}>
               <Ionicons name="chatbubble-ellipses" size={18} color="#818CF8" />
             </View>
-            <Text style={styles.actionCardLabel}>Mention in Chat</Text>
+            <Text style={styles.actionCardLabel}>Mention</Text>
           </PressableScale>
 
           <PressableScale
@@ -217,16 +205,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
     gap: spacing.lg,
-    position: 'relative',
-  },
-  haloWrap: {
-    position: 'absolute',
-    top: -20,
-    left: 0,
-    right: 0,
-    height: 180,
-    borderRadius: radius.xl,
-    overflow: 'hidden',
   },
 
   // Avatar & Identity
@@ -253,7 +231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.surfaceHigh,
   },
   usernameText: {
     ...typography.caption,
@@ -291,9 +269,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.outline,
   },
   actionIconWrap: {
     width: 36,
@@ -312,9 +290,9 @@ const styles = StyleSheet.create({
   // Info Card
   infoCard: {
     padding: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: colors.outline,
     gap: spacing.sm,
   },
   infoRow: {

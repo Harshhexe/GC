@@ -6,7 +6,6 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withSequence,
   withSpring,
   withTiming,
@@ -14,8 +13,9 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppearance } from '../context/AppearanceContext';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, glass, radius, shadows, spacing, typography } from '../theme/theme';
+import { colors, glass, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import {
   BUBBLE_ALPHA,
@@ -140,6 +140,8 @@ function MessageBubbleImpl({
   const [showSeenText, setShowSeenText] = useState(false);
   const mine = message.isMine;
   const theme = tint ?? groupTheme('violet');
+  const { theme: appTheme } = useAppearance();
+  const bubbleTextColor = onWallpaper ? '#FFFFFF' : appTheme.palette.onSurface;
   const opaque = bubbleStyle === 'opaque';
   // Only translucent fills need this: an opaque one already blocks whatever is
   // behind it, so there is nothing to guard against.
@@ -156,10 +158,10 @@ function MessageBubbleImpl({
         <Ionicons name="sparkles" size={11} color={theme.accent} />
         <Text style={[styles.aiShareBadge, { color: theme.accent }]}>GC AI</Text>
       </View>
-      <Text style={styles.aiShareQuestion} numberOfLines={2}>
+      <Text style={[styles.aiShareQuestion, { color: onWallpaper ? '#D8DDE4' : appTheme.palette.onSurfaceVariant }]} numberOfLines={2}>
         {message.aiShare.question}
       </Text>
-      <Text style={styles.text}>{message.aiShare.answer}</Text>
+      <Text style={[styles.text, { color: bubbleTextColor }]}>{message.aiShare.answer}</Text>
     </View>
   ) : (
     <MessageText
@@ -167,30 +169,11 @@ function MessageBubbleImpl({
       mentions={message.mentions}
       mentionEveryone={message.mentionEveryone}
       accent={theme.accent}
+      textStyle={{ color: bubbleTextColor }}
       memberMap={memberMap}
       onMentionPress={onMentionPress}
     />
   );
-
-  // Message of the day breathes — a slow glow so the eye finds it without
-  // anything flashing or demanding a tap.
-  const glow = useSharedValue(0);
-  useEffect(() => {
-    if (!isMessageOfTheDay) return;
-    glow.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1800, easing: easing.inOut, reduceMotion }),
-        withTiming(0, { duration: 1800, easing: easing.inOut, reduceMotion })
-      ),
-      -1,
-      false
-    );
-  }, [isMessageOfTheDay, glow]);
-
-  const glowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: interpolate(glow.value, [0, 1], [0.2, 0.6]),
-    shadowRadius: interpolate(glow.value, [0, 1], [10, 22]),
-  }));
 
   // Highlight pulse when jumped to from a reply's quoted strip.
   const highlight = useSharedValue(0);
@@ -350,7 +333,7 @@ function MessageBubbleImpl({
               <Text
                 style={[
                   styles.author,
-                  { color: message.authorColor },
+                  { color: appTheme.isDark ? message.authorColor : appTheme.palette.onSurfaceVariant },
                   onWallpaper && styles.textHaloOnWallpaper,
                 ]}
               >
@@ -366,6 +349,7 @@ function MessageBubbleImpl({
             <PressableScale
               onLongPress={deleted ? undefined : (e) => onLongPress(message, e.nativeEvent.pageY, e.nativeEvent.pageX)}
               onPress={handleBubblePress}
+              accessibilityRole={Platform.OS === 'web' ? 'none' : 'button'}
               {...(Platform.OS === 'web' ? { onDoubleClick: handleDoubleClick } : {})}
               scaleTo={0.98}
               haptic="medium"
@@ -373,21 +357,15 @@ function MessageBubbleImpl({
               <Animated.View
                 style={[
                   styles.bubbleShadow,
-                  mine && !deleted && Platform.OS === 'ios' && shadows.glow,
-                  mine && styles.bubbleShadowMine,
                   isMessageOfTheDay && styles.motdShadow,
-                  isMessageOfTheDay && glowStyle,
                 ]}
               >
                 {mine && !deleted ? (
                   <LinearGradient
                     colors={
                       opaque
-                        ? [
-                          flattenTint(theme.colors[0], BUBBLE_ALPHA.mineTop),
-                          flattenTint(theme.colors[1], BUBBLE_ALPHA.mineBottom),
-                        ]
-                        : [`${theme.colors[0]}59`, `${theme.colors[1]}3D`]
+                        ? [flattenTint(theme.colors[0], BUBBLE_ALPHA.mineTop), flattenTint(theme.colors[0], BUBBLE_ALPHA.mineTop)]
+                        : [`${theme.colors[0]}3D`, `${theme.colors[0]}3D`]
                     }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -395,7 +373,8 @@ function MessageBubbleImpl({
                       styles.bubble,
                       styles.bubbleMine,
                       {
-                        borderColor: `${theme.accent}8C`,
+                        borderColor: `${theme.accent}45`,
+                        ...(!onWallpaper && !appTheme.isDark ? { backgroundColor: `${theme.colors[0]}20` } : null),
                         ...(backing ? { backgroundColor: WALLPAPER_BACKING.mine } : null),
                       },
                       isMessageOfTheDay && styles.bubbleMotd,
@@ -448,6 +427,7 @@ function MessageBubbleImpl({
                     style={[
                       styles.bubble,
                       styles.bubbleTheirs,
+                      !onWallpaper && { backgroundColor: appTheme.palette.surfaceLow, borderColor: appTheme.palette.border },
                       opaque && styles.bubbleTheirsOpaque,
                       backing && styles.bubbleTheirsOnWallpaper,
                       isMessageOfTheDay && styles.bubbleMotd,
@@ -754,16 +734,6 @@ const styles = StyleSheet.create({
   },
 
   bubbleShadow: { borderRadius: radius.md + 4 },
-  bubbleShadowMine: {
-    ...(Platform.OS === 'ios'
-      ? {
-        shadowColor: '#6366F1',
-        shadowOpacity: 0.28,
-        shadowRadius: 14,
-        shadowOffset: { width: 0, height: 4 },
-      }
-      : { elevation: 0 }),
-  },
   motdShadow: {
     ...(Platform.OS === 'ios' ? { shadowColor: colors.yellow } : { elevation: 0 }),
   },
@@ -777,8 +747,8 @@ const styles = StyleSheet.create({
   },
   bubbleMine: { borderBottomRightRadius: radius.sm },
   bubbleTheirs: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.surfaceLow,
+    borderColor: colors.border,
     borderBottomLeftRadius: radius.sm,
   },
   // A 5% white wash reads as a bubble over the app's near-black background,

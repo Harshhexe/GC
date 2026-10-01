@@ -32,6 +32,7 @@ export function PressableScale({
   scaleTo = 0.97,
   haptic = 'light',
   disabled,
+  accessibilityRole,
   onPressIn,
   onPressOut,
   ...rest
@@ -62,6 +63,7 @@ export function PressableScale({
         onPressOut?.(e);
       }}
       {...rest}
+      accessibilityRole={accessibilityRole ?? 'button'}
     >
       {children}
     </AnimatedPressable>

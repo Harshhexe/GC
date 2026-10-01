@@ -1,5 +1,4 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
@@ -18,36 +17,29 @@ export function DailyRecapMessageCard({
   themeGradient?: readonly [string, string];
   onPress: () => void;
 }) {
-  const gradientColors: readonly [string, string] = themeGradient
-    ? [themeGradient[0], themeGradient[1]]
-    : ['#8B5CF6', '#EC4899'];
+  const accent = themeGradient?.[0] ?? colors.primary;
 
   return (
     <View style={styles.wrap}>
-      <PressableScale scaleTo={0.98} haptic="light" onPress={onPress}>
+      <PressableScale scaleTo={0.98} haptic="light" onPress={onPress} accessibilityRole="button" accessibilityLabel={`Open daily recap: ${recap.oneWord}`}>
         <GlassPanel borderRadius={radius.xl} style={styles.card}>
-          <LinearGradient
-            colors={gradientColors}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.wordPill}
-          >
-            <Text style={styles.wordText}>{recap.oneWord}</Text>
-          </LinearGradient>
+          <View style={[styles.wordPill, { backgroundColor: `${accent}22`, borderColor: `${accent}66` }]}>
+            <Text style={[styles.wordText, { color: accent }]}>{recap.oneWord}</Text>
+          </View>
 
           <View style={styles.body}>
             <View style={styles.titleRow}>
-              <Ionicons name="sparkles" size={12} color="#FFD166" />
-              <Text style={styles.title}>DAILY WRAPPED</Text>
+              <Ionicons name="sparkles-outline" size={14} color={accent} />
+              <Text style={styles.title}>Daily recap</Text>
             </View>
             <Text style={styles.meta} numberOfLines={1}>
               {recap.totalMessages} messages
-              {recap.userOfTheDay ? ` • 👑 ${recap.userOfTheDay.name} carried` : ''}
+              {recap.userOfTheDay ? ` · ${recap.userOfTheDay.name} led the chat` : ''}
             </Text>
           </View>
 
           <View style={styles.arrowWrap}>
-            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
           </View>
         </GlassPanel>
       </PressableScale>
@@ -67,19 +59,19 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(25, 20, 38, 0.75)',
+    borderColor: colors.outline,
+    backgroundColor: colors.surfaceLow,
   },
   wordPill: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md + 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   wordText: {
     ...typography.label,
     fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: '700',
     textTransform: 'lowercase',
   },
   body: {
@@ -94,19 +86,19 @@ const styles = StyleSheet.create({
   title: {
     ...typography.micro,
     fontWeight: '800',
-    color: '#FFD166',
-    letterSpacing: 0.8,
+    color: colors.onSurface,
+    letterSpacing: 0.1,
   },
   meta: {
     ...typography.caption,
-    color: colors.onSurface,
+    color: colors.onSurfaceVariant,
     fontSize: 13,
   },
   arrowWrap: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },

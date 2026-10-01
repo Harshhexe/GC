@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { colors, gradients, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { successFeedback } from '../utils/haptics';
@@ -32,13 +31,9 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>invite code</Text>
+      <Text style={styles.label}>Invite code</Text>
 
       <View style={styles.codeBox}>
-        <LinearGradient
-          colors={gradients.sheen}
-          style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
-        />
         <Text style={styles.code}>{code}</Text>
       </View>
 
@@ -56,13 +51,13 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
             color={copied ? colors.green : colors.textPrimary}
           />
           <Text style={[styles.actionText, copied && styles.actionTextDone]}>
-            {copied ? 'link copied' : 'copy link'}
+            {copied ? 'Link copied' : 'Copy link'}
           </Text>
         </PressableScale>
 
         <PressableScale style={styles.action} haptic="medium" onPress={handleShare}>
           <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
-          <Text style={styles.actionText}>share</Text>
+          <Text style={styles.actionText}>Share</Text>
         </PressableScale>
       </View>
 
@@ -71,7 +66,7 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
           entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
           style={styles.hint}
         >
-          send it to anyone. the link drops them straight into this GC.
+          Send this link to invite someone to your GC.
         </Animated.Text>
       )}
     </View>
@@ -79,32 +74,32 @@ export function InviteCodeCard({ code, groupName }: { code: string; groupName?: 
 }
 
 const styles = StyleSheet.create({
-  container: { gap: spacing.md, alignItems: 'center' },
-  label: { ...typography.label, color: colors.textFaint },
+  container: { gap: spacing.md, alignItems: 'stretch' },
+  label: { ...typography.label, color: colors.onSurfaceVariant },
   codeBox: {
-    backgroundColor: colors.cardHigh,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: radius.lg,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xxl,
     overflow: 'hidden',
   },
   code: {
     fontFamily: typography.title.fontFamily,
-    fontSize: 34,
-    letterSpacing: 8,
+    fontSize: 30,
+    letterSpacing: 5,
     color: colors.textPrimary,
     textAlign: 'center',
     // letterSpacing adds trailing space after the last glyph; pull it back so
     // the code stays optically centred in the box.
-    marginRight: -8,
+    marginRight: -5,
   },
   link: {
     ...typography.micro,
     fontSize: 11.5,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
+    textAlign: 'left',
     paddingHorizontal: spacing.sm,
   },
   actions: { flexDirection: 'row', gap: spacing.sm },
@@ -112,10 +107,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.card,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,
   },

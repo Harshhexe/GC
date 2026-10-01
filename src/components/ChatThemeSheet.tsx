@@ -18,6 +18,7 @@ import { DraggableSheet } from './ui/DraggableSheet';
 import { pickChatWallpaper, deleteChatWallpaper } from '../lib/wallpaper';
 import { extractWallpaperPalette } from '../lib/paletteExtract';
 import { selectFeedback } from '../utils/haptics';
+import { useAppearance } from '../context/AppearanceContext';
 
 const BUBBLE_OPTIONS: { key: BubbleStyle; label: string; caption: string }[] = [
   { key: 'translucent', label: 'Translucent', caption: 'Tinted glass' },
@@ -46,6 +47,8 @@ export function ChatThemeSheet({
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,15 +101,15 @@ export function ChatThemeSheet({
   }
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} dragHandleOnly style={styles.sheet}>
+    <DraggableSheet visible={visible} onClose={onClose} dragHandleOnly style={[styles.sheet, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
 
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>Chat theme</Text>
-              <Text style={styles.subtitle}>Only changes how this chat looks for you.</Text>
+              <Text style={[styles.title, { color: palette.onSurface }]}>Chat theme</Text>
+              <Text style={[styles.subtitle, { color: palette.onSurfaceVariant }]}>Only changes how this chat looks for you.</Text>
             </View>
-            <PressableScale style={styles.closeBtn} hitSlop={8} onPress={onClose}>
-              <Ionicons name="close" size={18} color={colors.onSurface} />
+            <PressableScale style={[styles.closeBtn, { backgroundColor: palette.surfaceHigh }]} hitSlop={8} onPress={onClose}>
+              <Ionicons name="close" size={18} color={palette.onSurface} />
             </PressableScale>
           </View>
 
@@ -115,7 +118,7 @@ export function ChatThemeSheet({
             contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.sectionLabel}>Message bubbles</Text>
+            <Text style={[styles.sectionLabel, { color: palette.onSurfaceVariant }]}>Message bubbles</Text>
             <View style={styles.bubbleRow}>
               {BUBBLE_OPTIONS.map((option) => {
                 const active = appearance.bubbleStyle === option.key;
@@ -130,6 +133,7 @@ export function ChatThemeSheet({
                     onPress={() => onChange({ bubbleStyle: option.key })}
                     style={[
                       styles.bubbleOption,
+                      { backgroundColor: palette.surfaceHigh, borderColor: palette.border },
                       active && { borderColor: theme?.accent ?? colors.primary },
                     ]}
                   >
@@ -171,8 +175,8 @@ export function ChatThemeSheet({
                         ]}
                       />
                     </View>
-                    <Text style={styles.bubbleLabel}>{option.label}</Text>
-                    <Text style={styles.bubbleCaption}>{option.caption}</Text>
+                    <Text style={[styles.bubbleLabel, { color: palette.onSurface }]}>{option.label}</Text>
+                    <Text style={[styles.bubbleCaption, { color: palette.onSurfaceVariant }]}>{option.caption}</Text>
                     {active && (
                       <View style={styles.bubbleCheck}>
                         <Ionicons
@@ -187,7 +191,7 @@ export function ChatThemeSheet({
               })}
             </View>
 
-            <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Theme colour</Text>
+            <Text style={[styles.sectionLabel, styles.sectionSpacing, { color: palette.onSurfaceVariant }]}>Theme colour</Text>
             <View style={styles.themeGrid}>
               {GROUP_THEMES.map((t) => {
                 const active = !appearance.customThemeColor && appearance.themeKey === t.key;
@@ -216,13 +220,13 @@ export function ChatThemeSheet({
 
             {(extracting || appearance.wallpaperPalette.length > 0) && (
               <>
-                <Text style={[styles.sectionLabel, styles.sectionSpacing]}>
+                <Text style={[styles.sectionLabel, styles.sectionSpacing, { color: palette.onSurfaceVariant }]}>
                   From your wallpaper
                 </Text>
                 {extracting ? (
                   <View style={styles.paletteLoading}>
                     <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={styles.bubbleCaption}>Picking out colours…</Text>
+                    <Text style={[styles.bubbleCaption, { color: palette.onSurfaceVariant }]}>Picking out colours…</Text>
                   </View>
                 ) : (
                   <View style={styles.themeGrid}>
@@ -253,7 +257,7 @@ export function ChatThemeSheet({
               </>
             )}
 
-            <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Wallpaper</Text>
+            <Text style={[styles.sectionLabel, styles.sectionSpacing, { color: palette.onSurfaceVariant }]}>Wallpaper</Text>
             {appearance.wallpaperUri ? (
               <View style={styles.wallpaperWrap}>
                 <Image
@@ -268,8 +272,8 @@ export function ChatThemeSheet({
                     disabled={busy}
                     onPress={handlePickWallpaper}
                   >
-                    <Ionicons name="images-outline" size={15} color={colors.onSurface} />
-                    <Text style={styles.wallpaperBtnText}>Replace</Text>
+                    <Ionicons name="images-outline" size={15} color={palette.onSurface} />
+                    <Text style={[styles.wallpaperBtnText, { color: palette.onSurface }]}>Replace</Text>
                   </PressableScale>
                   <PressableScale
                     style={styles.wallpaperBtn}
@@ -283,7 +287,7 @@ export function ChatThemeSheet({
               </View>
             ) : (
               <PressableScale
-                style={styles.wallpaperEmpty}
+                style={[styles.wallpaperEmpty, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}
                 scaleTo={0.97}
                 disabled={busy}
                 onPress={handlePickWallpaper}
@@ -292,9 +296,9 @@ export function ChatThemeSheet({
                   <ActivityIndicator color={colors.primary} />
                 ) : (
                   <>
-                    <Ionicons name="image-outline" size={22} color={colors.onSurfaceVariant} />
-                    <Text style={styles.wallpaperEmptyText}>Add a custom wallpaper</Text>
-                    <Text style={styles.wallpaperEmptyHint}>
+                    <Ionicons name="image-outline" size={22} color={palette.onSurfaceVariant} />
+                    <Text style={[styles.wallpaperEmptyText, { color: palette.onSurface }]}>Add a custom wallpaper</Text>
+                    <Text style={[styles.wallpaperEmptyHint, { color: palette.onSurfaceVariant }]}>
                       Pick a photo to sit behind this conversation
                     </Text>
                   </>

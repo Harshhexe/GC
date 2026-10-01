@@ -33,7 +33,7 @@ export function OfflineBanner({ isOnline, isReconnecting = false, onRetry }: Pro
 
         <View style={styles.copy}>
           <Text style={styles.title}>
-            {isReconnecting ? 'Reconnecting…' : "You're Offline"}
+            {isReconnecting ? 'Reconnecting…' : "You're offline"}
           </Text>
           <Text style={styles.subtitle} numberOfLines={1}>
             {isReconnecting
@@ -52,7 +52,7 @@ export function OfflineBanner({ isOnline, isReconnecting = false, onRetry }: Pro
             }}
             style={styles.retryBtn}
           >
-            <Ionicons name="refresh" size={13} color="#FFFFFF" />
+            <Ionicons name="refresh" size={13} color={colors.onSurface} />
             <Text style={styles.retryText}>Retry</Text>
           </PressableScale>
         )}
@@ -63,9 +63,9 @@ export function OfflineBanner({ isOnline, isReconnecting = false, onRetry }: Pro
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1E1A29',
+    backgroundColor: colors.surfaceLow,
     borderBottomWidth: 1,
-    borderBottomColor: '#2D283E',
+    borderBottomColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: 7,
     zIndex: 100,
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -91,26 +91,26 @@ const styles = StyleSheet.create({
     ...typography.label,
     fontSize: 12.5,
     fontWeight: '800',
-    color: '#F1F5F9',
+    color: colors.onSurface,
   },
   subtitle: {
     ...typography.caption,
     fontSize: 11,
-    color: '#94A3B8',
+    color: colors.onSurfaceVariant,
   },
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#3730A3',
+    backgroundColor: colors.surfaceHigh,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
   },
   retryText: {
     ...typography.caption,
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
 });

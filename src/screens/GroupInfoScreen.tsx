@@ -42,6 +42,7 @@ import { useGroupNotificationSettings } from '../hooks/useGroupNotificationSetti
 import { supabase } from '../lib/supabase';
 import { onChannelStatus } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
+import { useAppearance } from '../context/AppearanceContext';
 import { successFeedback, warningFeedback } from '../utils/haptics';
 import { signedImageSource, useSignedMediaUrl } from '../lib/mediaUrl';
 import { inviteLinkFor, inviteMessageFor } from '../lib/inviteLink';
@@ -122,6 +123,8 @@ function MediaBannerThumbnailItem({
 }
 
 export default function GroupInfoScreen({ route, navigation }: Props) {
+  const { theme: appTheme } = useAppearance();
+  const palette = appTheme.palette;
   const { groupId } = route.params;
   const { session } = useAuth();
 
@@ -441,32 +444,33 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
     : null;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: palette.bg }]}>
       <AmbientBackground tint={activeTheme.accent} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
-          title="Group Info"
+          title="GC details"
           left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
         />
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <Animated.View
             entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
-            style={styles.identity}
+            style={[styles.identity, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}
           >
             <Avatar
               emoji={group?.emoji ?? '💬'}
               imageUrl={group?.avatarUrl}
               ringColors={activeTheme.colors}
-              size={116}
-              glow
+              size={76}
             />
-            <Text style={styles.groupName}>{group?.name ?? '…'}</Text>
-            <View style={styles.memberLine}>
-              <Ionicons name="people" size={16} color={colors.onSurfaceVariant} />
-              <Text style={styles.memberCount}>
-                {members.length} {members.length === 1 ? 'Member' : 'Members'}
-              </Text>
+            <View style={styles.identityCopy}>
+              <Text style={[styles.groupName, { color: palette.onSurface }]}>{group?.name ?? '…'}</Text>
+              <View style={styles.memberLine}>
+                <Ionicons name="people-outline" size={15} color={palette.onSurfaceVariant} />
+                <Text style={[styles.memberCount, { color: palette.onSurfaceVariant }]}>
+                  {members.length} {members.length === 1 ? 'member' : 'members'}
+                </Text>
+              </View>
             </View>
           </Animated.View>
 
@@ -483,7 +487,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               onPress={() => navigation.navigate('MediaLinksFiles', { groupId })}
               style={styles.mediaBannerWrap}
             >
-              <GlassPanel borderRadius={radius.lg} style={styles.mediaBannerCard}>
+              <GlassPanel borderRadius={radius.lg} style={[styles.mediaBannerCard, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
                 <View style={styles.mediaBannerHeader}>
                   <View style={styles.mediaBannerHeaderLeft}>
                     <View
@@ -497,11 +501,11 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                     >
                       <Ionicons name="images" size={17} color={activeTheme.accent} />
                     </View>
-                    <Text style={styles.mediaBannerTitle}>Media, Links & Files</Text>
+                    <Text style={[styles.mediaBannerTitle, { color: palette.onSurface }]}>Shared media and files</Text>
                   </View>
                   <View style={styles.mediaBannerHeaderRight}>
-                    <Text style={styles.mediaBannerCount}>{mediaTotalCount}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
+                    <Text style={[styles.mediaBannerCount, { color: palette.onSurfaceVariant }]}>{mediaTotalCount}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={palette.onSurfaceVariant} />
                   </View>
                 </View>
 
@@ -519,8 +523,8 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                   </View>
                 ) : (
                   <View style={styles.mediaBannerEmpty}>
-                    <Ionicons name="images-outline" size={15} color={colors.onSurfaceVariant} />
-                    <Text style={styles.mediaBannerEmptyText}>
+                    <Ionicons name="images-outline" size={15} color={palette.onSurfaceVariant} />
+                    <Text style={[styles.mediaBannerEmptyText, { color: palette.onSurfaceVariant }]}>
                       Photos, videos, files and links shared in chat will appear here
                     </Text>
                   </View>
@@ -535,19 +539,19 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               .easing(easing.out)
               .reduceMotion(reduceMotion)}
           >
-            <GlassPanel borderRadius={radius.lg} style={styles.quickLinks}>
+            <GlassPanel borderRadius={radius.lg} style={[styles.quickLinks, { backgroundColor: palette.surfaceLow }]}>
               <QuickLinkRow
                 icon="search"
                 label="Search"
                 onPress={() => navigation.navigate('GroupSearch', { groupId })}
               />
-              <View style={styles.quickLinkDivider} />
+              <View style={[styles.quickLinkDivider, { backgroundColor: palette.border }]} />
               <QuickLinkRow
                 icon="pin"
-                label="Pinned Messages"
+                label="Pinned messages"
                 onPress={() => navigation.navigate('PinnedMessages', { groupId })}
               />
-              <View style={styles.quickLinkDivider} />
+              <View style={[styles.quickLinkDivider, { backgroundColor: palette.border }]} />
               <QuickLinkRow
                 icon="finger-print"
                 label="GC DNA"
@@ -555,10 +559,10 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                   navigation.navigate('GCDNA', { groupId, groupName: group?.name })
                 }
               />
-              <View style={styles.quickLinkDivider} />
+              <View style={[styles.quickLinkDivider, { backgroundColor: palette.border }]} />
               <QuickLinkRow
                 icon="bulb"
-                label="Custom Instructions"
+                label="Custom instructions"
                 onPress={() => navigation.navigate('GroupInstructions', { groupId })}
               />
             </GlassPanel>
@@ -572,14 +576,14 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
             style={styles.notifBlock}
           >
             <View style={styles.notifHeaderRow}>
-              <Text style={styles.notifSectionTitle}>Notifications</Text>
+              <Text style={[styles.notifSectionTitle, { color: palette.onSurface }]}>Notifications</Text>
             </View>
 
             <PressableScale
               scaleTo={0.98}
               haptic="light"
               onPress={() => setNotifSheetVisible(true)}
-              style={styles.notifRow}
+              style={[styles.notifRow, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}
             >
               <View
                 style={[
@@ -615,8 +619,8 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               </View>
 
               <View style={styles.notifCopy}>
-                <Text style={styles.notifRowTitle}>Notifications</Text>
-                <Text style={styles.notifRowSub}>
+                <Text style={[styles.notifRowTitle, { color: palette.onSurface }]}>Notifications</Text>
+                <Text style={[styles.notifRowSub, { color: palette.onSurfaceVariant }]}>
                   {isMuted
                     ? muteStatusText
                     : notifMode === 'all'
@@ -639,18 +643,18 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
             style={styles.themeBlock}
           >
             <View style={styles.themeHeaderRow}>
-              <Text style={styles.themeTitle}>Chat Theme</Text>
-              <View style={styles.personalBadge}>
-                <Text style={styles.personalBadgeText}>Personal View</Text>
+              <Text style={[styles.themeTitle, { color: palette.onSurface }]}>Chat theme</Text>
+              <View style={[styles.personalBadge, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+                <Text style={[styles.personalBadgeText, { color: palette.onSurfaceVariant }]}>Only for you</Text>
               </View>
             </View>
-            <Text style={styles.themeSub}>Only changes how this chat looks for you.</Text>
+            <Text style={[styles.themeSub, { color: palette.onSurfaceVariant }]}>Only changes how this chat looks for you.</Text>
 
             <PressableScale
               scaleTo={0.98}
               haptic="light"
               onPress={() => setThemeSheetVisible(true)}
-              style={styles.themeRow}
+              style={[styles.themeRow, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}
             >
               {/* The current look, previewed rather than named: swatch, bubble
                   fill and wallpaper thumbnail if one is set. */}
@@ -673,8 +677,8 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               </LinearGradient>
 
               <View style={styles.themeRowCopy}>
-                <Text style={styles.themeRowTitle}>Chat theme</Text>
-                <Text style={styles.themeRowSub}>
+                <Text style={[styles.themeRowTitle, { color: palette.onSurface }]}>Chat theme</Text>
+                <Text style={[styles.themeRowSub, { color: palette.onSurfaceVariant }]}>
                   {activePersonalTheme.name}
                   {' · '}
                   {appearance.bubbleStyle === 'opaque' ? 'Opaque' : 'Translucent'}
@@ -693,7 +697,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
               .reduceMotion(reduceMotion)}
             style={styles.crewBlock}
           >
-            <Text style={styles.crewTitle}>Crew</Text>
+            <Text style={[styles.crewTitle, { color: palette.onSurface }]}>Members</Text>
             <GlassPanel borderRadius={radius.lg}>
               {shown.map((m, i) => {
                 const isMe = m.id === session?.user.id;
@@ -709,12 +713,12 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                       status={isMe ? 'online' : 'offline'}
                     />
                     <View style={styles.memberCopy}>
-                      <Text style={styles.memberName}>
+                      <Text style={[styles.memberName, { color: palette.onSurface }]}>
                         {m.display_name}
                         {isMe ? ' (you)' : ''}
                       </Text>
                       <View style={styles.memberMetaRow}>
-                        <Text style={styles.memberMeta}>
+                        <Text style={[styles.memberMeta, { color: palette.onSurfaceVariant }]}>
                           {m.messageCount === 0
                             ? 'Professional lurker'
                             : `${m.messageCount} message${m.messageCount === 1 ? '' : 's'}`}
@@ -754,7 +758,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                   onPress={() => setShowAll((v) => !v)}
                 >
                   <Text style={styles.viewAllText}>
-                    {showAll ? 'SHOW LESS' : `VIEW ALL ${members.length} MEMBERS`}
+                    {showAll ? 'Show less' : `View all ${members.length} members`}
                   </Text>
                 </PressableScale>
               )}
@@ -788,7 +792,7 @@ export default function GroupInfoScreen({ route, navigation }: Props) {
                     <Ionicons name="person-add" size={18} color={activeTheme.accent} />
                   </View>
                   <View style={styles.inviteHeaderCopy}>
-                    <Text style={styles.inviteTitle}>Invite Friends</Text>
+                    <Text style={styles.inviteTitle}>Invite friends</Text>
                     <Text style={styles.inviteSubtitle}>Tap to share the link</Text>
                   </View>
                   {/* Owners and admins only: rotating the code is destructive
@@ -914,11 +918,12 @@ function QuickLinkRow({
   onPress: () => void;
   destructive?: boolean;
 }) {
+  const { theme } = useAppearance();
   return (
     <PressableScale style={quickLinkStyles.row} scaleTo={0.98} onPress={onPress}>
-      <Ionicons name={icon} size={18} color={destructive ? colors.error : colors.primary} />
-      <Text style={[quickLinkStyles.label, destructive && { color: colors.error }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color={destructive ? colors.error : colors.outline} />
+      <Ionicons name={icon} size={18} color={destructive ? theme.palette.error : theme.palette.primary} />
+      <Text style={[quickLinkStyles.label, { color: destructive ? theme.palette.error : theme.palette.onSurface }]}>{label}</Text>
+      <Ionicons name="chevron-forward" size={16} color={destructive ? theme.palette.error : theme.palette.outline} />
     </PressableScale>
   );
 }
@@ -938,10 +943,15 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   safe: { flex: 1 },
   scroll: { padding: CONTAINER_MARGIN, paddingBottom: spacing.section + 40, gap: spacing.xl },
-  identity: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.md },
-  groupName: { ...typography.headline, fontSize: 30, color: colors.onSurface, marginTop: spacing.md },
+  identity: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.lg,
+    padding: spacing.lg, borderRadius: radius.lg,
+    backgroundColor: colors.surfaceLow, borderWidth: 1, borderColor: colors.border,
+  },
+  identityCopy: { flex: 1, gap: spacing.xs },
+  groupName: { ...typography.headlineSm, fontSize: 24, color: colors.onSurface },
   memberLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  memberCount: { ...typography.bodyLg, color: colors.onSurfaceVariant },
+  memberCount: { ...typography.caption, fontSize: 13, color: colors.onSurfaceVariant },
   // Invite card — replaces both the old GROUP CODE panel and the plain
   // "Invite Friends" button, which said the same thing in two places.
   inviteCard: { padding: spacing.lg, gap: spacing.sm + 2 },
@@ -961,20 +971,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 1,
   },
   inviteRotateBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.surfaceHigh,
   },
   inviteRowLabel: { ...typography.label, fontSize: 10, color: colors.textMuted, width: 34 },
   inviteCode: {
@@ -986,7 +996,7 @@ const styles = StyleSheet.create({
   // Truncates from the tail so the group-identifying end of the URL is the
   // part that survives a narrow screen.
   inviteLink: { flex: 1, ...typography.micro, fontSize: 12, color: colors.onSurfaceVariant },
-  inviteCopyBtn: { padding: 4 },
+  inviteCopyBtn: { padding: 10, minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
 
   // Media, Links & Files Banner
   mediaBannerWrap: {
@@ -995,7 +1005,7 @@ const styles = StyleSheet.create({
   mediaBannerCard: {
     padding: spacing.md + 2,
     gap: spacing.md,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -1104,7 +1114,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  quickLinks: { overflow: 'hidden' },
+  quickLinks: { overflow: 'hidden', backgroundColor: colors.surfaceLow },
   quickLinkDivider: { height: StyleSheet.hairlineWidth, backgroundColor: glass.stroke, marginLeft: spacing.lg + 18 + spacing.md },
   notifBlock: { gap: spacing.sm },
   notifHeaderRow: {
@@ -1121,7 +1131,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.surfaceLow,
   },
   notifIconWrap: {
     width: 42,
@@ -1143,16 +1153,16 @@ const styles = StyleSheet.create({
   personalBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2.5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(129, 140, 248, 0.16)',
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.35)',
+    borderColor: colors.border,
   },
   personalBadgeText: {
     ...typography.caption,
     fontSize: 11,
     fontWeight: '700',
-    color: '#818CF8',
+    color: colors.onSurfaceVariant,
   },
   themeSub: {
     ...typography.caption,
@@ -1168,7 +1178,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.surfaceLow,
   },
   themeRowSwatch: {
     width: 42,
@@ -1187,29 +1197,29 @@ const styles = StyleSheet.create({
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.lg,
-    padding: spacing.lg,
+    gap: spacing.md,
+    padding: spacing.md,
   },
   memberDivider: { borderTopWidth: 1, borderTopColor: glass.stroke },
   memberCopy: { flex: 1, gap: 3 },
-  memberName: { ...typography.titleMd, fontSize: 18, color: colors.onSurface },
+  memberName: { ...typography.bodyMedium, fontSize: 15, color: colors.onSurface },
   memberMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   memberMeta: { ...typography.caption, color: colors.outline },
   roleChip: {
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(208,188,255,0.16)',
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(208,188,255,0.4)',
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
   },
   roleChipText: { ...typography.label, fontSize: 10, color: colors.primary },
-  adminChip: { backgroundColor: 'rgba(76,215,246,0.14)', borderColor: 'rgba(76,215,246,0.4)' },
+  adminChip: { backgroundColor: colors.surfaceHigh, borderColor: colors.border },
   adminChipText: { color: colors.tertiary },
   kebab: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.xs,

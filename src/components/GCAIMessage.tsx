@@ -10,11 +10,9 @@ import { aiErrorMessage } from '../lib/ai';
 import type { GCCommandEntry } from '../hooks/useGCCommands';
 
 const THINKING_LINES = [
-  'Gathering the lore...',
-  'Reading the chaos...',
-  'Connecting the dots...',
-  'Checking the receipts...',
-  'Cooking...',
+  'Reading the conversation…',
+  'Finding relevant messages…',
+  'Putting an answer together…',
 ];
 
 function Thinking({ accent }: { accent: string }) {
@@ -98,9 +96,9 @@ export function GCAIMessage({
         </Text>
       </View>
 
-      <GlassPanel borderRadius={radius.lg} style={[styles.card, { borderColor: `${accent}44` }]}>
+      <GlassPanel borderRadius={radius.lg} style={[styles.card, { borderColor: `${accent}30` }]}>
         <View style={styles.header}>
-          <View style={[styles.badge, { backgroundColor: `${accent}22`, borderColor: `${accent}55` }]}>
+          <View style={[styles.badge, { backgroundColor: `${accent}18`, borderColor: `${accent}44` }]}>
             <Ionicons name="sparkles" size={11} color={accent} />
             <Text style={[styles.badgeText, { color: accent }]}>GC AI</Text>
           </View>
@@ -194,7 +192,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
     borderWidth: 1,
-    backgroundColor: 'rgba(25, 20, 38, 0.75)',
+    backgroundColor: colors.surfaceLow,
   },
   header: { flexDirection: 'row', alignItems: 'center' },
   badge: {
@@ -207,11 +205,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   badgeText: { ...typography.micro, fontWeight: '800', letterSpacing: 0.6, fontSize: 10 },
-  thinking: { ...typography.body, fontSize: 14, fontStyle: 'italic' },
+  thinking: { ...typography.body, fontSize: 14 },
   answerBlock: { gap: spacing.sm },
   answerText: { ...typography.body, color: colors.onSurface, lineHeight: 21 },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, flexWrap: 'wrap' },
-  sourceBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
+  sourceBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, paddingHorizontal: 10, borderRadius: radius.md, backgroundColor: colors.surfaceHigh },
   sourceText: { ...typography.label, fontSize: 11 },
   errorBlock: { gap: spacing.sm, alignItems: 'flex-start' },
   errorText: { ...typography.body, color: colors.onSurfaceVariant },

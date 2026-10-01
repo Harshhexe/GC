@@ -7,11 +7,11 @@
     "orientation": "portrait",
     "icon": "./assets/gc-logo.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#030206",
+    "backgroundColor": "#090C10",
     "splash": {
       "image": "./assets/Splash.png",
       "resizeMode": "cover",
-      "backgroundColor": "#030206"
+      "backgroundColor": "#090C10"
     },
     "updates": {
       "url": "https://u.expo.dev/eda4be96-0e54-4b02-88a8-d7a456652f83"
@@ -31,7 +31,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0b0912",
+        "backgroundColor": "#090C10",
         "foregroundImage": "./assets/gc-logo.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -57,13 +57,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#030206",
+          "backgroundColor": "#090C10",
           "image": "./assets/gc_app_logo-transparent.png",
           "imageWidth": 180,
           "resizeMode": "contain",
           "dark": {
             "image": "./assets/gc_app_logo-transparent.png",
-            "backgroundColor": "#030206",
+            "backgroundColor": "#090C10",
             "imageWidth": 180,
             "resizeMode": "contain"
           }

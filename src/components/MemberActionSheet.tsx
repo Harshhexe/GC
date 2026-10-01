@@ -70,7 +70,7 @@ export function MemberActionSheet({
               <ActionRow
                 icon="shield-checkmark-outline"
                 color={colors.primary}
-                label="Make Admin"
+                label="Make admin"
                 onPress={onMakeAdmin}
               />
             )}
@@ -78,7 +78,7 @@ export function MemberActionSheet({
               <ActionRow
                 icon="shield-outline"
                 color={colors.onSurfaceVariant}
-                label="Remove Admin"
+                label="Remove admin"
                 onPress={onRemoveAdmin}
               />
             )}
@@ -113,7 +113,7 @@ function ActionRow({
   destructive?: boolean;
 }) {
   return (
-    <PressableScale style={styles.row} scaleTo={0.98} haptic="medium" onPress={onPress}>
+    <PressableScale style={styles.row} scaleTo={0.98} haptic="medium" onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={19} color={color} />
       <Text style={[styles.rowLabel, destructive && { color: colors.error }]}>{label}</Text>
     </PressableScale>
@@ -122,7 +122,7 @@ function ActionRow({
 
 const styles = StyleSheet.create({
   sheet: {
-    backgroundColor: colors.bgElevated,
+    backgroundColor: colors.surfaceLow,
     paddingBottom: spacing.xxl + spacing.sm,
     borderColor: colors.border,
   },
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     marginBottom: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: glass.stroke,
+    borderBottomColor: colors.border,
   },
   headerCopy: { gap: 2 },
   headerName: { ...typography.titleMd, fontSize: 17, color: colors.onSurface },
@@ -146,6 +146,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
+    minHeight: 52,
+    backgroundColor: colors.surfaceHigh,
   },
   rowLabel: { ...typography.bodyMedium, color: colors.onSurface },
   noneText: { ...typography.caption, color: colors.outline, textAlign: 'center', padding: spacing.md },

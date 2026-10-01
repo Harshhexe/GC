@@ -5,6 +5,7 @@ import { GCButton } from './ui/Buttons';
 import { DraggableSheet } from './ui/DraggableSheet';
 import { clockTime } from '../utils/time';
 import type { TeaSession } from '../hooks/useTeaSession';
+import { useAppearance } from '../context/AppearanceContext';
 
 /**
  * What's showing while Tea is live: who started it, when, and — for the
@@ -26,18 +27,20 @@ export function TeaInfoSheet({
   onEndTea: () => void;
   onClose: () => void;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   if (!session) return null;
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} style={styles.sheet}>
-      <Text style={styles.title}>🍵 Tea is going on</Text>
-      <Text style={styles.meta}>
+    <DraggableSheet visible={visible} onClose={onClose} style={[styles.sheet, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
+      <Text style={[styles.title, { color: palette.onSurface }]}>Tea is live</Text>
+      <Text style={[styles.meta, { color: palette.onSurfaceVariant }]}>
         Started by {session.startedByName} · {clockTime(session.startedAt)}
       </Text>
 
-      <View style={styles.note}>
-        <Ionicons name="chatbubbles-outline" size={16} color={colors.onSurfaceVariant} />
-        <Text style={styles.noteText}>
+      <View style={[styles.note, { backgroundColor: palette.surfaceHigh }]}>
+        <Ionicons name="chatbubbles-outline" size={16} color={palette.onSurfaceVariant} />
+        <Text style={[styles.noteText, { color: palette.onSurfaceVariant }]}>
           Everyone can chat normally. Everything sent while Tea is on goes into the
           Tea Report.
         </Text>
@@ -47,11 +50,11 @@ export function TeaInfoSheet({
         <GCButton
           label="End Tea"
           variant="danger"
-          icon={<Ionicons name="stop-circle-outline" size={18} color={colors.error} />}
+          icon={<Ionicons name="stop-circle-outline" size={18} color={palette.error} />}
           onPress={onEndTea}
         />
       ) : (
-        <Text style={styles.cannotEnd}>
+        <Text style={[styles.cannotEnd, { color: palette.onSurfaceVariant }]}>
           Only {session.startedByName} or an admin can end this one.
         </Text>
       )}

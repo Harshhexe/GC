@@ -19,7 +19,6 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -36,7 +35,6 @@ import {
   glass,
   gradients,
   radius,
-  shadows,
   spacing,
   typography,
 } from '../theme/theme';
@@ -83,6 +81,8 @@ import { ChatBackground } from '../components/ui/ChatBackground';
 import { PressableScale } from '../components/ui/PressableScale';
 import { Chip } from '../components/ui/Glass';
 import { HeaderIconButton } from '../components/ui/AppHeader';
+import { Avatar } from '../components/ui/Avatar';
+import { LinearBlurHeader } from '../components/LinearBlurHeader';
 import { TEA_THEME, groupTheme, useChatAppearance } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
@@ -451,6 +451,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     emoji: string;
     memberCount: number;
     theme: string | null;
+    avatarUrl?: string | null;
   } | null>(null);
   const [myRole, setMyRole] = useState<'owner' | 'admin' | 'member' | null>(null);
   const canModerate = myRole === 'owner' || myRole === 'admin';
@@ -803,7 +804,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const loadGroup = useCallback(async () => {
     if (!groupId) return;
     const [{ data: group }, { count }] = await Promise.all([
-      supabase.from('groups').select('name, emoji, theme').eq('id', groupId).single(),
+      supabase.from('groups').select('name, emoji, theme, avatar_url').eq('id', groupId).single(),
       supabase
         .from('group_members')
         .select('user_id', { count: 'exact', head: true })
@@ -815,6 +816,7 @@ export default function ChatScreen({ route, navigation }: Props) {
         emoji: group.emoji,
         memberCount: count ?? 0,
         theme: group.theme,
+        avatarUrl: group.avatar_url,
       });
     }
   }, [groupId]);
@@ -838,6 +840,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                   name: payload.new.name ?? prev.name,
                   emoji: payload.new.emoji ?? prev.emoji,
                   theme: payload.new.theme ?? prev.theme,
+                  avatarUrl: payload.new.avatar_url ?? prev.avatarUrl,
                 }
                 : null
             );
@@ -1448,12 +1451,16 @@ export default function ChatScreen({ route, navigation }: Props) {
    * truth, so ask it there and keep the state path for native.
    */
   const composerCursor = useMemo(() => {
+    // A picker selection sets the next caret position before the DOM input has
+    // received the new value. Use that position for the intervening render so
+    // the completed @mention no longer appears to be an active query.
+    if (forcedSelection) return forcedSelection.start;
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const el = document.querySelector('[data-gccomposer]') as HTMLTextAreaElement | null;
       if (el && typeof el.selectionStart === 'number') return el.selectionStart;
     }
     return selection?.start ?? draft.length;
-  }, [draft, selection]);
+  }, [draft, forcedSelection, selection]);
 
   const activeMentionQuery = useMemo(
     () => (composerFocused ? findActiveMentionQuery(draft, composerCursor) : null),
@@ -2193,85 +2200,133 @@ export default function ChatScreen({ route, navigation }: Props) {
           hideEdgeGlows={Platform.OS === 'web'}
         />
       )}
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        {selectMode ? (
-          <View style={styles.header}>
-            <HeaderIconButton name="close" onPress={exitSelectMode} />
-            <View style={styles.headerTitle}>
-              <Text style={styles.headerName}>
-                {selectedIds.size} selected
-              </Text>
+      <View style={styles.safe}>
+        {/* Floating Progressive Linear Blur Header */}
+        <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
+          <LinearBlurHeader />
+
+          {selectMode ? (
+            <View style={[styles.headerRow, { alignItems: 'center' }]}>
+              <PressableScale
+                style={styles.headerSideButton}
+                scaleTo={0.92}
+                hitSlop={8}
+                onPress={exitSelectMode}
+                accessibilityRole="button"
+                accessibilityLabel="Close selection"
+              >
+                <Ionicons name="close" size={20} color="#FFFFFF" />
+              </PressableScale>
+              <View style={styles.headerTitle}>
+                <Text style={styles.headerName}>
+                  {selectedIds.size} selected
+                </Text>
+              </View>
             </View>
-          </View>
-        ) : (
-          <View style={styles.header}>
-            <HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} color={theme.accent} />
+          ) : (
+            <View style={styles.headerRow}>
+              {/* Left: Back Button */}
+              <PressableScale
+                style={styles.headerSideButton}
+                scaleTo={0.92}
+                hitSlop={8}
+                onPress={() => navigation.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+              </PressableScale>
 
-            <PressableScale
-              style={styles.headerTitle}
-              scaleTo={0.98}
-              onPress={() => navigation.navigate('GroupInfo', { groupId })}
-            >
-              <Text style={styles.headerName} numberOfLines={2}>
-                {groupInfo?.emoji} {groupInfo?.name ?? 'GC'}
-              </Text>
-              <Text style={styles.headerMeta}>
-                {groupInfo?.memberCount ?? 0} Members
-                {typingNames.length > 0 ? ` • ${typingNames.length} cooking` : ''}
-              </Text>
-            </PressableScale>
+              {/* Center: GC PFP + GC Name */}
+              <PressableScale
+                style={styles.headerCenterCol}
+                scaleTo={0.96}
+                haptic="light"
+                onPress={() => navigation.navigate('GroupInfo', { groupId })}
+                accessibilityRole="button"
+                accessibilityLabel={`${groupInfo?.name ?? 'GC'}, view group info`}
+              >
+                <Avatar
+                  size={42}
+                  imageUrl={groupInfo?.avatarUrl}
+                  emoji={groupInfo?.emoji ?? '💬'}
+                  label={groupInfo?.name ?? 'GC'}
+                  ringColors={theme.colors}
+                  ring
+                />
+                <View style={styles.headerNameBadge}>
+                  {typingNames.length > 0 ? (
+                    <View style={styles.badgeTypingRow}>
+                      <View style={[styles.typingDot, { backgroundColor: theme.accent || colors.primary }]} />
+                      <Text style={[styles.headerBadgeText, { color: theme.accent || '#FFFFFF' }]} numberOfLines={1}>
+                        {typingNames.length === 1
+                          ? `${typingNames[0]} typing...`
+                          : `${typingNames.length} typing...`}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.headerBadgeText} numberOfLines={1}>
+                      {groupInfo?.name ?? 'GC'}
+                    </Text>
+                  )}
+                </View>
+              </PressableScale>
 
-            <PressableScale
-              style={[
-                styles.missedButton,
-                { backgroundColor: `${theme.accent}1A`, borderColor: `${theme.accent}4D` },
-              ]}
-              scaleTo={0.90}
-              haptic="medium"
-              hitSlop={8}
-              onPress={() =>
-                navigation.navigate('WhatDidIMiss', { groupId, groupName: groupInfo?.name })
-              }
-            >
-              <Ionicons name="sparkles" size={16} color={theme.accent} />
-            </PressableScale>
-          </View>
-        )}
+              {/* Right: AI Button */}
+              <PressableScale
+                style={styles.headerSideButton}
+                scaleTo={0.90}
+                haptic="medium"
+                hitSlop={8}
+                onPress={() =>
+                  navigation.navigate('WhatDidIMiss', { groupId, groupName: groupInfo?.name })
+                }
+                accessibilityRole="button"
+                accessibilityLabel="What did I miss with GC AI"
+              >
+                <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+              </PressableScale>
+            </View>
+          )}
+        </View>
 
-        <OfflineBanner
-          isOnline={isOnline}
-          isReconnecting={isReconnecting}
-          onRetry={reconnect}
-        />
+        {/* Floating Banners */}
+        <View style={[styles.bannersContainer, { top: insets.top + 80 }]} pointerEvents="box-none">
+          <OfflineBanner
+            isOnline={isOnline}
+            isReconnecting={isReconnecting}
+            onRetry={reconnect}
+          />
 
-        <ElevenElevenBanner
-          isWishTime={elevenEleven.isWishTime}
-          secondsRemaining={elevenEleven.secondsRemaining}
-          isTimesUp={elevenEleven.isTimesUp}
-          onPressWish={() => {
-            setDraft('11:11 ✨ ');
-            inputRef.current?.focus();
-          }}
-          onPressTimesUp={() => {
-            navigation.navigate('WhatDidIMiss', {
-              groupId,
-              groupName: groupInfo?.name,
-              focusSection: 'missedElevenEleven',
-            });
-          }}
-          onDismissTimesUp={elevenEleven.dismissTimesUp}
-        />
+          <ElevenElevenBanner
+            isWishTime={elevenEleven.isWishTime}
+            secondsRemaining={elevenEleven.secondsRemaining}
+            isTimesUp={elevenEleven.isTimesUp}
+            onPressWish={() => {
+              setDraft('11:11 ✨ ');
+              inputRef.current?.focus();
+            }}
+            onPressTimesUp={() => {
+              navigation.navigate('WhatDidIMiss', {
+                groupId,
+                groupName: groupInfo?.name,
+                focusSection: 'missedElevenEleven',
+              });
+            }}
+            onDismissTimesUp={elevenEleven.dismissTimesUp}
+          />
 
-        <TeaBanner session={tea.session} onPress={handleTeaBannerPress} />
+          <TeaBanner session={tea.session} onPress={handleTeaBannerPress} />
 
-        <GCAwardsBanner result={weeklyAwards.thisWeek} onPress={() => setAwardsOpen(true)} />
+          <GCAwardsBanner result={weeklyAwards.thisWeek} onPress={() => setAwardsOpen(true)} />
 
-        <PinnedBanner
-          pins={bannerPins}
-          accentColor={theme.accent}
-          onPressPin={(pin) => jumpToMessage(pin.messageId)}
-          onPressViewAll={() => navigation.navigate('PinnedMessages', { groupId })}
-        />
+          <PinnedBanner
+            pins={bannerPins}
+            accentColor={theme.accent}
+            onPressPin={(pin) => jumpToMessage(pin.messageId)}
+            onPressViewAll={() => navigation.navigate('PinnedMessages', { groupId })}
+          />
+        </View>
 
         <KeyboardAvoidingView
           style={styles.flex}
@@ -2279,9 +2334,13 @@ export default function ChatScreen({ route, navigation }: Props) {
           keyboardVerticalOffset={0}
         >
           {loading ? (
-            <EmptyState emoji="⏳" text={loadingText} />
+            <View style={[styles.flex, { paddingTop: insets.top + 72 }]}>
+              <EmptyState emoji="◌" title="Loading conversation" text={loadingText} />
+            </View>
           ) : messages.length === 0 ? (
-            <EmptyState emoji="🦗" text={emptyText} />
+            <View style={[styles.flex, { paddingTop: insets.top + 90 }]}>
+              <EmptyState emoji="✦" title="Start the conversation" text={emptyText} />
+            </View>
           ) : (
             <View style={styles.flex}>
               <FlatList
@@ -2290,7 +2349,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                 data={invertedMessages}
                 extraData={readersByMessage}
                 keyExtractor={(m) => m.id}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={[styles.list, { paddingBottom: insets.top + 90 }]}
                 showsVerticalScrollIndicator={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 keyboardShouldPersistTaps="handled"
@@ -2366,6 +2425,7 @@ export default function ChatScreen({ route, navigation }: Props) {
             entering={FadeIn.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
             style={[
               styles.composerWrap,
+              Platform.OS === 'web' && styles.webComposerGlass,
               animatedComposerStyle,
             ]}
           >
@@ -2458,15 +2518,16 @@ export default function ChatScreen({ route, navigation }: Props) {
               members={mentionMatches}
               showEveryone={showEveryoneOption}
               showGC={showGCOption}
-              accentColor={theme.accent}
               onSelectMember={selectMentionMember}
               onSelectEveryone={selectMentionEveryone}
               onSelectGC={selectMentionGC}
             />
 
-            <View style={styles.composer}>
+            <View style={[styles.composer, Platform.OS === 'web' && styles.webComposerInputGlass]}>
               <PressableScale
                 style={styles.plusButton}
+                accessibilityRole="button"
+                accessibilityLabel="Add an attachment or activity"
                 scaleTo={0.85}
                 haptic="medium"
                 disabled={!!editingMessage}
@@ -2539,7 +2600,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                         ? anonPlaceholder
                         : editingMessage
                           ? 'Edit your message...'
-                          : 'Cook Something...'
+                        : 'Message this GC…'
                     }
                     placeholderTextColor={colors.outline}
                     multiline
@@ -2594,6 +2655,8 @@ export default function ChatScreen({ route, navigation }: Props) {
                 <Animated.View entering={FadeIn.duration(160).reduceMotion(reduceMotion)}>
                   <PressableScale
                     style={styles.plusButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open GC camera"
                     scaleTo={0.85}
                     haptic="medium"
                     onPress={() => {
@@ -2633,21 +2696,14 @@ export default function ChatScreen({ route, navigation }: Props) {
                 <Animated.View entering={FadeIn.duration(160).reduceMotion(reduceMotion)}>
                   <PressableScale
                     style={styles.sendWrap}
+                    accessibilityRole="button"
+                    accessibilityLabel={editingMessage ? 'Save edited message' : 'Send message'}
                     scaleTo={0.88}
                     haptic="medium"
                     onPress={handleSend}
                     disabled={!canSend || uploading}
                   >
-                    <LinearGradient
-                      colors={canSend ? theme.colors : [colors.surfaceHigh, colors.surfaceHigh]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[
-                        styles.sendButton,
-                        canSend && shadows.glow,
-                        canSend && { shadowColor: theme.accent },
-                      ]}
-                    >
+                    <View style={[styles.sendButton, { backgroundColor: canSend ? theme.accent : colors.surfaceHigh }]}>
                       {uploading ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
@@ -2657,14 +2713,14 @@ export default function ChatScreen({ route, navigation }: Props) {
                           color={canSend ? '#FFFFFF' : colors.outline}
                         />
                       )}
-                    </LinearGradient>
+                    </View>
                   </PressableScale>
                 </Animated.View>
               )}
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
 
       {selectMode && selectedIds.size > 0 && (
         <Animated.View
@@ -2948,26 +3004,83 @@ const styles = StyleSheet.create({
   safe: { flex: 1, minHeight: 0 },
   flex: { flex: 1, minHeight: 0 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 0,
+    paddingBottom: spacing.md + 4,
     backgroundColor: 'transparent',
-    gap: spacing.xs,
   },
-  headerTitle: { flex: 1, paddingHorizontal: spacing.xs },
-  headerName: { ...typography.title, fontSize: 20, color: colors.onSurface },
-  headerMeta: { ...typography.micro, color: colors.onSurfaceVariant, marginTop: 2 },
-  missedButton: {
-    width: HIT_TARGET - 6,
-    height: HIT_TARGET - 6,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerSideButton: {
+    width: 40,
+    height: 40,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(129, 140, 248, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  headerCenterCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 1,
+    maxWidth: '65%',
+  },
+  headerNameBadge: {
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 2.5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    maxWidth: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBadgeText: {
+    ...typography.label,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  badgeTypingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerTitle: { flex: 1, paddingHorizontal: spacing.xs },
+  headerName: {
+    ...typography.title,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  bannersContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 40,
   },
   list: {
     paddingTop: spacing.xs,
@@ -2983,8 +3096,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.border,
   },
   dayText: { ...typography.label, color: colors.onSurfaceVariant, fontSize: 11 },
   // Same problem as the bubbles: a translucent *white* chip disappears over a
@@ -3013,9 +3126,16 @@ const styles = StyleSheet.create({
   composerWrap: {
     position: 'relative',
     paddingHorizontal: Platform.OS === 'web' ? spacing.md : spacing.lg,
-    paddingBottom: 0,
-    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.surfaceLow,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
+  webComposerGlass: {
+    backgroundColor: 'rgba(16, 22, 31, 0.28)',
+    backdropFilter: 'blur(24px) saturate(135%)',
+  } as any,
   composerPreviewWrap: { marginBottom: spacing.xs },
   attachmentPreviewWrap: { marginBottom: spacing.xs },
   attachErrorRow: {
@@ -3085,18 +3205,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Platform.OS === 'web' ? 6 : spacing.sm,
-    backgroundColor: 'rgba(19, 19, 29, 0.95)',
-    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceHigh,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border,
     paddingHorizontal: Platform.OS === 'web' ? 6 : spacing.sm,
     paddingVertical: Platform.OS === 'web' ? 4 : 4,
-    minHeight: Platform.OS === 'web' ? 42 : 44,
+    minHeight: 48,
   },
+  webComposerInputGlass: {
+    backgroundColor: 'rgba(39, 48, 61, 0.44)',
+    backdropFilter: 'blur(12px)',
+  } as any,
   plusButton: {
-    width: Platform.OS === 'web' ? 34 : 40,
-    height: Platform.OS === 'web' ? 34 : 40,
-    borderRadius: radius.pill,
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3167,11 +3291,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     marginLeft: 2,
   },
-  sendWrap: { borderRadius: radius.pill },
+  sendWrap: { borderRadius: radius.md },
   sendButton: {
-    width: Platform.OS === 'web' ? 36 : 44,
-    height: Platform.OS === 'web' ? 36 : 44,
-    borderRadius: radius.pill,
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

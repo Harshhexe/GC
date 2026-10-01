@@ -17,6 +17,7 @@ import {
   useGroupNotificationSettings,
 } from '../hooks/useGroupNotificationSettings';
 import { selectFeedback } from '../utils/haptics';
+import { useAppearance } from '../context/AppearanceContext';
 
 type Props = {
   visible: boolean;
@@ -95,6 +96,8 @@ export function GroupNotificationSheet({
   settings: externalSettings,
   onClose,
 }: Props) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const localSettings = useGroupNotificationSettings(
     externalSettings ? '' : groupId,
     externalSettings ? null : userId
@@ -140,18 +143,18 @@ export function GroupNotificationSheet({
   }
 
   return (
-    <DraggableSheet visible={visible} onClose={onClose} dragHandleOnly style={styles.sheet}>
+    <DraggableSheet visible={visible} onClose={onClose} dragHandleOnly style={[styles.sheet, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
 
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>Notifications</Text>
-              <Text style={styles.subtitle} numberOfLines={1}>
+              <Text style={[styles.title, { color: palette.onSurface }]}>Notifications</Text>
+              <Text style={[styles.subtitle, { color: palette.onSurfaceVariant }]} numberOfLines={1}>
                 Customize notifications for {groupName}
               </Text>
             </View>
 
-            <PressableScale style={styles.closeBtn} onPress={onClose}>
-              <Ionicons name="close" size={18} color={colors.onSurface} />
+            <PressableScale style={[styles.closeBtn, { backgroundColor: palette.surfaceHigh }]} onPress={onClose}>
+              <Ionicons name="close" size={18} color={palette.onSurface} />
             </PressableScale>
           </View>
 
@@ -161,12 +164,12 @@ export function GroupNotificationSheet({
             showsVerticalScrollIndicator={false}
           >
             {/* Status Summary Banner */}
-            <View style={[styles.summaryCard, isMuted && styles.summaryCardMuted]}>
+            <View style={[styles.summaryCard, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }, isMuted && styles.summaryCardMuted]}>
               <LinearGradient
                 colors={
                   isMuted
-                    ? ['rgba(239, 68, 68, 0.12)', 'rgba(239, 68, 68, 0.03)']
-                    : ['rgba(255, 255, 255, 0.06)', 'rgba(255, 255, 255, 0.02)']
+                    ? ['rgba(239, 68, 68, 0.09)', 'transparent']
+                    : [theme.isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.01)', 'transparent']
                 }
                 style={[StyleSheet.absoluteFill, { borderRadius: radius.md }]}
               />
@@ -196,16 +199,16 @@ export function GroupNotificationSheet({
                   />
                 </View>
                 <View style={styles.summaryCopy}>
-                  <Text style={styles.summaryTitle}>
+                  <Text style={[styles.summaryTitle, { color: palette.onSurface }]}>
                     {isMuted
                       ? muteStatusText
                       : mode === 'all'
-                      ? '🔔 All messages'
+                      ? 'All messages'
                       : mode === 'mentions_replies'
-                      ? '@️⃣ Mentions & replies only'
-                      : '🔕 Notifications off'}
+                      ? 'Mentions & replies only'
+                      : 'Notifications off'}
                   </Text>
-                  <Text style={styles.summarySub}>
+                  <Text style={[styles.summarySub, { color: palette.onSurfaceVariant }]}>
                     {isMuted
                       ? 'Normal messages are silenced'
                       : mode === 'all'
@@ -250,8 +253,8 @@ export function GroupNotificationSheet({
             )}
 
             {/* Section 1: Notification Style */}
-            <Text style={styles.sectionLabel}>NOTIFICATION STYLE</Text>
-            <View style={styles.cardGroup}>
+            <Text style={[styles.sectionLabel, { color: palette.textMuted }]}>NOTIFICATION STYLE</Text>
+            <View style={[styles.cardGroup, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
               {NOTIFICATION_STYLES.map((item, idx) => {
                 const selected = mode === item.key;
                 return (
@@ -261,20 +264,21 @@ export function GroupNotificationSheet({
                     onPress={() => handleModeSelect(item.key)}
                     style={[
                       styles.optionRow,
-                      idx > 0 && styles.rowDivider,
-                      selected && styles.optionRowSelected,
+                      idx > 0 && [styles.rowDivider, { borderTopColor: palette.border }],
+                      selected && [styles.optionRowSelected, { backgroundColor: `${palette.primary}0B` }],
                     ]}
                   >
                     <View
                       style={[
                         styles.optionIconWrap,
+                        { backgroundColor: palette.surfaceLow },
                         selected && { backgroundColor: `${accentColor}22` },
                       ]}
                     >
                       <Ionicons
                         name={item.icon}
                         size={18}
-                        color={selected ? accentColor : colors.onSurfaceVariant}
+                        color={selected ? accentColor : palette.onSurfaceVariant}
                       />
                     </View>
 
@@ -282,18 +286,19 @@ export function GroupNotificationSheet({
                       <Text
                         style={[
                           styles.optionLabel,
-                          selected && { color: colors.onSurface, fontWeight: '700' },
+                          { color: palette.onSurface },
+                          selected && { fontWeight: '700' },
                         ]}
                       >
                         {item.label}
                       </Text>
-                      <Text style={styles.optionDesc}>{item.description}</Text>
+                      <Text style={[styles.optionDesc, { color: palette.onSurfaceVariant }]}>{item.description}</Text>
                     </View>
 
                     <View
                       style={[
                         styles.radioOuter,
-                        selected && { borderColor: accentColor },
+                        { borderColor: selected ? accentColor : palette.outline },
                       ]}
                     >
                       {selected && (
@@ -312,10 +317,10 @@ export function GroupNotificationSheet({
 
             {/* Section 2: Mute Duration Options */}
             <View style={styles.muteSectionHeader}>
-              <Text style={styles.sectionLabel}>MUTE NOTIFICATIONS</Text>
+              <Text style={[styles.sectionLabel, { color: palette.textMuted }]}>MUTE NOTIFICATIONS</Text>
             </View>
 
-            <View style={styles.cardGroup}>
+            <View style={[styles.cardGroup, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
               {MUTE_OPTIONS.map((item, idx) => {
                 const selected =
                   isMuted &&
@@ -331,20 +336,21 @@ export function GroupNotificationSheet({
                     onPress={() => handleMuteSelect(item.key)}
                     style={[
                       styles.optionRow,
-                      idx > 0 && styles.rowDivider,
-                      selected && styles.optionRowSelected,
+                      idx > 0 && [styles.rowDivider, { borderTopColor: palette.border }],
+                      selected && [styles.optionRowSelected, { backgroundColor: `${palette.primary}0B` }],
                     ]}
                   >
                     <View
                       style={[
                         styles.optionIconWrap,
+                        { backgroundColor: palette.surfaceLow },
                         selected && { backgroundColor: `${accentColor}22` },
                       ]}
                     >
                       <Ionicons
                         name={item.icon}
                         size={18}
-                        color={selected ? accentColor : colors.onSurfaceVariant}
+                        color={selected ? accentColor : palette.onSurfaceVariant}
                       />
                     </View>
 
@@ -352,18 +358,19 @@ export function GroupNotificationSheet({
                       <Text
                         style={[
                           styles.optionLabel,
-                          selected && { color: colors.onSurface, fontWeight: '700' },
+                          { color: palette.onSurface },
+                          selected && { fontWeight: '700' },
                         ]}
                       >
                         {item.label}
                       </Text>
-                      <Text style={styles.optionDesc}>{item.description}</Text>
+                      <Text style={[styles.optionDesc, { color: palette.onSurfaceVariant }]}>{item.description}</Text>
                     </View>
 
                     <View
                       style={[
                         styles.radioOuter,
-                        selected && { borderColor: accentColor },
+                        { borderColor: selected ? accentColor : palette.outline },
                       ]}
                     >
                       {selected && (

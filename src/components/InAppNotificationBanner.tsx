@@ -12,6 +12,7 @@ import Animated, {
 import * as Notifications from 'expo-notifications';
 import { Avatar } from './ui/Avatar';
 import { colors, radius, spacing, typography } from '../theme/theme';
+import { useAppearance } from '../context/AppearanceContext';
 
 export type InAppNotificationData = {
   id: string;
@@ -37,6 +38,8 @@ type Props = {
 };
 
 export function InAppNotificationBanner({ onTap, activeGroupId }: Props) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const insets = useSafeAreaInsets();
   const [currentNotif, setCurrentNotif] = useState<InAppNotificationData | null>(null);
   const translateY = useSharedValue(-180);
@@ -122,11 +125,6 @@ export function InAppNotificationBanner({ onTap, activeGroupId }: Props) {
 
   if (!currentNotif) return null;
 
-  const isSpecial =
-    currentNotif.type === '11_11' ||
-    currentNotif.type === 'tea_started' ||
-    currentNotif.type === 'awards' ||
-    currentNotif.type === 'group_stats';
   const isTea = currentNotif.type === 'tea_started';
   const is1111 = currentNotif.type === '11_11';
   const isAwards = currentNotif.type === 'awards';
@@ -158,8 +156,11 @@ export function InAppNotificationBanner({ onTap, activeGroupId }: Props) {
           isAwards && styles.containerAwards,
           isStats && styles.containerStats,
           currentNotif.isMention && styles.containerMention,
+          { backgroundColor: palette.surfaceLow, borderColor: palette.border },
         ]}
         onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={`${currentNotif.groupName || currentNotif.title}. ${currentNotif.body}`}
       >
         {/* Top Accent Strip */}
         <View
@@ -209,7 +210,7 @@ export function InAppNotificationBanner({ onTap, activeGroupId }: Props) {
                 ringColors={[colors.primary, colors.secondary]}
               />
             ) : currentNotif.groupEmoji ? (
-              <View style={styles.groupEmojiBox}>
+              <View style={[styles.groupEmojiBox, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
                 <Text style={{ fontSize: 20 }}>{currentNotif.groupEmoji}</Text>
               </View>
             ) : (
@@ -226,7 +227,7 @@ export function InAppNotificationBanner({ onTap, activeGroupId }: Props) {
           {/* Copy Area */}
           <View style={styles.copyArea}>
             <View style={styles.headerLine}>
-              <Text style={styles.groupTitle} numberOfLines={1}>
+              <Text style={[styles.groupTitle, { color: palette.onSurface }]} numberOfLines={1}>
                 {currentNotif.groupName || currentNotif.title}
               </Text>
               {currentNotif.isMention ? (
@@ -248,7 +249,7 @@ export function InAppNotificationBanner({ onTap, activeGroupId }: Props) {
               ) : null}
             </View>
 
-            <Text style={styles.bodyText} numberOfLines={2}>
+            <Text style={[styles.bodyText, { color: palette.onSurfaceVariant }]} numberOfLines={2}>
               {currentNotif.body}
             </Text>
           </View>
@@ -257,12 +258,14 @@ export function InAppNotificationBanner({ onTap, activeGroupId }: Props) {
           <Pressable
             style={styles.closeBtn}
             hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss notification"
             onPress={(e) => {
               e.stopPropagation();
               hideBanner();
             }}
           >
-            <Ionicons name="close" size={16} color="#94A3B8" />
+            <Ionicons name="close" size={16} color={palette.onSurfaceVariant} />
           </Pressable>
         </View>
       </Pressable>
@@ -280,10 +283,10 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    backgroundColor: '#13121D', // Solid pitch dark background (NO glassmorphism)
+    backgroundColor: colors.surfaceLow,
     borderRadius: radius.lg,
-    borderWidth: 1.5,
-    borderColor: '#2A2740', // Solid crisp border
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
     overflow: 'hidden',
@@ -291,36 +294,36 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.45,
-        shadowRadius: 10,
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 12,
+        elevation: 5,
       },
     }),
   },
   containerTea: {
-    borderColor: 'rgba(16, 185, 129, 0.5)',
+    borderColor: colors.border,
   },
   container1111: {
-    borderColor: 'rgba(251, 191, 36, 0.5)',
+    borderColor: colors.border,
   },
   containerAwards: {
-    borderColor: 'rgba(245, 158, 11, 0.5)',
+    borderColor: colors.border,
   },
   containerStats: {
-    borderColor: 'rgba(56, 189, 248, 0.5)',
+    borderColor: colors.border,
   },
   containerMention: {
-    borderColor: 'rgba(244, 114, 182, 0.5)',
+    borderColor: colors.border,
   },
   accentBar: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 3,
-    backgroundColor: '#818CF8',
+    height: 2,
+    backgroundColor: colors.primary,
   },
   contentRow: {
     flexDirection: 'row',

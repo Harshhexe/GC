@@ -214,7 +214,8 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
       <AmbientBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
-          title="Media, Links & Files"
+          title="Shared in this GC"
+          subtitle="Media, links and files"
           left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
         />
 
@@ -225,6 +226,8 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
               scaleTo={0.96}
               onPress={() => setTab(t)}
               style={[styles.tab, tab === t && styles.tabActive]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === t }}
             >
               <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
                 {t === 'media' ? 'Media' : t === 'links' ? 'Links' : 'Files'}
@@ -250,11 +253,11 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
 
         {loading ? (
           <View style={styles.center}>
-            <Text style={styles.loadingText}>loading…</Text>
+            <Text style={styles.loadingText}>Loading shared items…</Text>
           </View>
         ) : tab === 'media' ? (
           mediaRows.length === 0 ? (
-            <EmptyState emoji="📸" text="No memories here yet." />
+            <EmptyState emoji="▧" title="No media yet" text="Photos and videos shared in this GC will appear here." />
           ) : (
             <FlatList
               key="media-list"
@@ -270,7 +273,7 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
           )
         ) : tab === 'links' ? (
           linkRows.length === 0 ? (
-            <EmptyState emoji="🔗" text="No links have been dropped yet." />
+            <EmptyState emoji="↗" title="No links yet" text="Links shared in messages will appear here." />
           ) : (
             <FlatList
               key="links-list"
@@ -309,7 +312,7 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
             />
           )
         ) : fileRows.length === 0 ? (
-          <EmptyState emoji="📄" text="No files here." />
+          <EmptyState emoji="▤" title="No files yet" text="Documents shared in this GC will appear here." />
         ) : (
           <FlatList
             key="files-list"
@@ -361,7 +364,7 @@ export default function MediaLinksFilesScreen({ route, navigation }: Props) {
   );
 }
 
-const GRID_GAP = 3;
+const GRID_GAP = 2;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
@@ -372,12 +375,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: CONTAINER_MARGIN,
+    paddingTop: spacing.md,
     paddingBottom: spacing.md,
+    backgroundColor: colors.surfaceLow,
   },
   retentionNote: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 6,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
@@ -392,14 +397,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: spacing.sm + 2,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: glass.stroke,
+    borderColor: colors.border,
   },
-  tabActive: { backgroundColor: 'rgba(208, 188, 255, 0.14)', borderColor: 'rgba(208, 188, 255, 0.4)' },
+  tabActive: { backgroundColor: colors.surfaceHigh, borderColor: colors.primary },
   tabText: { ...typography.label, fontSize: 13, color: colors.onSurfaceVariant },
-  tabTextActive: { color: colors.primary },
+  tabTextActive: { color: colors.onSurface },
   grid: { paddingHorizontal: CONTAINER_MARGIN - GRID_GAP, paddingBottom: spacing.xxl },
   gridItem: {
     flex: 1 / 3,
@@ -427,7 +432,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: radius.sm,
-    backgroundColor: 'rgba(129, 140, 248, 0.16)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },

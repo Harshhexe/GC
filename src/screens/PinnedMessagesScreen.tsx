@@ -3,7 +3,6 @@ import { Alert, FlatList, Platform, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, glass, radius, spacing, typography } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
@@ -104,15 +103,16 @@ export default function PinnedMessagesScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <AmbientBackground tint="#F59E0B" />
+      <AmbientBackground tint={colors.bg} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
-          title="Pinned Messages"
+          title="Pinned messages"
+          subtitle="Saved for everyone in this GC"
           left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
           right={
             pins.length > 0 ? (
               <View style={styles.countBadge}>
-                <Ionicons name="pin" size={12} color="#F59E0B" />
+                <Ionicons name="pin" size={12} color={colors.primary} />
                 <Text style={styles.countBadgeText}>{pins.length}</Text>
               </View>
             ) : undefined
@@ -126,6 +126,7 @@ export default function PinnedMessagesScreen({ route, navigation }: Props) {
         ) : pins.length === 0 ? (
           <EmptyState
             emoji="📌"
+            title="No pinned messages"
             text="No pinned messages yet. Long press any message in the chat and select 'Pin' to save it here."
           />
         ) : (
@@ -141,21 +142,15 @@ export default function PinnedMessagesScreen({ route, navigation }: Props) {
                   .reduceMotion(reduceMotion)}
                 style={styles.heroWrap}
               >
-                <GlassPanel borderRadius={radius.xl} style={styles.heroCard}>
-                  <LinearGradient
-                    colors={['rgba(245, 158, 11, 0.16)', 'rgba(129, 140, 248, 0.04)', 'transparent']}
-                    style={StyleSheet.absoluteFill}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  />
+                <GlassPanel borderRadius={radius.lg} style={styles.heroCard}>
                   <View style={styles.heroContent}>
                     <View style={styles.heroPinWrap}>
-                      <Ionicons name="pin" size={24} color="#F59E0B" />
+                      <Ionicons name="pin" size={20} color={colors.primary} />
                     </View>
                     <View style={styles.heroCopy}>
-                      <Text style={styles.heroTitle}>Pinned Highlights</Text>
+                      <Text style={styles.heroTitle}>Keep the good stuff close</Text>
                       <Text style={styles.heroSubtitle}>
-                        Iconic moments, rules, photos, and decisions saved for everyone in this chat.
+                        Messages saved by your GC, all in one place.
                       </Text>
                     </View>
                   </View>
@@ -174,7 +169,7 @@ export default function PinnedMessagesScreen({ route, navigation }: Props) {
                     .reduceMotion(reduceMotion)}
                 >
                   <PressableScale scaleTo={0.98} haptic="light" onPress={() => openMessage(item)}>
-                    <GlassPanel borderRadius={radius.xl} style={styles.card}>
+                    <GlassPanel borderRadius={radius.lg} style={styles.card}>
                       {/* Author & Header Row */}
                       <View style={styles.cardHeader}>
                         <View style={styles.authorGroup}>
@@ -225,7 +220,7 @@ export default function PinnedMessagesScreen({ route, navigation }: Props) {
 
                         <View style={styles.textWrap}>
                           {preview.icon && !isMedia && (
-                            <Ionicons name={preview.icon} size={15} color="#818CF8" />
+                            <Ionicons name={preview.icon} size={15} color={colors.primary} />
                           )}
                           <Text
                             style={[
@@ -241,7 +236,7 @@ export default function PinnedMessagesScreen({ route, navigation }: Props) {
 
                       {/* Footer Provenance */}
                       <View style={styles.cardFooter}>
-                        <Ionicons name="pin" size={11} color="#F59E0B" />
+                        <Ionicons name="pin" size={11} color={colors.primary} />
                         <Text style={styles.pinnedByText}>
                           Pinned by <Text style={styles.pinnedByName}>{item.pinnedByName}</Text> · {dayLabel(item.pinnedAt)}
                         </Text>
@@ -270,16 +265,16 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderColor: colors.border,
   },
   countBadgeText: {
     ...typography.micro,
     fontSize: 11,
     fontWeight: '700',
-    color: '#F59E0B',
+    color: colors.onSurface,
   },
 
   list: { padding: CONTAINER_MARGIN, gap: spacing.md, paddingBottom: spacing.xxl },
@@ -290,8 +285,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.22)',
-    backgroundColor: 'rgba(24, 20, 30, 0.85)',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   heroContent: {
     flexDirection: 'row',
@@ -301,10 +296,8 @@ const styles = StyleSheet.create({
   heroPinWrap: {
     width: 46,
     height: 46,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(245, 158, 11, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -326,9 +319,9 @@ const styles = StyleSheet.create({
   card: {
     padding: spacing.md + 2,
     gap: spacing.sm + 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -362,10 +355,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   unpinBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -373,7 +366,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -428,7 +421,7 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingTop: spacing.xs + 2,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: colors.border,
   },
   pinnedByText: {
     ...typography.caption,

@@ -7,7 +7,6 @@ import { PressableScale } from './ui/PressableScale';
 import { GlassPanel } from './ui/Glass';
 import type { WeeklyAwardsResult } from '../lib/ai';
 
-const AWARD_ACCENT = colors.yellow;
 const THIRTY_MINS_MS = 30 * 60 * 1000;
 
 /**
@@ -50,15 +49,15 @@ export function GCAwardsBanner({
 
   const generating = result.status === 'generating';
   const topAward = result.awards?.[0];
-  const title = generating ? '🏆 JUDGING THIS WEEK' : '🏆 GC AWARDS';
+  const title = generating ? 'Awards in progress' : 'GC Awards';
 
   const subtitle = generating
-    ? 'Auditing the group’s mental illness... ⏳'
+    ? 'Looking back at this week…'
     : result.status === 'failed'
-      ? 'The jury crashed from second-hand embarrassment 💀'
+      ? 'Could not finish this week’s awards'
       : topAward
-        ? `The receipts don't lie. ${topAward.userName} got cooked 💀`
-        : "Weekly callout post dropped. Tap to see who got exposed 💀";
+        ? `${topAward.userName} has a new award. See this week’s highlights.`
+        : 'This week’s awards are ready.';
 
   return (
     <Animated.View
@@ -87,21 +86,21 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
-    borderWidth: 1.5,
-    borderColor: `${AWARD_ACCENT}55`,
-    backgroundColor: 'rgba(48, 40, 12, 0.72)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   tapArea: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 },
   iconWrap: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: `${AWARD_ACCENT}26`,
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
   trophyEmoji: { fontSize: 14 },
   copyArea: { flex: 1, gap: 1 },
-  title: { ...typography.micro, fontWeight: '800', letterSpacing: 0.6, color: AWARD_ACCENT },
+  title: { ...typography.label, fontSize: 13, fontWeight: '700', color: colors.onSurface },
   subtitle: { ...typography.caption, color: colors.onSurface, fontSize: 12.5 },
 });

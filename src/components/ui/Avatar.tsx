@@ -1,7 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, gradients, radius, typography } from '../../theme/theme';
+import { colors, radius, typography } from '../../theme/theme';
 
 type Status = 'online' | 'offline' | 'listening' | null;
 
@@ -12,8 +11,7 @@ const statusColor: Record<Exclude<Status, null>, string> = {
 };
 
 /**
- * Circular avatar with a gradient ring. Avatars are identity markers in this
- * design, so the ring is always drawn — the status dot is what varies.
+ * Circular identity marker with a quiet ring and optional status dot.
  */
 export function Avatar({
   emoji,
@@ -36,19 +34,21 @@ export function Avatar({
   status?: Status;
   glow?: boolean;
 }) {
-  const ringWidth = ring ? Math.max(2, size * 0.05) : 0;
+  const ringWidth = ring ? 2 : 0;
   const inner = size - ringWidth * 2;
   const dot = Math.max(9, size * 0.24);
 
   return (
     <View style={{ width: size, height: size }}>
-      <LinearGradient
-        colors={ringColors ?? gradients.brandSoft}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
         style={[
           styles.ring,
-          { width: size, height: size, borderRadius: size / 2, padding: ringWidth },
+          {
+            width: size, height: size, borderRadius: size / 2,
+            backgroundColor: colors.surfaceHigh,
+            borderWidth: ringWidth,
+            borderColor: ringColors?.[0] ?? colors.borderBright,
+          },
           glow && styles.glow,
         ]}
       >
@@ -76,7 +76,7 @@ export function Avatar({
             </Text>
           )}
         </View>
-      </LinearGradient>
+      </View>
 
       {status && (
         <View
@@ -99,10 +99,10 @@ const styles = StyleSheet.create({
   ring: { alignItems: 'center', justifyContent: 'center' },
   glow: {
     shadowColor: colors.secondary,
-    shadowOpacity: 0.7,
-    shadowRadius: 16,
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
+    elevation: 2,
   },
   inner: {
     backgroundColor: colors.surfaceLowest,

@@ -11,11 +11,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
-  withSequence,
   withSpring,
-  withTiming,
-  interpolate,
 } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, glass, gradients, radius, spacing, typography } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
@@ -235,53 +231,8 @@ const TOUR_STEPS: FeatureTourStep[] = [
   },
 ];
 
-/** Deep moody atmospheric glow background for Welcome Screen (zero blob artifacts) */
 function WelcomeAtmosphericBackground() {
-  return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      <LinearGradient
-        colors={['#0C0A14', '#06050A', colors.appChrome]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <LinearGradient
-        colors={['rgba(139, 92, 246, 0.18)', 'rgba(236, 72, 153, 0.08)', 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.65 }}
-        style={styles.topSpotlight}
-      />
-
-      <LinearGradient
-        colors={['rgba(139, 92, 246, 0.12)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.7, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <LinearGradient
-        colors={['rgba(76, 215, 246, 0.08)', 'transparent']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.3, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <LinearGradient
-        colors={['transparent', 'rgba(139, 92, 246, 0.05)', 'transparent']}
-        start={{ x: 0.5, y: 0.25 }}
-        end={{ x: 0.5, y: 0.75 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <LinearGradient
-        colors={['transparent', 'rgba(3, 2, 6, 0.65)']}
-        start={{ x: 0.5, y: 0.6 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-    </View>
-  );
+  return <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]} pointerEvents="none" />;
 }
 
 export default function WelcomeScreen({ navigation }: Props) {
@@ -289,31 +240,12 @@ export default function WelcomeScreen({ navigation }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
 
   const avatarScale = useSharedValue(0.4);
-  const glow = useSharedValue(0);
-
   useEffect(() => {
-    successFeedback();
-    avatarScale.value = withDelay(120, withSpring(1, { damping: 11, stiffness: 140 }));
-    glow.value = withDelay(
-      400,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1600, easing: easing.inOut, reduceMotion }),
-          withTiming(0, { duration: 1600, easing: easing.inOut, reduceMotion })
-        ),
-        -1,
-        false
-      )
-    );
-  }, [avatarScale, glow]);
+    avatarScale.value = withDelay(100, withSpring(1, { damping: 15, stiffness: 160 }));
+  }, [avatarScale]);
 
   const avatarStyle = useAnimatedStyle(() => ({
     transform: [{ scale: avatarScale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(glow.value, [0, 1], [0.2, 0.55]),
-    transform: [{ scale: interpolate(glow.value, [0, 1], [0.9, 1.2]) }],
   }));
 
   function enterApp() {
@@ -354,7 +286,6 @@ export default function WelcomeScreen({ navigation }: Props) {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.avatarMiniWrap}>
-              <Animated.View style={[styles.avatarMiniGlow, glowStyle]} />
               <Animated.View style={avatarStyle}>
                 <Avatar
                   imageUrl={profile?.avatar_url}
@@ -380,7 +311,7 @@ export default function WelcomeScreen({ navigation }: Props) {
             onPress={enterApp}
             style={styles.skipBtn}
           >
-            <Text style={styles.skipBtnText}>Skip Tour</Text>
+            <Text style={styles.skipBtnText}>Skip tour</Text>
             <Ionicons name="close" size={14} color="#94A3B8" />
           </PressableScale>
         </View>
@@ -407,14 +338,14 @@ export default function WelcomeScreen({ navigation }: Props) {
             exiting={FadeOutLeft.duration(180)}
             style={styles.cardWrapper}
           >
-            <GlassPanel borderRadius={radius.xxl} style={styles.featureCard}>
+            <GlassPanel borderRadius={radius.lg} style={styles.featureCard}>
               {/* Feature Icon Header */}
               <View style={styles.featureHeaderRow}>
                 <LinearGradient
                   colors={step.iconBg}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={[styles.featureIconBox, { shadowColor: step.accent }]}
+                  style={styles.featureIconBox}
                 >
                   <Ionicons name={step.icon} size={28} color="#FFFFFF" />
                 </LinearGradient>
@@ -445,7 +376,7 @@ export default function WelcomeScreen({ navigation }: Props) {
 
               {/* How to Use Section */}
               <View style={styles.howToBlock}>
-                <Text style={styles.howToLabel}>HOW TO USE</Text>
+                <Text style={styles.howToLabel}>How to use it</Text>
                 <View style={styles.howToList}>
                   {step.howTo.map((item, idx) => (
                     <View key={idx} style={styles.howToItem}>
@@ -527,26 +458,21 @@ export default function WelcomeScreen({ navigation }: Props) {
             )}
 
             <PressableScale
-              style={[styles.nextBtnWrap, isLast && styles.nextBtnWrapLast]}
+              style={styles.nextBtnWrap}
               scaleTo={0.96}
               haptic="medium"
               onPress={handleNext}
             >
-              <LinearGradient
-                colors={isLast ? gradients.brand : [step.accent, '#6366F1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.nextBtnGradient}
-              >
+              <View style={styles.nextBtnGradient}>
                 <Text style={styles.nextBtnText}>
-                  {isLast ? "Let's Cook 🚀" : 'Next Feature'}
+                  {isLast ? "Start using GC" : 'Next'}
                 </Text>
                 <Ionicons
-                  name={isLast ? 'rocket' : 'arrow-forward'}
+                  name={isLast ? 'checkmark' : 'arrow-forward'}
                   size={16}
                   color="#FFFFFF"
                 />
-              </LinearGradient>
+              </View>
             </PressableScale>
           </View>
         </View>
@@ -560,8 +486,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
 
   // Glow Background
-  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
 
   // Header Bar
   header: {
@@ -580,13 +504,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarMiniGlow: {
-    position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(168, 85, 247, 0.35)',
-  },
   headerTitles: {
     gap: 1,
   },
@@ -594,7 +511,7 @@ const styles = StyleSheet.create({
     ...typography.headline,
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   stepProgressText: {
     ...typography.caption,
@@ -608,10 +525,10 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.border,
   },
   skipBtnText: {
     ...typography.caption,
@@ -624,7 +541,7 @@ const styles = StyleSheet.create({
   progressBarBg: {
     width: '100%',
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.surfaceHigh,
     marginBottom: spacing.xs,
   },
   progressBarFill: {
@@ -647,9 +564,9 @@ const styles = StyleSheet.create({
   featureCard: {
     padding: spacing.xl,
     gap: spacing.md,
-    backgroundColor: 'rgba(20, 18, 30, 0.85)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: colors.surfaceLow,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   // Feature Header
@@ -664,10 +581,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 8,
   },
   featureHeaderInfo: {
     flex: 1,
@@ -677,7 +590,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 2.5,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     borderWidth: 1,
   },
   tagBadgeText: {
@@ -690,7 +603,7 @@ const styles = StyleSheet.create({
     ...typography.headline,
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onSurface,
     letterSpacing: -0.2,
   },
 
@@ -698,31 +611,31 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     fontSize: 15.5,
     fontWeight: '700',
-    color: '#F1F5F9',
+    color: colors.onSurface,
     lineHeight: 22,
   },
   featureDescription: {
     ...typography.body,
     fontSize: 13.5,
-    color: '#94A3B8',
+    color: colors.onSurfaceVariant,
     lineHeight: 20,
   },
 
   // How to Block
   howToBlock: {
     gap: spacing.xs + 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.border,
   },
   howToLabel: {
     ...typography.micro,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
-    color: '#64748B',
+    color: colors.onSurfaceVariant,
   },
   howToList: {
     gap: 8,
@@ -749,18 +662,18 @@ const styles = StyleSheet.create({
   howToText: {
     ...typography.caption,
     fontSize: 12.5,
-    color: '#CBD5E1',
+    color: colors.onSurfaceVariant,
     lineHeight: 18,
     flex: 1,
   },
 
   // Mockup Box
   mockupBox: {
-    backgroundColor: '#0F0E18',
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
     gap: 4,
   },
   mockupTopRow: {
@@ -772,7 +685,7 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   mockupTag: {
     paddingHorizontal: 6,
@@ -798,8 +711,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
     gap: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: 'rgba(7, 6, 11, 0.95)',
+    borderTopColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   dotsRow: {
     flexDirection: 'row',
@@ -830,8 +743,8 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
   },
   prevBtnText: {
     ...typography.caption,
@@ -841,15 +754,8 @@ const styles = StyleSheet.create({
   },
   nextBtnWrap: {
     flex: 1,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     overflow: 'hidden',
-  },
-  nextBtnWrapLast: {
-    shadowColor: '#EC4899',
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
   },
   nextBtnGradient: {
     flexDirection: 'row',
@@ -857,9 +763,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 13,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
   },
   nextBtnText: {
     ...typography.bodyMedium,
@@ -868,4 +773,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-

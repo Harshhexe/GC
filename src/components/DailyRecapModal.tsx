@@ -15,48 +15,13 @@ import { supabase } from '../lib/supabase';
 import type { DailyRecapResult } from '../lib/ai';
 import type { WordleGroupResult, WordleState } from '../hooks/useWordle';
 
-/**
- * Themed Atmospheric Glow Background matching What I Missed and Group Themes.
- */
+/** A quiet tint keeps the group's identity without competing with the recap. */
 function ThemedGlowBackground({ colors: gradientColors }: { colors: readonly [string, string] }) {
-  const [c1, c2] = gradientColors;
+  const [c1] = gradientColors;
   return (
     <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Dark Base */}
       <LinearGradient
-        colors={['#100E17', '#0A0910', '#050508']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Atmospheric Spotlight */}
-      <LinearGradient
-        colors={[`${c1}32`, `${c2}18`, 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.65 }}
-        style={styles.topSpotlight}
-      />
-
-      {/* Top-Left Ambient Diffused Glow */}
-      <LinearGradient
-        colors={[`${c1}24`, 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.7, y: 0.7 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top-Right Ambient Diffused Glow */}
-      <LinearGradient
-        colors={[`${c2}20`, 'transparent']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.3, y: 0.7 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Vignette Overlay */}
-      <LinearGradient
-        colors={[`${c1}12`, 'transparent', 'rgba(5, 5, 8, 0.55)']}
+        colors={[`${c1}10`, colors.appRoot, colors.appRoot]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -97,7 +62,7 @@ function StatCard({
         <Text style={[styles.cardLabel, { color: iconColor }]}>{label}</Text>
         {!!onPress && (
           <View style={styles.jumpPill}>
-            <Text style={styles.jumpText}>Jump / View</Text>
+            <Text style={styles.jumpText}>View message</Text>
             <Ionicons name="arrow-forward" size={12} color={colors.primary} />
           </View>
         )}
@@ -212,14 +177,14 @@ export function DailyRecapModal({
       >
         <Text style={styles.dateLabel}>{dateLabel.toUpperCase()}</Text>
 
-        <View style={[styles.wordWrapper, { shadowColor: gradientColors[0] }]}>
+        <View style={styles.wordWrapper}>
           <LinearGradient
-            colors={gradientColors}
+            colors={[`${gradientColors[0]}29`, `${gradientColors[0]}1A`]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.wordChip}
           >
-            <Text style={styles.wordText}>{recap.oneWord}</Text>
+            <Text style={[styles.wordText, { color: gradientColors[0] }]}>{recap.oneWord}</Text>
           </LinearGradient>
         </View>
 
@@ -234,7 +199,7 @@ export function DailyRecapModal({
 
         {recap.truncated && (
           <Text style={styles.truncatedNote}>
-            It was a wild day — this recap covers the loudest highlights!
+            This recap covers the main highlights from a busy day.
           </Text>
         )}
       </Animated.View>
@@ -244,9 +209,9 @@ export function DailyRecapModal({
         <StatCard
           icon="flame"
           iconColor="#FF6B6B"
-          label="👑 USER OF THE DAY"
+          label="Most active"
           delay={80}
-          accentBorderColor="rgba(255, 107, 107, 0.4)"
+          accentBorderColor="rgba(255, 107, 107, 0.2)"
         >
           <View style={styles.personRow}>
             <Avatar
@@ -585,7 +550,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000000',
-    shadowOpacity: 0.85,
+    shadowOpacity: 0.3,
     shadowRadius: 36,
     shadowOffset: { width: 0, height: 18 },
     elevation: 24,
@@ -599,7 +564,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     zIndex: 10,
-    backgroundColor: 'rgba(10, 9, 16, 0.75)',
+    backgroundColor: colors.surfaceLow,
   },
   webHeaderLeft: {
     flexDirection: 'row',
@@ -678,11 +643,7 @@ const styles = StyleSheet.create({
   },
   wordWrapper: {
     borderRadius: radius.xxl,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    shadowOpacity: 0,
     marginVertical: spacing.xs,
   },
   wordChip: {
@@ -690,12 +651,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md + 4,
     borderRadius: radius.xxl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: colors.outline,
   },
   wordText: {
     ...typography.hero,
     fontSize: 40,
-    color: '#FFFFFF',
     textTransform: 'lowercase',
     textAlign: 'center',
   },

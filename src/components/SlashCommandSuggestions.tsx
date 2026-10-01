@@ -1,11 +1,20 @@
-import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { colors, glass, radius, spacing, typography } from '../theme/theme';
-import { duration, reduceMotion } from '../theme/motion';
-import { PressableScale } from './ui/PressableScale';
-import type { SlashCommandDef } from '../lib/gcCommand';
+import { ComposerSuggestionTile, ComposerSuggestionTray, contrastTextFor } from './ui/ComposerSuggestionTiles';
+import type { SlashCommandDef, SlashCommandFeature } from '../lib/gcCommand';
+
+const SHORT_LABELS: Record<SlashCommandFeature, string> = {
+  anonymous: 'Anon',
+  poll: 'Poll',
+  wordy: 'Wordy',
+  missed: 'Catch up',
+  dna: 'GC DNA',
+  tea: 'Tea',
+  awards: 'Awards',
+  pinned: 'Pinned',
+  media: 'Media',
+  clear: 'Clear chat',
+};
 
 export function SlashCommandSuggestions({
   visible,
@@ -19,149 +28,33 @@ export function SlashCommandSuggestions({
   if (!visible || commands.length === 0) return null;
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(duration.fast).reduceMotion(reduceMotion)}
-      exiting={FadeOut.duration(duration.fast).reduceMotion(reduceMotion)}
-      style={styles.wrap}
-    >
-      {Platform.OS !== 'web' && (
-        <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
-      )}
-
-      <View style={styles.header}>
-        <Ionicons name="flash" size={13} color={colors.accent} />
-        <Text style={styles.headerTitle}>QUICK COMMANDS</Text>
-      </View>
-
-      <FlatList
-        data={commands}
-        keyExtractor={(c) => c.command}
-        keyboardShouldPersistTaps="handled"
-        style={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <PressableScale
-            style={styles.row}
-            scaleTo={0.98}
-            haptic="light"
-            onPress={() => onSelect(item)}
-          >
-            <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: `${item.color}20`, borderColor: `${item.color}40` },
-              ]}
-            >
-              {item.emoji ? (
-                <Text style={styles.emoji}>{item.emoji}</Text>
-              ) : item.icon ? (
-                <Ionicons name={item.icon} size={18} color={item.color} />
-              ) : (
-                <Text style={[styles.commandPrefix, { color: item.color }]}>/</Text>
-              )}
-            </View>
-
-            <View style={styles.rowCopy}>
-              <View style={styles.titleRow}>
-                <Text style={styles.rowName}>{item.title}</Text>
-                <View style={[styles.commandBadge, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
-                  <Text style={[styles.commandText, { color: item.color }]}>{item.command}</Text>
-                </View>
-              </View>
-              <Text style={styles.rowMeta} numberOfLines={1}>
-                {item.subtitle}
-              </Text>
-            </View>
-          </PressableScale>
-        )}
-      />
-    </Animated.View>
+    <ComposerSuggestionTray title="Quick commands">
+      {(tileWidth) => commands.map((command) => (
+        <ComposerSuggestionTile
+          key={command.command}
+          width={tileWidth}
+          label={SHORT_LABELS[command.feature]}
+          detail={command.command}
+          visualBackgroundColor={command.color}
+          visual={
+            command.emoji ? (
+              <Text style={styles.emoji}>{command.emoji}</Text>
+            ) : command.icon ? (
+              <Ionicons name={command.icon} size={18} color={contrastTextFor(command.color)} />
+            ) : (
+              <Text style={[styles.slash, { color: contrastTextFor(command.color) }]}>/</Text>
+            )
+          }
+          onPress={() => onSelect(command)}
+          accessibilityLabel={`${command.title}, ${command.command}`}
+          accessibilityHint={command.subtitle}
+        />
+      ))}
+    </ComposerSuggestionTray>
   );
 }
 
-const MAX_HEIGHT = 220;
-
 const styles = StyleSheet.create({
-  wrap: {
-    width: '100%',
-    marginBottom: spacing.xs + 2,
-    maxHeight: MAX_HEIGHT,
-    borderRadius: radius.lg,
-    backgroundColor: '#151421',
-    borderWidth: 1.5,
-    borderColor: '#2D2A45',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm + 2,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  headerTitle: {
-    ...typography.micro,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    color: colors.onSurfaceVariant,
-  },
-  list: { maxHeight: MAX_HEIGHT - 32 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-  },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  emoji: {
-    fontSize: 18,
-  },
-  commandPrefix: {
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  rowCopy: { flex: 1, gap: 2 },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  rowName: {
-    ...typography.bodyMedium,
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  commandBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-  },
-  commandText: {
-    ...typography.micro,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  rowMeta: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-  },
+  emoji: { fontSize: 18, lineHeight: 24 },
+  slash: { fontSize: 21, fontWeight: '800' },
 });

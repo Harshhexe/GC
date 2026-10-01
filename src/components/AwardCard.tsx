@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { groupTheme } from '../theme/groupThemes';
 import { Avatar } from './ui/Avatar';
+import { useAppearance } from '../context/AppearanceContext';
 import { PressableScale } from './ui/PressableScale';
 import type { ClaimedAwardItem } from '../screens/ExploreScreen';
 
@@ -50,11 +51,12 @@ export function AwardCard({
   onPress: () => void;
 }) {
   const theme = groupTheme(item.groupThemeKey);
+  const { theme: appTheme } = useAppearance();
   const isPodium = rank < 3;
 
   return (
     <PressableScale style={styles.wrap} scaleTo={0.985} haptic="light" onPress={onPress}>
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: appTheme.palette.surfaceLow, borderColor: appTheme.palette.border }]}>
         {/*
           A single warm wash behind the top of the card rather than a border
           around the whole thing. It reads as light falling on the medal,
@@ -64,7 +66,7 @@ export function AwardCard({
           colors={
             isPodium
               ? [PODIUM[rank].wash, 'transparent']
-              : ['rgba(255, 255, 255, 0.035)', 'transparent']
+              : [appTheme.isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.025)', 'transparent']
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 0.55, y: 0.8 }}
@@ -76,7 +78,7 @@ export function AwardCard({
           {/* Medal + award emoji, stacked so the emoji reads as the trophy
               itself and the medal as the placing. */}
           <View style={styles.medalCol}>
-            <View style={[styles.orb, isPodium && { borderColor: PODIUM[rank].ring + '88' }]}>
+            <View style={[styles.orb, { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.border }, isPodium && { borderColor: PODIUM[rank].ring + '88' }]}>
               <Text style={styles.orbEmoji}>{item.award.emoji}</Text>
             </View>
             {/* Sits on the orb's edge the way a placing sits on a medal,
@@ -86,13 +88,13 @@ export function AwardCard({
                 styles.rankBadge,
                 isPodium
                   ? { backgroundColor: PODIUM[rank].fill, borderColor: PODIUM[rank].ring }
-                  : styles.rankBadgePlain,
+                  : [styles.rankBadgePlain, { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.border }],
               ]}
             >
               <Text
                 style={[
                   styles.rankText,
-                  isPodium ? { color: PODIUM[rank].ring } : { color: colors.textMuted },
+                  isPodium ? { color: PODIUM[rank].ring } : { color: appTheme.palette.textMuted },
                 ]}
               >
                 {rank + 1}
@@ -101,7 +103,7 @@ export function AwardCard({
           </View>
 
           <View style={styles.content}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={[styles.title, { color: appTheme.palette.onSurface }]} numberOfLines={2}>
               {item.award.title}
             </Text>
 
@@ -111,7 +113,7 @@ export function AwardCard({
               <Text
                 style={[
                   styles.value,
-                  isPodium ? { color: PODIUM[rank].ring } : styles.valuePlain,
+                  isPodium ? { color: appTheme.isDark ? PODIUM[rank].ring : '#7B550D' } : { color: appTheme.palette.textMuted },
                 ]}
                 numberOfLines={1}
               >
@@ -128,10 +130,10 @@ export function AwardCard({
               <View
                 style={[
                   styles.quote,
-                  { borderLeftColor: isPodium ? PODIUM[rank].ring + '66' : 'rgba(255,255,255,0.14)' },
+                  { borderLeftColor: isPodium ? PODIUM[rank].ring + '66' : appTheme.palette.borderBright },
                 ]}
               >
-                <Text style={styles.quoteText}>{item.award.reason}</Text>
+                <Text style={[styles.quoteText, { color: appTheme.palette.onSurfaceVariant }]}>{item.award.reason}</Text>
               </View>
             )}
 
@@ -145,11 +147,11 @@ export function AwardCard({
                   size={18}
                   ringColors={theme.colors}
                 />
-                <Text style={[styles.sourceName, { color: theme.accent }]} numberOfLines={1}>
+                <Text style={[styles.sourceName, { color: appTheme.isDark ? theme.accent : appTheme.palette.primary }]} numberOfLines={1}>
                   {item.groupName}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={14} color={colors.outline} />
+              <Ionicons name="chevron-forward" size={14} color={appTheme.palette.outline} />
             </View>
           </View>
         </View>

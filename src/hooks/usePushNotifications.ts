@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { registerForPush } from '../lib/push';
 
@@ -41,6 +42,9 @@ export function usePushNotifications(
           | undefined;
         if (!data?.groupId) return;
         onTapRef.current({ groupId: data.groupId, messageId: data.messageId });
+        // A handled cold-start response must not reopen the same chat on
+        // every later web refresh or app launch.
+        Notifications.clearLastNotificationResponseAsync().catch(() => {});
       } catch (e) {
         console.warn('[push] error handling notification tap:', e);
       }
@@ -48,11 +52,13 @@ export function usePushNotifications(
 
     try {
       // Cold start: the tap that opened the app already happened.
-      Notifications.getLastNotificationResponseAsync()
-        .then((response) => {
-          if (!cancelled) handle(response);
-        })
-        .catch((e) => console.warn('[push] getLastNotificationResponseAsync error:', e));
+      if (Platform.OS !== 'web') {
+        Notifications.getLastNotificationResponseAsync()
+          .then((response) => {
+            if (!cancelled) handle(response);
+          })
+          .catch((e) => console.warn('[push] getLastNotificationResponseAsync error:', e));
+      }
 
       const sub = Notifications.addNotificationResponseReceivedListener(handle);
       return () => {

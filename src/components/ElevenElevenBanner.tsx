@@ -48,10 +48,10 @@ export function ElevenElevenBanner({
             </View>
             <View style={styles.copyArea}>
               <View style={styles.headerRow}>
-                <Text style={styles.wishTitle}>11:11 MAKE A WISH</Text>
+              <Text style={styles.wishTitle}>11:11 · Make a wish</Text>
               </View>
               <Text style={styles.wishSubtitle} numberOfLines={1}>
-                Portal open • make your wish now!
+                You have a moment to make a wish.
               </Text>
             </View>
             <View style={styles.timerPill}>
@@ -85,10 +85,10 @@ export function ElevenElevenBanner({
           </View>
           <View style={styles.copyArea}>
             <View style={styles.headerRow}>
-              <Text style={styles.timesUpTitle}>TIME'S UP! WHO MISSED?</Text>
+              <Text style={styles.timesUpTitle}>11:11 has passed</Text>
             </View>
             <Text style={styles.timesUpSubtitle} numberOfLines={1}>
-              Tap to see who was yapping at 11:11 💀
+              See what your GC shared.
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.outline} />
@@ -121,12 +121,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   wishContainer: {
-    borderColor: 'rgba(255, 209, 102, 0.45)',
-    backgroundColor: 'rgba(38, 30, 18, 0.75)',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   timesUpContainer: {
-    borderColor: 'rgba(255, 107, 107, 0.35)',
-    backgroundColor: 'rgba(36, 20, 24, 0.75)',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   tapArea: {
     flex: 1,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 209, 102, 0.20)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 107, 107, 0.20)',
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -160,10 +160,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   wishTitle: {
-    ...typography.micro,
+    ...typography.label,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#FFD166',
-    letterSpacing: 0.5,
+    color: colors.onSurface,
   },
   wishSubtitle: {
     ...typography.caption,
@@ -171,10 +171,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   timesUpTitle: {
-    ...typography.micro,
+    ...typography.label,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#FF6B6B',
-    letterSpacing: 0.5,
+    color: colors.onSurface,
   },
   timesUpSubtitle: {
     ...typography.caption,
@@ -185,20 +185,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 209, 102, 0.18)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 209, 102, 0.35)',
+    borderColor: colors.border,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
   },
   timerText: {
     ...typography.micro,
     fontWeight: '700',
-    color: '#FFD166',
+    color: colors.onSurface,
   },
   closeBtn: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: spacing.xs,
   },
 });

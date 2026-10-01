@@ -1,7 +1,7 @@
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { colors, radius, shadows, spacing, typography } from '../theme/theme';
+import { colors, radius, spacing } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { reactionCatalog } from '../data/reactions';
 import { PressableScale } from './ui/PressableScale';
@@ -70,22 +70,22 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(5, 5, 12, 0.70)',
+    backgroundColor: 'rgba(3,6,10,0.64)',
   },
   tapbackBar: {
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(22, 22, 34, 0.90)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceLow,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     maxWidth: 340,
     overflow: 'hidden',
-    shadowColor: colors.primary,
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 12,
+    elevation: 6,
   },
   barInner: {
     flexDirection: 'row',
@@ -98,10 +98,10 @@ const styles = StyleSheet.create({
   emojiItem: {
     width: 42,
     height: 42,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: colors.surfaceHigh,
   },
   emojiText: {
     fontSize: 26,

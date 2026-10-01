@@ -3,7 +3,6 @@ import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
 import Animated, {
   FadeIn,
@@ -17,6 +16,7 @@ import { CONTAINER_MARGIN, colors, radius, spacing, typography } from '../theme/
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
 import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
+import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { GCButton } from '../components/ui/Buttons';
 import { PressableScale } from '../components/ui/PressableScale';
@@ -48,86 +48,14 @@ const MARK_BORDERS: Record<WordleMark, string> = {
   x: '#475569',
 };
 
-/** Themed atmospheric background matching What I Missed and Group Theme */
+/** Quiet canvas that keeps the daily puzzle easy to read. */
 function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
-  const [c1, c2] = theme.colors;
-  const accent = theme.accent;
-
   return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Dark Base Gradient */}
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]} pointerEvents="none">
       <LinearGradient
-        colors={['#100E17', '#0A0910', '#050508']}
+        colors={[`${theme.accent}0D`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Atmospheric Theme Spotlight */}
-      <LinearGradient
-        colors={[`${c1}36`, `${c2}1C`, 'rgba(5, 5, 8, 0)']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.65 }}
-        style={styles.topSpotlight}
-      />
-
-      {/* Corner Glowing Mesh Blobs */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={[c1, c2, 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={[c2, accent, 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={[accent, c1, 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={[c2, c1, 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobCenter]}>
-        <LinearGradient
-          colors={[`${c1}2E`, `${c2}14`, 'transparent']}
-          start={{ x: 0.5, y: 0.5 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 75 : 90}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-
-      <LinearGradient
-        colors={[`${c1}18`, 'transparent', 'rgba(5, 5, 8, 0.45)']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0.5 }}
         style={StyleSheet.absoluteFill}
       />
     </View>
@@ -213,6 +141,8 @@ function Key({
       scaleTo={0.90}
       haptic="light"
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label === 'BACK' ? 'Delete letter' : label === 'ENTER' ? 'Submit guess' : label}
     >
       {gradientColors && (
         <LinearGradient
@@ -341,39 +271,12 @@ export default function WordyScreen({ route, navigation }: Props) {
     <View style={styles.root}>
       <ThemedGlowBackground theme={activeTheme} />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Custom Frosted Top Navigation Bar */}
-        <View style={styles.topBar}>
-          <PressableScale
-            style={styles.backButton}
-            scaleTo={0.88}
-            hitSlop={8}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-          </PressableScale>
-
-          <View style={styles.topBarTitleBlock}>
-            <View
-              style={[
-                styles.wordyLogoBadge,
-                {
-                  backgroundColor: `${activeTheme.accent}18`,
-                  borderColor: `${activeTheme.accent}45`,
-                },
-              ]}
-            >
-              <Text style={styles.wordyLogoEmoji}>🟩</Text>
-              <Text style={[styles.wordyLogoText, { color: activeTheme.accent }]}>
-                DAILY WORDY
-              </Text>
-            </View>
-            {!!state?.puzzleDate && (
-              <Text style={styles.topBarSubtitle}>{state.puzzleDate}</Text>
-            )}
-          </View>
-
-          <View style={styles.topBarRightDummy} />
-        </View>
+        <AppHeader
+          tone="dark"
+          title="Daily Wordy"
+          subtitle={state?.puzzleDate ?? 'A new word every day'}
+          left={<HeaderIconButton tone="dark" name="arrow-back" onPress={() => navigation.goBack()} />}
+        />
 
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -425,7 +328,7 @@ export default function WordyScreen({ route, navigation }: Props) {
                     </View>
 
                     <Text style={styles.outcomeTitle}>
-                      {state?.solved ? 'BRILLIANT!' : 'BETTER LUCK TOMORROW'}
+                      {state?.solved ? 'Nice work' : 'Try again tomorrow'}
                     </Text>
 
                     {state?.solved ? (
@@ -445,14 +348,14 @@ export default function WordyScreen({ route, navigation }: Props) {
 
                     <View style={styles.shareBtnWrap}>
                       <GCButton
-                        label={copied ? 'Pattern Copied! ✨' : 'Share Result with GC'}
-                        variant="gradient"
+                        label={copied ? 'Pattern copied' : 'Share result with GC'}
+                        variant="primary"
                         icon={<Ionicons name={copied ? 'checkmark' : 'share-social'} size={18} color="#FFFFFF" />}
                         onPress={handleShare}
                       />
                     </View>
 
-                    <Text style={styles.outcomeHint}>Next puzzle unlocks at midnight ✨</Text>
+                    <Text style={styles.outcomeHint}>Next puzzle unlocks at midnight.</Text>
                   </GlassPanel>
                 </Animated.View>
               )}
@@ -482,7 +385,7 @@ export default function WordyScreen({ route, navigation }: Props) {
                   <GlassPanel borderRadius={radius.lg} style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Ionicons name="bar-chart" size={15} color={activeTheme.accent} />
-                      <Text style={styles.cardTitle}>YOUR RECORD</Text>
+                      <Text style={styles.cardTitle}>Your record</Text>
                     </View>
 
                     <View style={styles.statsRow}>
@@ -494,7 +397,7 @@ export default function WordyScreen({ route, navigation }: Props) {
 
                     {stats.gamesWon > 0 && (
                       <View style={styles.dist}>
-                        <Text style={styles.distTitle}>GUESS DISTRIBUTION</Text>
+                        <Text style={styles.distTitle}>Guess distribution</Text>
                         {[1, 2, 3, 4, 5, 6].map((n) => {
                           const count = stats.guessDistribution[String(n)] ?? 0;
                           const pct = stats.gamesWon > 0 ? (count / stats.gamesWon) * 100 : 0;
@@ -529,7 +432,7 @@ export default function WordyScreen({ route, navigation }: Props) {
                   <GlassPanel borderRadius={radius.lg} style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Ionicons name="people" size={16} color={activeTheme.accent} />
-                      <Text style={styles.cardTitle}>THE GC TODAY</Text>
+                      <Text style={styles.cardTitle}>Your GC today</Text>
                     </View>
 
                     {groupResults.length === 0 ? (
@@ -595,71 +498,13 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
   safe: { flex: 1 },
 
-  // Glowing Ambient Mesh Background
-  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  cornerBlob: { position: 'absolute', borderRadius: 999 },
-  blobFill: { flex: 1, borderRadius: 999 },
-  blobTopLeft: { top: -60, left: -60, width: 280, height: 280, opacity: 0.75 },
-  blobTopRight: { top: -50, right: -50, width: 270, height: 270, opacity: 0.7 },
-  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.65 },
-  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.7 },
-  blobCenter: { top: '35%', left: '15%', width: 260, height: 260, opacity: 0.5 },
-
-  // Top Bar
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: CONTAINER_MARGIN,
-    height: 48,
-    marginBottom: spacing.xs,
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topBarTitleBlock: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  wordyLogoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  wordyLogoEmoji: {
-    fontSize: 12,
-  },
-  wordyLogoText: {
-    ...typography.micro,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  topBarSubtitle: {
-    ...typography.caption,
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-  },
-  topBarRightDummy: {
-    width: 38,
-  },
-
   scroll: {
     paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: spacing.xl * 2,
     gap: spacing.lg,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
   },
   centeredLoading: {
     paddingTop: spacing.xl * 3,
@@ -707,14 +552,17 @@ const styles = StyleSheet.create({
     gap: 7,
     alignSelf: 'center',
     paddingVertical: spacing.xs,
+    width: '100%',
+    maxWidth: 310,
   },
   row: {
     flexDirection: 'row',
     gap: 7,
   },
   cell: {
-    width: 56,
-    height: 56,
+    flex: 1,
+    aspectRatio: 1,
+    maxWidth: 56,
     borderRadius: 12,
     borderWidth: 2,
     alignItems: 'center',
@@ -738,9 +586,9 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   outcomeIconOrb: {
     width: 60,
@@ -757,7 +605,7 @@ const styles = StyleSheet.create({
     ...typography.headline,
     fontSize: 21,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.onSurface,
     letterSpacing: 0.5,
   },
   outcomeSub: {
@@ -798,7 +646,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   key: {
-    minWidth: 32,
+    minWidth: 0,
     flex: 1,
     height: 50,
     borderRadius: 8,
@@ -825,9 +673,9 @@ const styles = StyleSheet.create({
   card: {
     padding: spacing.lg,
     gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -836,19 +684,19 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...typography.micro,
-    fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    color: colors.onSurfaceVariant,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0,
+    color: colors.onSurface,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: colors.surfaceHigh,
     paddingVertical: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border,
   },
   stat: {
     alignItems: 'center',
@@ -858,7 +706,7 @@ const styles = StyleSheet.create({
     ...typography.title,
     fontSize: 20,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   statLabel: {
     ...typography.micro,

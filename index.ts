@@ -32,7 +32,7 @@ try {
       {
         style: {
           flex: 1,
-          backgroundColor: '#030206',
+          backgroundColor: '#090C10',
           padding: 24,
           justifyContent: 'center',
         },

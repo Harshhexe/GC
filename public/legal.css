@@ -16,7 +16,7 @@
 
   /* Same slate ramp as the app, so the policy page and the product are
      visibly the same brand rather than two neighbouring greys. */
-  --bg: #030206;
+  --bg: #090C10;
   --surface: rgba(255, 255, 255, 0.028);
   --stroke: rgba(255, 255, 255, 0.08);
   --stroke-bright: rgba(255, 255, 255, 0.14);

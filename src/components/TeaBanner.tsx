@@ -1,14 +1,6 @@
-import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  interpolate,
-} from 'react-native-reanimated';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
@@ -29,22 +21,7 @@ export function TeaBanner({
   session: TeaSession | null;
   onPress: () => void;
 }) {
-  const pulse = useSharedValue(0);
   const isActive = session?.status === 'active';
-
-  useEffect(() => {
-    if (!isActive) return;
-    // Only while Tea is live — a report banner shouldn't breathe at you.
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 1400, easing: easing.inOut, reduceMotion }),
-      -1,
-      true
-    );
-  }, [isActive, pulse]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: isActive ? interpolate(pulse.value, [0, 1], [0.55, 1]) : 1,
-  }));
 
   if (!session) return null;
 
@@ -54,33 +31,33 @@ export function TeaBanner({
   const accent = isActive || generating ? '#FBBF24' : failed ? colors.error : colors.secondary;
 
   const title = isActive
-    ? '🍵 TEA IS GOING ON'
+    ? 'Tea is live'
     : generating
-      ? '🍵 BREWING THE REPORT'
+      ? 'Making the Tea report'
       : failed
-        ? '🍵 TEA REPORT'
-        : '🍵 TEA REPORT';
+        ? 'Tea report'
+        : 'Tea report';
 
   const subtitle = isActive
     ? `Started by ${session.startedByName} · Tap to view`
     : generating
-      ? 'GC is reading the whole thing...'
+      ? 'GC is putting the conversation together…'
       : failed
         ? "Couldn't brew it — tap to retry"
-        : 'Tap to see what happened 👀';
+        : 'Open the report';
 
   return (
     <Animated.View
       entering={FadeInUp.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
       style={styles.wrap}
     >
-      <GlassPanel borderRadius={radius.md} style={[styles.container, { borderColor: `${accent}55` }]}>
+      <GlassPanel borderRadius={radius.md} style={styles.container}>
         <PressableScale style={styles.tapArea} scaleTo={0.98} haptic="light" onPress={onPress}>
-          <Animated.View style={[styles.iconWrap, { backgroundColor: `${accent}26` }, pulseStyle]}>
+          <View style={[styles.iconWrap, { backgroundColor: `${accent}16` }]}>
             <Text style={styles.teaEmoji}>🍵</Text>
-          </Animated.View>
+          </View>
           <View style={styles.copyArea}>
-            <Text style={[styles.title, { color: accent }]}>{title}</Text>
+            <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle} numberOfLines={1}>
               {subtitle}
             </Text>
@@ -97,8 +74,9 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(48, 32, 12, 0.72)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   tapArea: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 },
   iconWrap: {
@@ -110,6 +88,6 @@ const styles = StyleSheet.create({
   },
   teaEmoji: { fontSize: 14 },
   copyArea: { flex: 1, gap: 1 },
-  title: { ...typography.micro, fontWeight: '800', letterSpacing: 0.6 },
+  title: { ...typography.label, fontSize: 13, fontWeight: '700', color: colors.onSurface },
   subtitle: { ...typography.caption, color: colors.onSurface, fontSize: 12.5 },
 });

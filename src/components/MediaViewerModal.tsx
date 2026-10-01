@@ -267,7 +267,7 @@ export function MediaViewerModal({
             pointerEvents="box-none"
           >
             <View style={styles.topBar}>
-              <Pressable style={styles.iconButton} onPress={onClose} hitSlop={8}>
+              <Pressable style={styles.iconButton} onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close media viewer">
                 <Ionicons name="close" size={22} color="#FFFFFF" />
               </Pressable>
 
@@ -280,12 +280,12 @@ export function MediaViewerModal({
 
               <View style={styles.topBarActions}>
                 {onReply && !media?.viewOnce && (
-                  <Pressable style={styles.iconButton} onPress={onReply} hitSlop={8}>
+                  <Pressable style={styles.iconButton} onPress={onReply} hitSlop={8} accessibilityRole="button" accessibilityLabel="Reply to message">
                     <Ionicons name="arrow-undo" size={20} color="#FFFFFF" />
                   </Pressable>
                 )}
                 {onJumpToMessage && (
-                  <Pressable style={styles.pillButton} onPress={onJumpToMessage} hitSlop={8}>
+                  <Pressable style={styles.pillButton} onPress={onJumpToMessage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go to message in chat">
                     <Ionicons name="chatbubble-ellipses-outline" size={15} color="#FFFFFF" />
                     <Text style={styles.pillText}>Go to message</Text>
                   </Pressable>

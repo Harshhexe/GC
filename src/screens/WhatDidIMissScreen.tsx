@@ -53,61 +53,14 @@ const TABS: { id: MissedTab; label: string }[] = [
   { id: 'names', label: 'Names' },
 ];
 
-/**
- * Atmospheric glowing background tailored to the group's theme palette.
- * Features a deep dark base, smooth diffused ambient gradients (zero blob artifacts on Android).
- */
+/** A restrained tint keeps this long reading screen comfortable. */
 function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
-  const [c1, c2] = theme.colors;
-  const accent = theme.accent;
-
   return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Dark Base Gradient */}
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]} pointerEvents="none">
       <LinearGradient
-        colors={['#100E17', '#0A0910', '#050508']}
+        colors={[`${theme.accent}0D`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Atmospheric Theme Spotlight */}
-      <LinearGradient
-        colors={[`${c1}2E`, `${c2}18`, 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.65 }}
-        style={styles.topSpotlight}
-      />
-
-      {/* Top-Left Ambient Diffused Wash */}
-      <LinearGradient
-        colors={[`${c1}20`, 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.7, y: 0.7 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top-Right Ambient Diffused Wash */}
-      <LinearGradient
-        colors={[`${accent}1A`, 'transparent']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.3, y: 0.7 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Center Subtle Atmosphere */}
-      <LinearGradient
-        colors={['transparent', `${c2}10`, 'transparent']}
-        start={{ x: 0.5, y: 0.3 }}
-        end={{ x: 0.5, y: 0.7 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Sheen & Subtle Dark Vignette */}
-      <LinearGradient
-        colors={[`${c1}14`, 'transparent', 'rgba(5, 5, 8, 0.5)']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0.5 }}
         style={StyleSheet.absoluteFill}
       />
     </View>
@@ -599,9 +552,10 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
       <ThemedGlowBackground theme={activeTheme} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
-          wordmark
+          tone="dark"
+          title="Catch up"
           subtitle={groupName}
-          left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
+          left={<HeaderIconButton tone="dark" name="arrow-back" onPress={() => navigation.goBack()} />}
           right={<Avatar emoji={profile?.avatar_emoji} imageUrl={profile?.avatar_url} label={profile?.display_name} size={36} />}
         />
 
@@ -611,10 +565,10 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
           style={styles.hero}
         >
           <Text style={styles.heroTitle} accessibilityRole="header">
-            What I Missed
+            What you missed
           </Text>
           <Text style={styles.heroSub}>
-            Recap of the chaos while you were AFK.
+            Your GC, at a glance.
           </Text>
         </Animated.View>
 
@@ -674,24 +628,12 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
               >
                 <GlassPanel
                   borderRadius={radius.lg}
-                  style={[styles.vibeCard, { borderColor: `${activeTheme.accent}3D` }]}
+                  style={[styles.vibeCard, { borderColor: colors.border, backgroundColor: colors.surfaceLow }]}
                 >
-                  {/* The screen's headline stat was rendering in flat grey,
-                      indistinguishable from the sections beneath it. It now
-                      carries the group's own colour, like every other themed
-                      surface in the app. */}
-                  <LinearGradient
-                    colors={[`${activeTheme.colors[0]}1A`, 'transparent']}
-                    start={{ x: 0.5, y: 0 }}
-                    end={{ x: 0.5, y: 1 }}
-                    style={[StyleSheet.absoluteFill, { borderRadius: radius.lg }]}
-                    pointerEvents="none"
-                  />
-
                   <View style={styles.vibeLabelRow}>
                     <Ionicons name="pulse" size={12} color={activeTheme.accent} />
-                    <Text style={[styles.vibeLabel, { color: activeTheme.accent }]}>
-                      DAILY VIBE CHECK
+                    <Text style={[styles.vibeLabel, { color: colors.onSurfaceVariant }]}>
+                      Today's mood
                     </Text>
                   </View>
 
@@ -699,8 +641,8 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                     style={[
                       styles.vibePill,
                       {
-                        borderColor: `${activeTheme.accent}4D`,
-                        backgroundColor: `${activeTheme.colors[0]}1F`,
+                        borderColor: colors.border,
+                        backgroundColor: colors.surfaceHigh,
                       },
                     ]}
                   >
@@ -715,7 +657,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
               <Section
                 icon="sparkles"
                 iconColor={activeTheme.accent}
-                title="What You Missed"
+                title="Highlights"
                 aiGenerated
                 delay={STAGGER_MS * 2}
                 trailing={
@@ -732,21 +674,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                     }
                     hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                   >
-                    <LinearGradient
-                      colors={
-                        ai.loading
-                          ? ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.04)']
-                          : activeTheme.colors
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[
-                        styles.catchUpHeaderBtnGradient,
-                        !ai.loading && {
-                          borderColor: glass.strokeBright,
-                        },
-                      ]}
-                    >
+                    <View style={[styles.catchUpHeaderBtnGradient, { backgroundColor: colors.surfaceHigh, borderColor: colors.border }]}>
                       <Ionicons
                         name="sparkles"
                         size={12}
@@ -760,7 +688,7 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                       >
                         {ai.loading ? 'Updating...' : 'Catch Up'}
                       </Text>
-                    </LinearGradient>
+                    </View>
                   </PressableScale>
                 }
               >
@@ -1302,83 +1230,29 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appRoot },
-  glowBgRoot: {
-    backgroundColor: colors.appRoot,
-    overflow: 'hidden',
-  },
-  topSpotlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 480,
-  },
-  cornerBlob: {
-    position: 'absolute',
-    borderRadius: 999,
-  },
-  blobFill: {
-    flex: 1,
-    borderRadius: 999,
-  },
-  blobTopLeft: {
-    top: -60,
-    left: -60,
-    width: 270,
-    height: 270,
-    opacity: 0.75,
-  },
-  blobTopRight: {
-    top: -50,
-    right: -50,
-    width: 260,
-    height: 260,
-    opacity: 0.7,
-  },
-  blobBottomLeft: {
-    bottom: -60,
-    left: -50,
-    width: 270,
-    height: 270,
-    opacity: 0.65,
-  },
-  blobBottomRight: {
-    bottom: -70,
-    right: -60,
-    width: 290,
-    height: 290,
-    opacity: 0.7,
-  },
-  blobCenter: {
-    top: '35%',
-    left: '20%',
-    width: 250,
-    height: 250,
-    opacity: 0.55,
-  },
   safe: { flex: 1 },
-  hero: { alignItems: 'center', gap: 4, paddingVertical: spacing.sm, paddingHorizontal: CONTAINER_MARGIN },
+  hero: { alignItems: 'flex-start', gap: 4, paddingVertical: spacing.lg, paddingHorizontal: CONTAINER_MARGIN },
   heroTitle: {
     ...typography.title,
     fontSize: 24,
     color: colors.onSurface,
     fontWeight: '800',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   heroSub: {
     ...typography.caption,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   tabTrack: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceLow,
+    borderRadius: radius.md,
     padding: 3,
     marginHorizontal: CONTAINER_MARGIN,
     marginBottom: spacing.xs,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   tab: {
     flex: 1,
@@ -1386,20 +1260,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // 44pt minimum, less the 3px padding on the track either side.
-    minHeight: 38,
+    minHeight: 42,
     paddingVertical: 8,
     paddingHorizontal: 8,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     gap: 6,
   },
   tabActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    borderColor: colors.primary,
   },
   tabText: {
     ...typography.label,
@@ -1409,7 +1279,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: colors.onSurface,
     fontWeight: '700',
   },
   tabBadge: {
@@ -1448,7 +1318,7 @@ const styles = StyleSheet.create({
   },
   vibeCard: {
     padding: spacing.lg,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
     borderWidth: 1,
     overflow: 'hidden',
@@ -1456,25 +1326,25 @@ const styles = StyleSheet.create({
   vibeLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   vibeLabel: { ...typography.label, fontSize: 11, letterSpacing: 1 },
   vibePill: {
-    borderRadius: radius.pill,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
-    width: '100%',
+    alignSelf: 'flex-start',
   },
   vibeValue: {
     ...typography.titleMd,
     fontSize: 19,
-    color: '#FFFFFF',
+    color: colors.onSurface,
     fontWeight: '800',
-    textAlign: 'center',
+    textAlign: 'left',
   },
-  vibeDetail: { ...typography.micro, color: colors.textMuted, textAlign: 'center' },
-  card: { padding: spacing.lg },
+  vibeDetail: { ...typography.caption, color: colors.onSurfaceVariant, textAlign: 'left' },
+  card: { padding: spacing.lg, backgroundColor: colors.surfaceLow, borderColor: colors.border },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   cardTitle: { ...typography.title, fontSize: 18, color: colors.onSurface },
   spacer: { flex: 1 },
-  divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.06)', marginVertical: spacing.md },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   aiBody: { gap: spacing.lg },
   aiChip: {
     paddingHorizontal: 6,

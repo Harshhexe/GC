@@ -13,34 +13,31 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-  Easing as ReaEasing,
   Extrapolation,
   FadeInDown,
   interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withTiming,
 } from 'react-native-reanimated';
 import {
   CONTAINER_MARGIN,
   DOCK_HEIGHT,
   colors,
   fontFamily,
-  glass,
   radius,
   spacing,
   typography,
 } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
 import { PressableScale } from '../components/ui/PressableScale';
-import { Avatar } from '../components/ui/Avatar';
+import { GCButton } from '../components/ui/Buttons';
 import { AwardCard } from '../components/AwardCard';
 import { useAuth } from '../context/AuthContext';
+import { useAppearance } from '../context/AppearanceContext';
 import { supabase } from '../lib/supabase';
 import { selectFeedback } from '../utils/haptics';
 import type { Award } from '../lib/ai';
@@ -75,154 +72,63 @@ const HEADER_HEIGHT = 56;
 const HANDOVER_START = 120;
 const HANDOVER_END = 190;
 
-const TROPHY_HERO_SIZE = 104;
-const RING_SIZE = 120;
-const HALO_SIZE = 148;
-
-/**
- * 🌌 Deep obsidian & golden ambient background matching ProfileScreen's aurora language.
- */
+/** The awards page has a warm cue, while content surfaces stay consistent. */
 function AwardsAuroraBackdrop({ style }: { style?: StyleProp<ViewStyle> }) {
+  const { theme } = useAppearance();
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, styles.backdropRoot, style]} pointerEvents="none">
+    <Animated.View style={[StyleSheet.absoluteFill, styles.backdropRoot, { backgroundColor: theme.palette.bg }, style]} pointerEvents="none">
       <LinearGradient
-        colors={['#130E07', '#0A0810', '#040306']}
+        colors={[theme.palette.bg, theme.palette.appChrome]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Overhead golden trophy spotlight, centred on where the trophy hero sits. */}
       <LinearGradient
-        colors={['rgba(245, 158, 11, 0.22)', 'rgba(236, 72, 153, 0.08)', 'transparent']}
+        colors={theme.isDark ? ['rgba(233, 189, 105, 0.08)', 'transparent'] : ['rgba(233,189,105,0.035)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.backdropSpotlight}
       />
 
-      {/* Ambient glowing mesh accents */}
-      <LinearGradient
-        colors={['rgba(245, 158, 11, 0.16)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.75, y: 0.55 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={['rgba(168, 85, 247, 0.12)', 'transparent']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.25, y: 0.55 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* High-intensity dark blur */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 70 : 85}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Vignette — keeps cards and medals popping with high contrast. */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.75)']}
-        start={{ x: 0.5, y: 0.5 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
     </Animated.View>
   );
 }
 
-/**
- * 🏆 Grand Hero Trophy Crest with spinning Aurora gradient sweep.
- */
+/** A compact award counter also opens the ceremony guide. */
 function AuroraTrophyHero({
   count,
-  userAvatarUrl,
-  userDisplayName,
   onPress,
 }: {
   count: number;
-  userAvatarUrl?: string | null;
-  userDisplayName?: string;
   onPress: () => void;
 }) {
-  const spin = useSharedValue(0);
-
-  useEffect(() => {
-    spin.value = withRepeat(
-      withTiming(360, { duration: 8000, easing: ReaEasing.linear, reduceMotion }),
-      -1,
-      false
-    );
-  }, [spin]);
-
-  const spinStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spin.value}deg` }],
-  }));
-
+  const { theme } = useAppearance();
   return (
     <PressableScale
-      style={styles.heroWrap}
-      scaleTo={0.95}
-      haptic="medium"
+      style={[styles.heroWrap, { backgroundColor: theme.palette.surfaceLow, borderColor: theme.palette.border }]}
+      scaleTo={0.98}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="View Awards Ceremony Guide"
+      accessibilityLabel="How GC Awards work"
     >
-      <View style={styles.heroHalo} pointerEvents="none">
-        <LinearGradient
-          colors={['rgba(245, 158, 11, 0.32)', 'rgba(236, 72, 153, 0.14)', 'transparent']}
-          start={{ x: 0.15, y: 0 }}
-          end={{ x: 0.85, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+      <View style={styles.heroSymbol}>
+        <Ionicons name="trophy-outline" size={26} color={colors.yellow} />
       </View>
-
-      <View style={styles.ringClip} pointerEvents="none">
-        <Animated.View style={[styles.ringSweep, spinStyle]}>
-          <LinearGradient
-            colors={['#FBBF24', '#F472B6', '#818CF8', '#FBBF24']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
-        <View style={styles.ringHole} />
+      <View style={styles.heroMetric}>
+        <Text style={[styles.heroMetricValue, { color: theme.palette.onSurface }]}>{count}</Text>
+        <Text style={[styles.heroMetricLabel, { color: theme.palette.onSurfaceVariant }]}>{count === 1 ? 'current title' : 'current titles'}</Text>
       </View>
-
-      <View style={styles.trophyOrbInner}>
-        {userAvatarUrl ? (
-          <Avatar
-            imageUrl={userAvatarUrl}
-            label={userDisplayName ?? 'Me'}
-            size={TROPHY_HERO_SIZE - 8}
-            ring={false}
-          />
-        ) : (
-          <LinearGradient
-            colors={['#2A1F08', '#140E03']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.trophyIconFill}
-          >
-            <Text style={styles.trophyHeroEmoji}>🏆</Text>
-          </LinearGradient>
-        )}
-      </View>
-
-      <View style={styles.trophyCrownBadge}>
-        <Ionicons name="sparkles" size={13} color="#FBBF24" />
-        <Text style={styles.trophyCrownText}>{count > 0 ? `${count} Active` : 'Ceremony'}</Text>
-      </View>
+      <Ionicons name="arrow-forward" size={18} color={theme.palette.onSurfaceVariant} />
     </PressableScale>
   );
 }
 
 function SectionLabel({ text }: { text: string }) {
+  const { theme } = useAppearance();
   return (
     <View style={styles.sectionLabelRow}>
-      <Text style={styles.sectionLabelText} accessibilityRole="header">
+      <Text style={[styles.sectionLabelText, { color: theme.palette.onSurface }]} accessibilityRole="header">
         {text}
       </Text>
     </View>
@@ -239,6 +145,7 @@ const POPULAR_AWARDS_GUIDE = [
 ];
 
 export default function ExploreScreen({ navigation }: Props) {
+  const { theme } = useAppearance();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const [claimedAwards, setClaimedAwards] = useState<ClaimedAwardItem[]>([]);
@@ -417,7 +324,7 @@ export default function ExploreScreen({ navigation }: Props) {
   const headerOffset = insets.top + HEADER_HEIGHT;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: theme.palette.bg }]}>
       <AwardsAuroraBackdrop style={backdropStyle} />
 
       <Animated.ScrollView
@@ -445,40 +352,28 @@ export default function ExploreScreen({ navigation }: Props) {
           entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
         >
           <Animated.View style={[styles.hero, heroStyle]}>
+            <Text style={styles.heroEyebrow}>THE TROPHY ROOM</Text>
+            <Text style={[styles.mainTitle, { color: theme.palette.onSurface }]} numberOfLines={2}>
+              Awards
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.palette.onSurfaceVariant }]}>
+              {currentWeekLabel
+                ? `Your current titles across GCs · ${currentWeekLabel}`
+                : 'The titles you earn with your people, updated each Sunday.'}
+            </Text>
             <AuroraTrophyHero
               count={claimedAwards.length}
-              userAvatarUrl={profile?.avatar_url}
-              userDisplayName={profile?.display_name}
               onPress={() => {
                 selectFeedback();
                 setGuideModalVisible(true);
               }}
             />
-
-            <Text style={styles.mainTitle} numberOfLines={2}>
-              Claimed Awards
-            </Text>
-
-            <View style={styles.heroMetaRow}>
-              <View style={styles.trophyChip}>
-                <Ionicons name="trophy" size={12} color="#FBBF24" />
-                <Text style={styles.trophyChipText}>
-                  {claimedAwards.length} {claimedAwards.length === 1 ? 'TITLE HELD' : 'TITLES HELD'}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.subtitle}>
-              {currentWeekLabel
-                ? `Honors and titles you hold right now (${currentWeekLabel}). They hand over when the next Sunday ceremony runs.`
-                : 'Honors and titles you hold right now across your chats. They hand over when the next Sunday ceremony runs.'}
-            </Text>
           </Animated.View>
         </Animated.View>
 
         {/* Section Header & Filters */}
         <View style={styles.sectionDivider}>
-          <SectionLabel text="YOUR TROPHY ROOM" />
+          <SectionLabel text="Current titles" />
         </View>
 
         {/* GC Filter Chips (if in multiple GCs) */}
@@ -494,6 +389,8 @@ export default function ExploreScreen({ navigation }: Props) {
                 styles.filterChip,
                 selectedGroupFilter === 'all' && styles.filterChipActive,
               ]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: selectedGroupFilter === 'all' }}
             >
               <Text
                 style={[
@@ -520,6 +417,8 @@ export default function ExploreScreen({ navigation }: Props) {
                     styles.filterChip,
                     isSelected && styles.filterChipActive,
                   ]}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <Text
                     style={[
@@ -540,7 +439,7 @@ export default function ExploreScreen({ navigation }: Props) {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#F59E0B" />
-            <Text style={styles.loadingText}>Polishing your trophies…</Text>
+            <Text style={[styles.loadingText, { color: theme.palette.onSurfaceVariant }]}>Loading awards…</Text>
           </View>
         ) : filteredAwards.length === 0 ? (
           <Animated.View
@@ -553,26 +452,16 @@ export default function ExploreScreen({ navigation }: Props) {
             <View style={styles.emptyIconOrb}>
               <Ionicons name="trophy-outline" size={36} color="#F59E0B" />
             </View>
-            <Text style={styles.emptyTitle}>Nothing claimed this week</Text>
-            <Text style={styles.emptySubtitle}>
-              Titles reset every Sunday ceremony. Yap, start some drama, or drop unhinged takes in your group chats to claim honors in the next GC Awards!
+            <Text style={[styles.emptyTitle, { color: theme.palette.onSurface }]}>Nothing claimed this week</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.palette.onSurfaceVariant }]}>
+              Awards are given every Sunday from the moments your group shares. Keep the conversation going.
             </Text>
-            <PressableScale
+            <GCButton
+              label="Back to chats"
+              full={false}
               style={styles.emptyCTA}
-              scaleTo={0.95}
-              haptic="medium"
               onPress={() => navigation.navigate('GroupList')}
-            >
-              <LinearGradient
-                colors={['#F59E0B', '#D97706']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.emptyCTAGradient}
-              >
-                <Ionicons name="chatbubbles" size={17} color="#FFFFFF" />
-                <Text style={styles.emptyCTAText}>Jump into Chats</Text>
-              </LinearGradient>
-            </PressableScale>
+            />
           </Animated.View>
         ) : (
           <View style={styles.cardsContainer}>
@@ -600,19 +489,19 @@ export default function ExploreScreen({ navigation }: Props) {
         <Animated.View style={[StyleSheet.absoluteFill, headerChromeStyle]} pointerEvents="none">
           {Platform.OS !== 'web' && (
             <BlurView
-              intensity={40}
+              intensity={24}
               tint="dark"
               experimentalBlurMethod="dimezisBlurView"
               style={StyleSheet.absoluteFill}
             />
           )}
-          <View style={styles.headerChromeFill} />
-          <View style={styles.headerHairline} />
+          <View style={[styles.headerChromeFill, { backgroundColor: theme.palette.surfaceLow }]} />
+          <View style={[styles.headerHairline, { backgroundColor: theme.palette.border }]} />
         </Animated.View>
 
         <View style={styles.headerBar} pointerEvents="box-none">
           <Animated.Text
-            style={[styles.headerTitle, headerTitleStyle]}
+            style={[styles.headerTitle, { color: theme.palette.onSurface }, headerTitleStyle]}
             numberOfLines={1}
             pointerEvents="none"
           >
@@ -624,10 +513,10 @@ export default function ExploreScreen({ navigation }: Props) {
               <Ionicons name="trophy" size={16} color="#FBBF24" />
             </View>
             <View style={styles.headerIdentityCopy}>
-              <Text style={styles.headerIdentityName} numberOfLines={1}>
+              <Text style={[styles.headerIdentityName, { color: theme.palette.onSurface }]} numberOfLines={1}>
                 Claimed Awards
               </Text>
-              <Text style={styles.headerIdentityHandle} numberOfLines={1}>
+              <Text style={[styles.headerIdentityHandle, { color: theme.palette.onSurfaceVariant }]} numberOfLines={1}>
                 {claimedAwards.length} {claimedAwards.length === 1 ? 'title held' : 'titles held'}
               </Text>
             </View>
@@ -635,7 +524,7 @@ export default function ExploreScreen({ navigation }: Props) {
 
           {/* Question mark icon button for Ceremony Guide */}
           <PressableScale
-            style={styles.headerHelpBtn}
+            style={[styles.headerHelpBtn, { backgroundColor: theme.palette.surfaceHigh, borderColor: theme.palette.border }]}
             scaleTo={0.88}
             haptic="light"
             onPress={() => {
@@ -715,7 +604,7 @@ export default function ExploreScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#040306' },
+  root: { flex: 1, backgroundColor: colors.bg },
   scroll: { flex: 1 },
   scrollContent: {
     paddingHorizontal: CONTAINER_MARGIN,
@@ -723,13 +612,13 @@ const styles = StyleSheet.create({
   },
 
   // Backdrop
-  backdropRoot: { backgroundColor: '#040306', overflow: 'hidden' },
+  backdropRoot: { backgroundColor: colors.bg, overflow: 'hidden' },
   backdropSpotlight: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 480,
+    height: 320,
   },
 
   // Floating Top Bar Handover
@@ -742,7 +631,7 @@ const styles = StyleSheet.create({
   },
   headerChromeFill: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 8, 16, 0.72)',
+    backgroundColor: 'rgba(12, 16, 21, 0.94)',
   },
   headerHairline: {
     position: 'absolute',
@@ -750,25 +639,25 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: colors.border,
   },
   headerBar: {
     height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: spacing.lg,
   },
   headerTitle: {
     ...typography.title,
     color: colors.onSurface,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   headerIdentity: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
@@ -798,159 +687,48 @@ const styles = StyleSheet.create({
   headerHelpBtn: {
     position: 'absolute',
     right: spacing.lg,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.30)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  // Hero Section
-  hero: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
+  // Hero and section hierarchy
+  hero: { alignItems: 'flex-start', gap: spacing.sm, paddingTop: spacing.lg },
+  heroEyebrow: { ...typography.label, color: colors.yellow, letterSpacing: 1.1 },
+  mainTitle: { ...typography.headline, fontSize: 42, lineHeight: 48, color: colors.onSurface },
+  subtitle: { ...typography.body, fontSize: 14, lineHeight: 21, color: colors.onSurfaceVariant, maxWidth: 440 },
   heroWrap: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-  },
-  heroHalo: {
-    position: 'absolute',
-    width: HALO_SIZE,
-    height: HALO_SIZE,
-    borderRadius: HALO_SIZE / 2,
-    overflow: 'hidden',
-  },
-  ringClip: {
-    position: 'absolute',
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ringSweep: {
-    width: RING_SIZE * 1.5,
-    height: RING_SIZE * 1.5,
-  },
-  ringHole: {
-    position: 'absolute',
-    width: RING_SIZE - 6,
-    height: RING_SIZE - 6,
-    borderRadius: (RING_SIZE - 6) / 2,
-    backgroundColor: '#0A0810',
-  },
-  trophyOrbInner: {
-    width: TROPHY_HERO_SIZE,
-    height: TROPHY_HERO_SIZE,
-    borderRadius: TROPHY_HERO_SIZE / 2,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1A1408',
-  },
-  trophyIconFill: {
-    flex: 1,
     width: '100%',
+    minHeight: 84,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    backgroundColor: colors.surfaceLow,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  heroSymbol: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(233,189,105,0.11)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trophyHeroEmoji: {
-    fontSize: 48,
-  },
-  trophyCrownBadge: {
-    position: 'absolute',
-    bottom: -6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(20, 16, 8, 0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.50)',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-  },
-  trophyCrownText: {
-    ...typography.micro,
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#FBBF24',
-    letterSpacing: 0.4,
-  },
-
-  // Titles
-  mainTitle: {
-    ...typography.headline,
-    fontSize: 32,
-    lineHeight: 38,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: 2,
-  },
-  trophyChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(245, 158, 11, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    paddingHorizontal: 11,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  trophyChipText: {
-    ...typography.micro,
-    fontSize: 10.5,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-    color: '#FBBF24',
-  },
-  subtitle: {
-    ...typography.body,
-    fontSize: 13.5,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
-    lineHeight: 19,
-  },
-
-  // Section Headers
-  sectionDivider: {
-    marginTop: spacing.xs,
-  },
-  sectionLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  sectionLabelText: {
-    ...typography.micro,
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 1,
-  },
+  heroMetric: { flex: 1, gap: 1 },
+  heroMetricValue: { fontFamily: fontFamily.displayBold, fontSize: 23, lineHeight: 28, color: colors.onSurface },
+  heroMetricLabel: { ...typography.caption, fontSize: 12, color: colors.onSurfaceVariant },
+  sectionDivider: { marginTop: spacing.lg },
+  sectionLabelRow: { flexDirection: 'row', alignItems: 'center' },
+  sectionLabelText: { fontFamily: fontFamily.bodySemi, fontSize: 18, lineHeight: 24, color: colors.onSurface },
 
   // Filter Chips
   filterChipsRow: {
@@ -961,24 +739,25 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     paddingHorizontal: 13,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    minHeight: 42,
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
-    borderColor: 'rgba(245, 158, 11, 0.45)',
+    backgroundColor: colors.surfaceHigh,
+    borderColor: 'rgba(233, 189, 105, 0.45)',
   },
   filterChipText: {
     ...typography.micro,
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: colors.onSurfaceVariant,
   },
   filterChipTextActive: {
-    color: '#FBBF24',
+    color: colors.yellow,
     fontWeight: '700',
   },
 
@@ -1005,18 +784,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.md,
     gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: radius.xl,
+    backgroundColor: colors.surfaceLow,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.border,
   },
   emptyIconOrb: {
     width: 68,
     height: 68,
-    borderRadius: 34,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(233, 189, 105, 0.11)',
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1024,35 +803,18 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.display,
     fontSize: 19,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onSurface,
     textAlign: 'center',
   },
   emptySubtitle: {
     ...typography.body,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.onSurfaceVariant,
     textAlign: 'center',
     lineHeight: 18,
   },
   emptyCTA: {
-    borderRadius: radius.pill,
     marginTop: spacing.xs,
-  },
-  emptyCTAGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 11,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: glass.strokeBright,
-  },
-  emptyCTAText: {
-    ...typography.label,
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 
   // Modal
@@ -1062,11 +824,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#0F0B18',
-    borderTopLeftRadius: radius.xxl,
-    borderTopRightRadius: radius.xxl,
+    backgroundColor: colors.surfaceLow,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     maxHeight: '80%',
     overflow: 'hidden',
   },
@@ -1074,7 +836,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.outline,
     alignSelf: 'center',
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
@@ -1085,16 +847,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_MARGIN,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: colors.border,
     gap: spacing.sm,
   },
   modalHeaderIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(233, 189, 105, 0.11)',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1105,7 +867,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.displayBold,
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   modalSub: {
     ...typography.micro,
@@ -1113,10 +875,10 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1131,7 +893,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.displayBold,
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   guideSectionBody: {
     ...typography.body,
@@ -1147,11 +909,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.border,
   },
   guideEmoji: {
     fontSize: 24,
@@ -1164,7 +926,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.displayBold,
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   guideItemDesc: {
     ...typography.micro,

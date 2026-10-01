@@ -4,6 +4,7 @@ import { colors, radius, spacing, typography } from '../theme/theme';
 import { PressableScale } from './ui/PressableScale';
 import { describeMedia } from '../lib/media';
 import type { MessageKind } from '../types';
+import { useAppearance } from '../context/AppearanceContext';
 
 function snippetFor(text: string, kind: MessageKind) {
   if (kind !== 'text') {
@@ -52,27 +53,30 @@ export function MessageQuotePreview({
   /** Slightly tighter — used inside a bubble rather than above the composer. */
   compact?: boolean;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
+  const visibleAccent = theme.isDark ? accentColor : palette.primary;
   const snippet = isDeleted ? null : snippetFor(text, kind);
 
   const content = (
-    <View style={[styles.row, compact && styles.rowCompact, { borderLeftColor: accentColor }]}>
+    <View style={[styles.row, compact && styles.rowCompact, { borderLeftColor: visibleAccent, backgroundColor: palette.surfaceHigh }]}>
       <View style={[styles.copy, !compact && styles.copyFull]}>
         {!isDeleted && (
           <View style={styles.headerRow}>
-            <Ionicons name="arrow-undo" size={11} color={accentColor} style={styles.replyIcon} />
-            <Text style={[styles.author, { color: accentColor }]} numberOfLines={1}>
+            <Ionicons name="arrow-undo" size={11} color={visibleAccent} style={styles.replyIcon} />
+            <Text style={[styles.author, { color: visibleAccent }]} numberOfLines={1}>
               {isMine ? 'You' : authorName}
             </Text>
           </View>
         )}
         {isDeleted ? (
-          <Text style={styles.deletedText}>Original message was deleted</Text>
+          <Text style={[styles.deletedText, { color: palette.onSurfaceVariant }]}>Original message was deleted</Text>
         ) : (
           <View style={styles.snippetRow}>
             {snippet?.icon && (
-              <Ionicons name={snippet.icon} size={13} color={colors.onSurfaceVariant} style={styles.snippetIcon} />
+              <Ionicons name={snippet.icon} size={13} color={palette.onSurfaceVariant} style={styles.snippetIcon} />
             )}
-            <Text style={styles.snippetText} numberOfLines={1}>
+            <Text style={[styles.snippetText, { color: palette.onSurfaceVariant }]} numberOfLines={1}>
               {snippet?.label || '…'}
             </Text>
           </View>
@@ -83,9 +87,11 @@ export function MessageQuotePreview({
         <Pressable
           hitSlop={8}
           onPress={onClose}
-          style={[styles.closeButton, { backgroundColor: `${accentColor}26` }]}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel reply"
+          style={[styles.closeButton, { backgroundColor: `${visibleAccent}26` }]}
         >
-          <Ionicons name="close" size={16} color={accentColor} />
+          <Ionicons name="close" size={16} color={visibleAccent} />
         </Pressable>
       )}
     </View>
@@ -94,7 +100,7 @@ export function MessageQuotePreview({
   if (!onPress && !onLongPress) return content;
 
   return (
-    <PressableScale scaleTo={0.98} haptic="light" onPress={onPress} onLongPress={onLongPress}>
+    <PressableScale scaleTo={0.98} haptic="light" onPress={onPress} onLongPress={onLongPress} accessibilityRole="button" accessibilityLabel={`Jump to ${isMine ? 'your' : authorName + "'s"} message`}>
       {content}
     </PressableScale>
   );

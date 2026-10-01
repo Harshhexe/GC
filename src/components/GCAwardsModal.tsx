@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,12 +7,6 @@ import Animated, {
   FadeIn,
   FadeInDown,
   FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  interpolate,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -133,55 +127,12 @@ function dateLabel(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-/**
- * Atmospheric golden background with silky smooth diffused ambient glows (zero blob artifacts).
- */
+/** A restrained gold wash gives awards their own place in the app. */
 function GoldenAwardsBackground() {
   return (
     <View style={[StyleSheet.absoluteFill, styles.goldenBgRoot]} pointerEvents="none">
-      {/* Deep Obsidian Base Gradient */}
       <LinearGradient
-        colors={['#100E17', '#0A0910', '#050508']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Grand Golden Atmospheric Glow */}
-      <LinearGradient
-        colors={['rgba(253, 224, 71, 0.22)', 'rgba(245, 158, 11, 0.10)', 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.65 }}
-        style={styles.topSpotlight}
-      />
-
-      {/* Top-Left Ambient Gold Wash */}
-      <LinearGradient
-        colors={['rgba(251, 191, 36, 0.12)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.7, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top-Right Amber Accent Wash */}
-      <LinearGradient
-        colors={['rgba(245, 158, 11, 0.09)', 'transparent']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.3, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Center Warm Ambient Bloom */}
-      <LinearGradient
-        colors={['transparent', 'rgba(251, 191, 36, 0.05)', 'transparent']}
-        start={{ x: 0.5, y: 0.25 }}
-        end={{ x: 0.5, y: 0.75 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Sheen & Subtle Dark Vignette */}
-      <LinearGradient
-        colors={['rgba(253, 224, 71, 0.08)', 'transparent', 'rgba(5, 5, 8, 0.6)']}
+        colors={['rgba(251,191,36,0.08)', colors.appRoot, colors.appRoot]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -204,68 +155,6 @@ function YapperChampionCard({
 }) {
   const hasReceipts = award.sourceMessageIds && award.sourceMessageIds.length > 0;
   const isAnonymous = !award.userId && award.userName === 'someone';
-
-  // 1. Floating Crown Loop Animation
-  const crownFloat = useSharedValue(0);
-  // 2. Avatar Gentle Breathing Loop Animation
-  const avatarBreath = useSharedValue(0);
-  // 3. Member of the Week Badge Sheen Loop Animation
-  const badgePulse = useSharedValue(0);
-
-  useEffect(() => {
-    crownFloat.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1300, easing: easing.inOut, reduceMotion }),
-        withTiming(0, { duration: 1300, easing: easing.inOut, reduceMotion })
-      ),
-      -1,
-      true
-    );
-
-    avatarBreath.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1800, easing: easing.inOut, reduceMotion }),
-        withTiming(0, { duration: 1800, easing: easing.inOut, reduceMotion })
-      ),
-      -1,
-      true
-    );
-
-    badgePulse.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1600, easing: easing.inOut, reduceMotion }),
-        withTiming(0, { duration: 1600, easing: easing.inOut, reduceMotion })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const crownAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(crownFloat.value, [0, 1], [0, -6]) },
-      { rotate: `${interpolate(crownFloat.value, [0, 1], [-3, 3])}deg` },
-      { scale: interpolate(crownFloat.value, [0, 1], [1, 1.08]) },
-    ],
-  }));
-
-  const avatarAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: interpolate(avatarBreath.value, [0, 1], [1, 1.035]) },
-    ],
-  }));
-
-  const avatarGlowAnimStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(avatarBreath.value, [0, 1], [0.3, 0.6]),
-    transform: [{ scale: interpolate(avatarBreath.value, [0, 1], [0.98, 1.08]) }],
-  }));
-
-  const badgeAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: interpolate(badgePulse.value, [0, 1], [1, 1.025]) },
-    ],
-    opacity: interpolate(badgePulse.value, [0, 1], [0.92, 1]),
-  }));
 
   return (
     <Animated.View
@@ -298,7 +187,7 @@ function YapperChampionCard({
         />
 
         {/* Member of the Week Crown Eyebrow Banner (Looping Subtle Pulse) */}
-        <Animated.View style={[styles.yapperCrownBanner, badgeAnimStyle]}>
+        <Animated.View style={styles.yapperCrownBanner}>
           <LinearGradient
             colors={['rgba(253, 224, 71, 0.30)', 'rgba(245, 158, 11, 0.15)']}
             start={{ x: 0, y: 0 }}
@@ -317,9 +206,9 @@ function YapperChampionCard({
         <View style={styles.yapperAvatarSection}>
           <View style={styles.yapperAvatarWrapper}>
             {/* Breathing Golden Aura */}
-            <Animated.View style={[styles.yapperAvatarAura, avatarGlowAnimStyle]} pointerEvents="none" />
+            <Animated.View style={styles.yapperAvatarAura} pointerEvents="none" />
 
-            <Animated.View style={avatarAnimStyle}>
+            <Animated.View>
               {!isAnonymous ? (
                 <Avatar
                   emoji={award.userAvatarEmoji ?? undefined}
@@ -337,7 +226,7 @@ function YapperChampionCard({
             </Animated.View>
 
             {/* Floating Crown Badge (Looping Bobbing Animation) */}
-            <Animated.View style={[styles.yapperFloatingCrown, crownAnimStyle]}>
+            <Animated.View style={styles.yapperFloatingCrown}>
               <Text style={styles.yapperCrownEmoji}>👑</Text>
             </Animated.View>
           </View>

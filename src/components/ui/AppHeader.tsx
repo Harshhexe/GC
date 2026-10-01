@@ -1,21 +1,14 @@
 import { ReactNode } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, glass, HIT_TARGET, radius, spacing, typography } from '../../theme/theme';
+import { HIT_TARGET, fontFamily, radius, spacing, typography } from '../../theme/theme';
 import { PressableScale } from './PressableScale';
-import { useAppearance } from '../../context/AppearanceContext';
+import { APP_THEMES, useAppearance } from '../../context/AppearanceContext';
 
-const LOGO_TRANSPARENT = require('../../../assets/gc_app_logo-transparent.png');
-
-/** The transparent logo image used as the header title on top bars. */
-export function GCWordmark({ size = 38 }: { size?: number }) {
-  return (
-    <Image
-      source={LOGO_TRANSPARENT}
-      style={{ height: size, width: size * 1.6 }}
-      resizeMode="contain"
-    />
-  );
+/** A crisp typographic wordmark keeps the small navigation header legible. */
+export function GCWordmark({ size = 25 }: { size?: number }) {
+  const { theme } = useAppearance();
+  return <Text style={[styles.wordmark, { color: theme.palette.onSurface, fontSize: size, lineHeight: size + 3 }]}>GC<Text style={{ color: theme.palette.primary }}>.</Text></Text>;
 }
 
 export function HeaderIconButton({
@@ -23,23 +16,34 @@ export function HeaderIconButton({
   onPress,
   color,
   size = 22,
+  accessibilityLabel,
+  tone,
 }: {
   name: keyof typeof Ionicons.glyphMap;
   onPress?: () => void;
   color?: string;
   size?: number;
+  accessibilityLabel?: string;
+  tone?: 'dark';
 }) {
   const { theme } = useAppearance();
+  const palette = tone === 'dark' ? APP_THEMES.genz.palette : theme.palette;
   return (
-    <PressableScale onPress={onPress} style={styles.iconButton} scaleTo={0.88} hitSlop={6}>
-      <Ionicons name={name} size={size} color={color ?? theme.palette.onSurface} />
+    <PressableScale
+      onPress={onPress}
+      style={[styles.iconButton, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}
+      scaleTo={0.92}
+      hitSlop={6}
+      accessibilityLabel={accessibilityLabel ?? name.replace(/-outline$/, '').replace(/-/g, ' ')}
+    >
+      <Ionicons name={name} size={size} color={color ?? palette.onSurface} />
     </PressableScale>
   );
 }
 
 /**
  * Shared top bar. Left/right are slots so each screen can supply its own
- * controls while the title block stays optically centred.
+ * controls while the title block stays anchored in the same reading column.
  */
 export function AppHeader({
   title,
@@ -47,28 +51,31 @@ export function AppHeader({
   wordmark = false,
   left,
   right,
+  tone,
 }: {
   title?: string;
   subtitle?: string;
   wordmark?: boolean;
   left?: ReactNode;
   right?: ReactNode;
+  tone?: 'dark';
 }) {
   const { theme } = useAppearance();
+  const palette = tone === 'dark' ? APP_THEMES.genz.palette : theme.palette;
   return (
-    <View style={[styles.header, { borderBottomColor: theme.palette.border }]}>
-      <View style={styles.side}>{left}</View>
+    <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.surfaceLow }]}>
+      {left ? <View style={styles.side}>{left}</View> : null}
 
       <View style={styles.center}>
-        {wordmark ? <GCWordmark /> : !!title && <Text style={[styles.title, { color: theme.palette.onSurface }]} numberOfLines={1}>{title}</Text>}
+        {wordmark ? <GCWordmark /> : !!title && <Text style={[styles.title, { color: palette.onSurface }]} numberOfLines={1}>{title}</Text>}
         {!!subtitle && (
-          <Text style={[styles.subtitle, { color: theme.palette.onSurfaceVariant }]} numberOfLines={1}>
+          <Text style={[styles.subtitle, { color: palette.onSurfaceVariant }]} numberOfLines={1}>
             {subtitle}
           </Text>
         )}
       </View>
 
-      <View style={[styles.side, styles.sideRight]}>{right}</View>
+      {right ? <View style={[styles.side, styles.sideRight]}>{right}</View> : null}
     </View>
   );
 }
@@ -77,38 +84,32 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    backgroundColor: 'transparent',
-    borderBottomWidth: 0,
+    paddingHorizontal: spacing.lg + 4,
+    paddingVertical: spacing.sm,
+    minHeight: 64,
+    gap: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   side: { minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   sideRight: { justifyContent: 'flex-end' },
-  center: { flex: 1, alignItems: 'center' },
+  center: { flex: 1, alignItems: 'flex-start', justifyContent: 'center' },
   wordmark: {
-    fontFamily: typography.headline.fontFamily,
-    color: colors.primary,
-    letterSpacing: -0.5,
-    textShadowColor: 'rgba(129, 140, 248, 0.4)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    fontFamily: fontFamily.displayBold,
+    letterSpacing: -1.2,
   },
-  title: { ...typography.title, color: colors.onSurface, textAlign: 'center' },
+  title: { fontFamily: fontFamily.bodySemi, fontSize: 18, lineHeight: 24, letterSpacing: -0.35 },
   subtitle: {
-    ...typography.micro,
-    color: colors.onSurfaceVariant,
-    letterSpacing: 1,
+    ...typography.caption,
+    fontSize: 12,
+    lineHeight: 16,
     marginTop: 1,
-    textTransform: 'uppercase',
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
+    width: HIT_TARGET,
+    height: HIT_TARGET,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
   },
 });

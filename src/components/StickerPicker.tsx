@@ -10,6 +10,7 @@ import { WebModalCard } from './ui/WebModalCard';
 import { DismissibleModalPage } from './ui/DismissibleModalPage';
 import { useStickers } from '../hooks/useStickers';
 import type { Sticker } from '../types';
+import { useAppearance } from '../context/AppearanceContext';
 
 const COLUMNS = 3;
 const GAP = 8;
@@ -34,6 +35,8 @@ export function StickerPicker({
    *  rather than stacking cleanly. The caller closes this one first. */
   onCreateNew: () => void;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
   const insets = useSafeAreaInsets();
   const { myStickers, favoriteStickers, favoriteIds, loading, refresh, toggleFavorite } = useStickers();
 
@@ -50,19 +53,19 @@ export function StickerPicker({
   }
 
   const content = (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: palette.appRoot }]}>
       <AmbientBackground variant="default" />
 
-        <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 20) }]}>
-          <Text style={styles.headerTitle}>Stickers</Text>
-          <PressableScale style={styles.cancelBtn} scaleTo={0.92} hitSlop={10} onPress={onClose}>
-            <Text style={styles.cancelText}>Cancel</Text>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 20), backgroundColor: palette.surfaceLow, borderBottomColor: palette.border }]}>
+          <Text style={[styles.headerTitle, { color: palette.onSurface }]}>Stickers</Text>
+          <PressableScale style={styles.cancelBtn} scaleTo={0.92} hitSlop={10} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close sticker picker">
+            <Text style={[styles.cancelText, { color: palette.primary }]}>Cancel</Text>
           </PressableScale>
         </View>
 
         {loading && myStickers.length === 0 && favoriteStickers.length === 0 ? (
           <View style={styles.centerState}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={palette.primary} />
           </View>
         ) : (
           <ScrollView
@@ -78,7 +81,7 @@ export function StickerPicker({
               onToggleFavorite={toggleFavorite}
             />
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: palette.border }]} />
 
             <Section
               title="Your Stickers"
@@ -92,12 +95,14 @@ export function StickerPicker({
         )}
 
         <PressableScale
-          style={[styles.createBtn, { bottom: Math.max(insets.bottom + 20, 32) }]}
+          style={[styles.createBtn, { bottom: Math.max(insets.bottom + 20, 32), backgroundColor: palette.primary }]}
           scaleTo={0.92}
           haptic="medium"
           onPress={onCreateNew}
+          accessibilityRole="button"
+          accessibilityLabel="Create a sticker"
         >
-          <Ionicons name="add" size={26} color="#FFFFFF" />
+          <Ionicons name="add" size={26} color={palette.onPrimary} />
         </PressableScale>
       </View>
   );
@@ -132,11 +137,12 @@ function Section({
   onSelect: (sticker: Sticker) => void;
   onToggleFavorite: (stickerId: string) => void;
 }) {
+  const { theme } = useAppearance();
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={[styles.sectionTitle, { color: theme.palette.onSurfaceVariant }]}>{title}</Text>
       {stickers.length === 0 ? (
-        <Text style={styles.emptyText}>{emptyText}</Text>
+        <Text style={[styles.emptyText, { color: theme.palette.onSurfaceVariant }]}>{emptyText}</Text>
       ) : (
         <View style={styles.grid}>
           {stickers.map((item) => (
@@ -165,12 +171,13 @@ function StickerCell({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
+  const { theme } = useAppearance();
   return (
     <View style={styles.cell}>
-      <PressableScale style={styles.cellImageWrap} scaleTo={0.95} haptic="light" onPress={onPress}>
+      <PressableScale style={[styles.cellImageWrap, { backgroundColor: theme.palette.surfaceHigh }]} scaleTo={0.95} haptic="light" onPress={onPress} accessibilityRole="button" accessibilityLabel="Send sticker">
         <Image source={sticker.imageUrl} style={StyleSheet.absoluteFill} contentFit="contain" cachePolicy="memory-disk" transition={120} />
       </PressableScale>
-      <PressableScale style={styles.favBtn} hitSlop={8} scaleTo={0.8} haptic="light" onPress={onToggleFavorite}>
+      <PressableScale style={styles.favBtn} hitSlop={8} scaleTo={0.8} haptic="light" onPress={onToggleFavorite} accessibilityRole="button" accessibilityLabel={isFavorite ? 'Remove sticker from favorites' : 'Add sticker to favorites'}>
         <Ionicons name={isFavorite ? 'star' : 'star-outline'} size={15} color={isFavorite ? colors.yellow : '#FFFFFF'} />
       </PressableScale>
     </View>

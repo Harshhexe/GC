@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GestureResponderEvent, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { easing } from '../theme/motion';
@@ -21,18 +20,7 @@ function ResultBar({ pct, tint, isLeader }: { pct: number; tint: string; isLeade
 
   return (
     <View style={styles.barTrack}>
-      <Animated.View style={[styles.barFill, style]}>
-        <LinearGradient
-          colors={
-            isLeader
-              ? [tint, `${tint}CC`]
-              : ['rgba(255, 255, 255, 0.25)', 'rgba(255, 255, 255, 0.12)']
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
+      <Animated.View style={[styles.barFill, style, { backgroundColor: isLeader ? tint : colors.outlineVariant }]} />
     </View>
   );
 }
@@ -88,12 +76,13 @@ export function PollCard({
       scaleTo={1}
       onLongPress={onLongPress}
       onPress={undefined}
+      accessibilityRole="none"
     >
       {/* Header Badge & Question */}
       <View style={styles.header}>
-        <View style={[styles.pollBadge, { backgroundColor: `${tint}18`, borderColor: `${tint}40` }]}>
+        <View style={styles.pollBadge}>
           <Ionicons name="stats-chart" size={12} color={tint} />
-          <Text style={[styles.pollBadgeText, { color: tint }]}>POLL</Text>
+          <Text style={styles.pollBadgeText}>Poll</Text>
         </View>
         <Text style={styles.question}>{poll.question}</Text>
       </View>
@@ -115,7 +104,7 @@ export function PollCard({
                 styles.option,
                 selected && {
                   borderColor: tint,
-                  backgroundColor: `${tint}12`,
+                  backgroundColor: colors.surfaceHigh,
                 },
               ]}
               scaleTo={0.98}
@@ -126,7 +115,7 @@ export function PollCard({
                 <View
                   style={[
                     styles.radioBox,
-                    selected && { borderColor: tint, backgroundColor: `${tint}25` },
+                    selected && { borderColor: tint, backgroundColor: colors.surfaceHigh },
                   ]}
                 >
                   <Ionicons
@@ -145,7 +134,7 @@ export function PollCard({
                 </View>
 
                 <Text
-                  style={[styles.optionText, selected && { color: '#FFFFFF', fontWeight: '700' }]}
+                  style={[styles.optionText, selected && { color: colors.onSurface, fontWeight: '700' }]}
                   numberOfLines={2}
                 >
                   {option.text}
@@ -239,20 +228,22 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceHigh,
   },
   pollBadgeText: {
     ...typography.micro,
-    fontSize: 9.5,
-    fontWeight: '900',
-    letterSpacing: 0.6,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
   },
   question: {
     ...typography.title,
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
     lineHeight: 21,
   },
   options: {
@@ -260,12 +251,12 @@ const styles = StyleSheet.create({
   },
   option: {
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 8,
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     overflow: 'hidden',
   },
   optionRow: {
@@ -295,7 +286,7 @@ const styles = StyleSheet.create({
   barTrack: {
     height: 5,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.border,
     overflow: 'hidden',
     marginTop: 2,
   },
@@ -326,7 +317,7 @@ const styles = StyleSheet.create({
   footerText: {
     ...typography.micro,
     fontSize: 11,
-    color: '#94A3B8',
+    color: colors.onSurfaceVariant,
     flex: 1,
   },
   seeVotesRow: { flexDirection: 'row', alignItems: 'center', gap: 1 },

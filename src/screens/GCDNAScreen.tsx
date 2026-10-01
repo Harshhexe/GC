@@ -3,24 +3,23 @@ import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import Animated, {
   FadeIn,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { CONTAINER_MARGIN, colors, glass, radius, spacing, typography } from '../theme/theme';
 import { STAGGER_MS, duration, easing, reduceMotion } from '../theme/motion';
 import { groupTheme, GroupTheme, usePersonalGroupTheme } from '../theme/groupThemes';
 import { GlassPanel } from '../components/ui/Glass';
+import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
 import { PressableScale } from '../components/ui/PressableScale';
 import { AIThinking } from '../components/ui/AIState';
 import { useGroupDNA } from '../hooks/useGroupDNA';
+import { useAppearance } from '../context/AppearanceContext';
 import { DNA_DIMENSIONS } from '../lib/ai';
 import { supabase } from '../lib/supabase';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -30,77 +29,15 @@ type Props = NativeStackScreenProps<RootStackParamList, 'GCDNA'>;
 
 const STANDOUT_SCORE = 70;
 
-/** Dynamic atmospheric glow background tinted with the active group theme */
+/** Quiet canvas that lets the group portrait and evidence carry the page. */
 function DNAAtmosphericBackground({ theme }: { theme: GroupTheme }) {
-  const [c1, c2] = theme.colors;
+  const { theme: appTheme } = useAppearance();
   return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Obsidian Dark Base */}
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: appTheme.palette.bg }]} pointerEvents="none">
       <LinearGradient
-        colors={['#0E0C16', colors.appRoot, colors.appChrome]}
+        colors={[`${theme.accent}0D`, 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top Atmosphere Spotlight */}
-      <LinearGradient
-        colors={[`${c1}35`, `${c2}18`, 'transparent']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.7 }}
-        style={styles.topSpotlight}
-      />
-
-      {/* 4-Corner Luminous Glowing Blobs */}
-      <View style={[styles.cornerBlob, styles.blobTopLeft]}>
-        <LinearGradient
-          colors={[`${c1}45`, `${c2}20`, 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobTopRight]}>
-        <LinearGradient
-          colors={[`${c2}35`, 'rgba(76, 215, 246, 0.15)', 'transparent']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomLeft]}>
-        <LinearGradient
-          colors={['rgba(251, 113, 133, 0.18)', `${c1}20`, 'transparent']}
-          start={{ x: 0, y: 1 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      <View style={[styles.cornerBlob, styles.blobBottomRight]}>
-        <LinearGradient
-          colors={[`${c2}30`, 'transparent']}
-          start={{ x: 1, y: 1 }}
-          end={{ x: 0, y: 0 }}
-          style={styles.blobFill}
-        />
-      </View>
-
-      {/* High-intensity dark blur */}
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 85 : 95}
-        tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Subtle Ambient Sheen */}
-      <LinearGradient
-        colors={['rgba(255, 255, 255, 0.02)', 'transparent', 'rgba(3, 2, 6, 0.65)']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0.5 }}
         style={StyleSheet.absoluteFill}
       />
     </View>
@@ -123,6 +60,8 @@ function ScoreBar({
   accent: string;
   themeColors: readonly [string, string] | [string, string];
 }) {
+  const { theme: appTheme } = useAppearance();
+  const palette = appTheme.palette;
   const width = useSharedValue(0);
 
   useEffect(() => {
@@ -138,10 +77,10 @@ function ScoreBar({
   return (
     <View style={styles.scoreRow}>
       <View style={styles.scoreHead}>
-        <View style={styles.scoreEmojiBadge}>
+        <View style={[styles.scoreEmojiBadge, { backgroundColor: palette.surfaceHigh }]}>
           <Text style={styles.scoreEmoji}>{emoji}</Text>
         </View>
-        <Text style={[styles.scoreLabel, standout && styles.scoreLabelStandout]}>
+        <Text style={[styles.scoreLabel, { color: palette.onSurfaceVariant }, standout && { color: palette.onSurface, fontWeight: '700' }]}>
           {label}
         </Text>
         <View style={styles.spacer} />
@@ -150,15 +89,15 @@ function ScoreBar({
             <Text style={[styles.standoutPillText, { color: accent }]}>DOMINANT</Text>
           </View>
         )}
-        <Text style={[styles.scoreValue, standout && { color: accent, fontWeight: '800' }]}>
+        <Text style={[styles.scoreValue, { color: palette.onSurfaceVariant }, standout && { color: accent, fontWeight: '800' }]}>
           {score}%
         </Text>
       </View>
 
-      <View style={styles.track}>
+      <View style={[styles.track, { backgroundColor: palette.surfaceHighest }]}>
         <Animated.View style={[styles.fill, fillStyle]}>
           <LinearGradient
-            colors={standout ? themeColors : ['rgba(255, 255, 255, 0.25)', 'rgba(255, 255, 255, 0.12)']}
+            colors={standout ? themeColors : [palette.outline, palette.outlineVariant]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}
@@ -174,23 +113,6 @@ export default function GCDNAScreen({ route, navigation }: Props) {
   const { snapshot, loading } = useGroupDNA(groupId);
   const [themeKey, setThemeKey] = useState<string | null>(null);
 
-  const pulse = useSharedValue(1);
-
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.06, { duration: 1800, easing: easing.inOut }),
-        withTiming(1.0, { duration: 1800, easing: easing.inOut })
-      ),
-      -1,
-      true
-    );
-  }, [pulse]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-
   useEffect(() => {
     supabase
       .from('groups')
@@ -203,6 +125,8 @@ export default function GCDNAScreen({ route, navigation }: Props) {
   }, [groupId]);
 
   const { theme } = usePersonalGroupTheme(groupId, themeKey);
+  const { theme: appTheme } = useAppearance();
+  const palette = appTheme.palette;
   const dna = snapshot?.dna;
   const hasDNA = !!dna && dna.enoughData && !!dna.archetype;
 
@@ -232,39 +156,20 @@ export default function GCDNAScreen({ route, navigation }: Props) {
   );
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: palette.appRoot }]}>
       <DNAAtmosphericBackground theme={theme} />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Custom Frosted Top Navigation Bar */}
-        <View style={styles.topBar}>
-          <PressableScale
-            style={styles.backButton}
-            scaleTo={0.88}
-            hitSlop={8}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-          </PressableScale>
-
-          <View style={styles.topBarTitleBlock}>
-            <Text style={styles.topBarTitle}>GC DNA</Text>
-            {!!groupName && (
-              <View style={styles.groupNamePill}>
-                <Text style={styles.groupNamePillText} numberOfLines={1}>
-                  {groupName}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.topBarRightDummy} />
-        </View>
+        <AppHeader
+          title="GC DNA"
+          subtitle={groupName}
+          left={<HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />}
+        />
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {loading ? (
             <View style={styles.centeredLoading}>
               <AIThinking tint={theme.accent} />
-              <Text style={styles.loadingText}>Sequencing GC psychological profile...</Text>
+              <Text style={[styles.loadingText, { color: palette.onSurfaceVariant }]}>Loading your GC portrait…</Text>
             </View>
           ) : !hasDNA ? (
             /* ══════════════════════════════════════════════════════════════
@@ -274,34 +179,27 @@ export default function GCDNAScreen({ route, navigation }: Props) {
               entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
               style={styles.evolvingWrapper}
             >
-              <GlassPanel borderRadius={radius.xl} style={styles.evolvingCard}>
-                <Animated.View style={[styles.evolvingIconOrb, pulseStyle]}>
-                  <LinearGradient
-                    colors={theme.colors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.evolvingIconGradient}
-                  >
-                    <Text style={styles.evolvingEmoji}>🧬</Text>
-                  </LinearGradient>
-                </Animated.View>
-
-                <View style={styles.evolvingBadge}>
-                  <Ionicons name="sparkles" size={12} color={theme.accent} />
-                  <Text style={[styles.evolvingBadgeText, { color: theme.accent }]}>DNA SEQUENCING</Text>
+              <GlassPanel borderRadius={radius.lg} style={[styles.evolvingCard, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
+                <View style={[styles.evolvingIconOrb, { backgroundColor: palette.surfaceHigh }]}>
+                  <Text style={styles.evolvingEmoji}>🧬</Text>
                 </View>
 
-                <Text style={styles.evolvingTitle}>Still Evolving...</Text>
-                <Text style={styles.evolvingBody}>
-                  The AI needs a few more messages to accurately synthesize your group's psychological archetype.
+                <View style={[styles.evolvingBadge, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+                  <Ionicons name="sparkles" size={12} color={theme.accent} />
+                  <Text style={[styles.evolvingBadgeText, { color: theme.accent }]}>Still learning</Text>
+                </View>
+
+                <Text style={[styles.evolvingTitle, { color: palette.onSurface }]}>Your GC is taking shape</Text>
+                <Text style={[styles.evolvingBody, { color: palette.onSurfaceVariant }]}>
+                  Keep chatting. Once there is enough conversation, your GC portrait will appear here.
                 </Text>
-                <Text style={styles.evolvingSubBody}>
-                  Keep chatting, sending voice notes, and causing chaos — your GC DNA updates weekly with GC Awards!
+                <Text style={[styles.evolvingSubBody, { color: palette.onSurfaceVariant }]}>
+                  It refreshes each week with GC Awards.
                 </Text>
 
-                <View style={styles.evolvingFooter}>
-                  <Ionicons name="time-outline" size={14} color="#94A3B8" />
-                  <Text style={styles.evolvingFooterText}>Evolves automatically every week</Text>
+                <View style={[styles.evolvingFooter, { borderTopColor: palette.border }]}>
+                  <Ionicons name="time-outline" size={14} color={palette.onSurfaceVariant} />
+                  <Text style={[styles.evolvingFooterText, { color: palette.onSurfaceVariant }]}>Evolves automatically every week</Text>
                 </View>
               </GlassPanel>
             </Animated.View>
@@ -314,44 +212,28 @@ export default function GCDNAScreen({ route, navigation }: Props) {
               <Animated.View
                 entering={FadeInDown.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
               >
-                <View style={[styles.heroCard, { borderColor: `${theme.accent}45` }]}>
-                  {Platform.OS !== 'web' && (
-                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                  )}
-                  <LinearGradient
-                    colors={[`${theme.accent}24`, 'rgba(255, 255, 255, 0.02)']}
-                    start={{ x: 0.5, y: 0 }}
-                    end={{ x: 0.5, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                  />
+                <View style={[styles.heroCard, { borderColor: palette.border, backgroundColor: palette.surfaceLow }]}>
 
                   {/* Archetype Label Badge */}
                   <View style={[styles.archetypePill, { borderColor: `${theme.accent}50`, backgroundColor: `${theme.accent}20` }]}>
                     <Ionicons name="finger-print" size={12} color={theme.accent} />
                     <Text style={[styles.archetypePillText, { color: theme.accent }]}>
-                      GC ARCHETYPE
+                      Your GC archetype
                     </Text>
                   </View>
 
                   {/* Big Emoji Orb */}
-                  <Animated.View style={[styles.heroEmojiWrap, pulseStyle]}>
-                    <LinearGradient
-                      colors={theme.colors}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.heroEmojiGradient}
-                    >
-                      <Text style={styles.heroEmoji}>{dna!.archetype!.emoji}</Text>
-                    </LinearGradient>
-                  </Animated.View>
+                  <View style={[styles.heroEmojiWrap, { backgroundColor: palette.surfaceHigh }]}>
+                    <Text style={styles.heroEmoji}>{dna!.archetype!.emoji}</Text>
+                  </View>
 
-                  <Text style={[styles.heroName, { color: '#FFFFFF' }]}>
-                    {dna!.archetype!.name.toUpperCase()}
+                  <Text style={[styles.heroName, { color: palette.onSurface }]}>
+                    {dna!.archetype!.name}
                   </Text>
 
                   {!!dna!.archetype!.description && (
-                    <View style={styles.heroQuoteBox}>
-                      <Text style={styles.heroDesc}>“{dna!.archetype!.description}”</Text>
+                    <View style={[styles.heroQuoteBox, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
+                      <Text style={[styles.heroDesc, { color: palette.onSurfaceVariant }]}>“{dna!.archetype!.description}”</Text>
                     </View>
                   )}
                 </View>
@@ -365,12 +247,12 @@ export default function GCDNAScreen({ route, navigation }: Props) {
                     .easing(easing.out)
                     .reduceMotion(reduceMotion)}
                 >
-                  <GlassPanel borderRadius={radius.lg} style={styles.oneLinerCard}>
+                  <GlassPanel borderRadius={radius.lg} style={[styles.oneLinerCard, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
                     <View style={styles.oneLinerHeader}>
-                      <Ionicons name="sparkles" size={14} color="#FBBF24" />
-                      <Text style={styles.oneLinerLabel}>YOUR GC IN ONE SENTENCE</Text>
+                      <Ionicons name="sparkles" size={14} color={palette.primary} />
+                      <Text style={[styles.oneLinerLabel, { color: palette.primary }]}>YOUR GC IN ONE SENTENCE</Text>
                     </View>
-                    <Text style={styles.oneLinerText}>“{dna!.oneLiner}”</Text>
+                    <Text style={[styles.oneLinerText, { color: palette.onSurface }]}>“{dna!.oneLiner}”</Text>
                   </GlassPanel>
                 </Animated.View>
               )}
@@ -382,7 +264,7 @@ export default function GCDNAScreen({ route, navigation }: Props) {
                   .easing(easing.out)
                   .reduceMotion(reduceMotion)}
               >
-                <GlassPanel borderRadius={radius.lg} style={styles.card}>
+                <GlassPanel borderRadius={radius.lg} style={[styles.card, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
                   <SectionHeader
                     icon="pulse"
                     color={theme.accent}
@@ -416,7 +298,7 @@ export default function GCDNAScreen({ route, navigation }: Props) {
                     .easing(easing.out)
                     .reduceMotion(reduceMotion)}
                 >
-                  <GlassPanel borderRadius={radius.lg} style={styles.card}>
+                  <GlassPanel borderRadius={radius.lg} style={[styles.card, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
                     <SectionHeader
                       icon="chatbubbles"
                       color="#818CF8"
@@ -424,7 +306,7 @@ export default function GCDNAScreen({ route, navigation }: Props) {
                       subtitle="Typing habits, speed, and conversational rhythm"
                     />
 
-                    <Text style={styles.bodyText}>{dna!.communicationStyle.summary}</Text>
+                    <Text style={[styles.bodyText, { color: palette.onSurface }]}>{dna!.communicationStyle.summary}</Text>
 
                     <View style={styles.statGrid}>
                       <StatTile
@@ -464,7 +346,7 @@ export default function GCDNAScreen({ route, navigation }: Props) {
                     .easing(easing.out)
                     .reduceMotion(reduceMotion)}
                 >
-                  <GlassPanel borderRadius={radius.lg} style={styles.card}>
+                  <GlassPanel borderRadius={radius.lg} style={[styles.card, { backgroundColor: palette.surfaceLow, borderColor: palette.border }]}>
                     <SectionHeader
                       icon="bulb"
                       color="#38BDF8"
@@ -474,19 +356,19 @@ export default function GCDNAScreen({ route, navigation }: Props) {
 
                     <View style={styles.observationList}>
                       {dna!.definesThisGC.map((obs, i) => (
-                        <View key={i} style={styles.observationItem}>
+                        <View key={i} style={[styles.observationItem, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}>
                           <View style={styles.observationHeaderRow}>
                             <View style={[styles.obsNumberBadge, { backgroundColor: `${theme.accent}20` }]}>
                               <Text style={[styles.obsNumberText, { color: theme.accent }]}>
                                 {i + 1 < 10 ? `0${i + 1}` : i + 1}
                               </Text>
                             </View>
-                            <Text style={styles.observationText}>{obs.text}</Text>
+                            <Text style={[styles.observationText, { color: palette.onSurface }]}>{obs.text}</Text>
                           </View>
 
                           {obs.sourceMessageIds.length > 0 && (
                             <PressableScale
-                              style={[styles.receiptBtn, { borderColor: `${theme.accent}40` }]}
+                              style={[styles.receiptBtn, { borderColor: `${theme.accent}40`, backgroundColor: palette.surfaceLow }]}
                               scaleTo={0.96}
                               haptic="light"
                               onPress={() => handleJumpToChat(obs.sourceMessageIds[0])}
@@ -506,8 +388,8 @@ export default function GCDNAScreen({ route, navigation }: Props) {
 
               {/* Footer Stamp */}
               <View style={styles.footnoteWrap}>
-                <Ionicons name="sync" size={13} color="#94A3B8" />
-                <Text style={styles.footnote}>
+                <Ionicons name="sync" size={13} color={palette.onSurfaceVariant} />
+                <Text style={[styles.footnote, { color: palette.onSurfaceVariant }]}>
                   Evolves automatically every week with GC Awards · snapshot week of {snapshot!.weekStart}
                 </Text>
               </View>
@@ -530,15 +412,16 @@ function SectionHeader({
   title: string;
   subtitle?: string;
 }) {
+  const { theme } = useAppearance();
   return (
     <View style={styles.sectionHeadBlock}>
       <View style={styles.sectionTitleRow}>
         <View style={[styles.sectionIconWrap, { backgroundColor: `${color}18`, borderColor: `${color}35` }]}>
           <Ionicons name={icon} size={15} color={color} />
         </View>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={[styles.sectionTitle, { color: theme.palette.onSurface }]}>{title}</Text>
       </View>
-      {!!subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+      {!!subtitle && <Text style={[styles.sectionSubtitle, { color: theme.palette.onSurfaceVariant }]}>{subtitle}</Text>}
     </View>
   );
 }
@@ -554,11 +437,12 @@ function StatTile({
   value: string;
   color: string;
 }) {
+  const { theme } = useAppearance();
   return (
-    <View style={styles.statTile}>
+    <View style={[styles.statTile, { backgroundColor: theme.palette.surfaceHigh, borderColor: theme.palette.border }]}>
       <Ionicons name={icon} size={16} color={color} style={styles.statTileIcon} />
-      <Text style={styles.statTileValue}>{value}</Text>
-      <Text style={styles.statTileLabel}>{label}</Text>
+      <Text style={[styles.statTileValue, { color: theme.palette.onSurface }]}>{value}</Text>
+      <Text style={[styles.statTileLabel, { color: theme.palette.onSurfaceVariant }]}>{label}</Text>
     </View>
   );
 }
@@ -573,65 +457,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_MARGIN,
     paddingBottom: spacing.xl * 2,
     gap: spacing.lg,
-  },
-
-  // Glow Background
-  glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  cornerBlob: { position: 'absolute', borderRadius: 999 },
-  blobFill: { flex: 1, borderRadius: 999 },
-  blobTopLeft: { top: -70, left: -70, width: 280, height: 280, opacity: 0.75 },
-  blobTopRight: { top: -60, right: -60, width: 270, height: 270, opacity: 0.7 },
-  blobBottomLeft: { bottom: -70, left: -60, width: 280, height: 280, opacity: 0.65 },
-  blobBottomRight: { bottom: -80, right: -70, width: 290, height: 290, opacity: 0.7 },
-
-  // Top Bar
-  topBar: {
-    width: '100%',
-    maxWidth: 720,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: CONTAINER_MARGIN,
-    height: 48,
-    marginBottom: spacing.xs,
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topBarTitleBlock: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  topBarTitle: {
-    ...typography.title,
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
-  },
-  groupNamePill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 1.5,
-    borderRadius: radius.pill,
-  },
-  groupNamePillText: {
-    ...typography.micro,
-    fontSize: 10.5,
-    color: colors.onSurfaceVariant,
-    fontWeight: '600',
-  },
-  topBarRightDummy: {
-    width: 38,
   },
 
   centeredLoading: {
@@ -651,17 +476,19 @@ const styles = StyleSheet.create({
   },
   evolvingCard: {
     padding: spacing.xl,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   evolvingIconOrb: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    overflow: 'hidden',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.xs,
   },
   evolvingIconGradient: {
@@ -676,12 +503,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.surfaceHigh,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border,
   },
   evolvingBadgeText: {
     ...typography.micro,
@@ -693,14 +520,14 @@ const styles = StyleSheet.create({
     ...typography.headline,
     fontSize: 24,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onSurface,
     marginTop: 2,
   },
   evolvingBody: {
     ...typography.body,
     fontSize: 14,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 20,
     paddingHorizontal: spacing.sm,
   },
@@ -708,7 +535,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: 12.5,
     color: '#94A3B8',
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 18,
     marginTop: 2,
   },
@@ -729,14 +556,14 @@ const styles = StyleSheet.create({
 
   // Archetype Hero Card
   heroCard: {
-    borderRadius: radius.xl,
-    borderWidth: 1.5,
+    borderRadius: radius.lg,
+    borderWidth: 1,
     overflow: 'hidden',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceLow,
   },
   archetypePill: {
     flexDirection: 'row',
@@ -744,7 +571,7 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     borderWidth: 1,
     marginBottom: 4,
   },
@@ -755,10 +582,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   heroEmojiWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    overflow: 'hidden',
+    width: 72,
+    height: 72,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginVertical: 4,
   },
   heroEmojiGradient: {
@@ -774,12 +603,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 0.5,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   heroQuoteBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -789,7 +618,7 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: 13.5,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 20,
     fontStyle: 'italic',
   },
@@ -798,9 +627,9 @@ const styles = StyleSheet.create({
   oneLinerCard: {
     padding: spacing.lg,
     gap: spacing.xs,
-    backgroundColor: 'rgba(251, 191, 36, 0.04)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.25)',
+    borderColor: colors.border,
   },
   oneLinerHeader: {
     flexDirection: 'row',
@@ -818,7 +647,7 @@ const styles = StyleSheet.create({
     ...typography.titleMd,
     fontSize: 15.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onSurface,
     lineHeight: 22,
   },
 
@@ -826,9 +655,9 @@ const styles = StyleSheet.create({
   card: {
     padding: spacing.lg,
     gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceLow,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   sectionHeadBlock: {
     gap: 3,
@@ -850,12 +679,12 @@ const styles = StyleSheet.create({
     ...typography.title,
     fontSize: 15.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   sectionSubtitle: {
     ...typography.caption,
     fontSize: 11.5,
-    color: '#94A3B8',
+    color: colors.onSurfaceVariant,
     marginLeft: 34,
   },
 

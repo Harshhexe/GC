@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, typography } from '../theme/theme';
+import { useAppearance } from '../context/AppearanceContext';
 import { segmentMentionText } from '../lib/mentions';
 import type { GroupMember, Mention } from '../types';
 
@@ -50,12 +51,14 @@ function MessageTextInner({
   onMentionPress,
   textStyle,
 }: Props) {
+  const { theme } = useAppearance();
+  const bodyStyle = [styles.text, { color: theme.palette.onSurface }, textStyle];
   const segments = segmentMentionText(text, mentions, mentionEveryone);
   const hasMention = segments.some((s) => s.type === 'mention');
 
   // Fast path: no mentions, so no reason to pay for per-word nodes.
   if (!hasMention) {
-    return <Text style={[styles.text, textStyle]}>{text}</Text>;
+    return <Text style={bodyStyle}>{text}</Text>;
   }
 
   const nodes: React.ReactNode[] = [];
@@ -84,7 +87,7 @@ function MessageTextInner({
           // no word to ride along with, so it has to be emitted on its own.
           if (line.length > 0) {
             nodes.push(
-              <Text key={`${seg.key}-${lineIdx}-ws`} style={[styles.text, textStyle]}>
+              <Text key={`${seg.key}-${lineIdx}-ws`} style={bodyStyle}>
                 {line}
               </Text>
             );
@@ -93,7 +96,7 @@ function MessageTextInner({
         }
         tokens.forEach((token, wordIdx) => {
           nodes.push(
-            <Text key={`${seg.key}-${lineIdx}-${wordIdx}`} style={[styles.text, textStyle]}>
+            <Text key={`${seg.key}-${lineIdx}-${wordIdx}`} style={bodyStyle}>
               {token}
             </Text>
           );

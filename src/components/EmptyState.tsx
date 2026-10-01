@@ -1,70 +1,36 @@
-import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  FadeIn,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  interpolate,
-} from 'react-native-reanimated';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useAppearance } from '../context/AppearanceContext';
 import { duration, easing, reduceMotion } from '../theme/motion';
+import { radius, spacing, typography } from '../theme/theme';
 
 export function EmptyState({
   emoji,
   icon,
-  iconColor = colors.primary,
+  iconColor,
+  title,
   text,
 }: {
   emoji?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   iconColor?: string;
+  title?: string;
   text: string;
 }) {
-  // Slow float so an empty screen doesn't read as a failed load.
-  const float = useSharedValue(0);
-
-  useEffect(() => {
-    float.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200, easing: easing.inOut, reduceMotion }),
-        withTiming(0, { duration: 2200, easing: easing.inOut, reduceMotion })
-      ),
-      -1,
-      false
-    );
-  }, [float]);
-
-  const floatStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(float.value, [0, 1], [0, -8]) },
-      { scale: interpolate(float.value, [0, 1], [1, 1.04]) },
-    ],
-  }));
+  const { theme } = useAppearance();
+  const accent = iconColor ?? theme.palette.primary;
 
   return (
     <Animated.View
-      entering={FadeIn.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
+      entering={FadeInUp.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
       style={styles.container}
     >
-      <Animated.View style={floatStyle}>
-        {icon ? (
-          <View style={[styles.iconOrb, { borderColor: `${iconColor}33`, backgroundColor: `${iconColor}14` }]}>
-            <Ionicons name={icon} size={36} color={iconColor} />
-          </View>
-        ) : emoji ? (
-          <Text style={styles.emoji}>{emoji}</Text>
-        ) : (
-          <View style={[styles.iconOrb, { borderColor: `${iconColor}33`, backgroundColor: `${iconColor}14` }]}>
-            <Ionicons name="chatbubbles-outline" size={36} color={iconColor} />
-          </View>
-        )}
-      </Animated.View>
-      <View style={styles.glow} />
-      <Text style={styles.text}>{text}</Text>
+      <View style={[styles.symbol, { backgroundColor: theme.palette.surfaceHigh, borderColor: theme.palette.border }]}>
+        {emoji ? <Text style={styles.emoji}>{emoji}</Text> : <Ionicons name={icon ?? 'chatbubbles-outline'} size={27} color={accent} />}
+      </View>
+      {title ? <Text style={[styles.title, { color: theme.palette.onSurface }]}>{title}</Text> : null}
+      <Text style={[styles.text, { color: theme.palette.onSurfaceVariant }]}>{text}</Text>
     </Animated.View>
   );
 }
@@ -75,29 +41,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
     gap: spacing.md,
   },
-  emoji: { fontSize: 52 },
-  iconOrb: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.pill,
+  symbol: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.lg,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    marginBottom: spacing.xs,
   },
-  glow: {
-    width: 90,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: colors.accentGlow,
-    opacity: 0.22,
-    marginTop: -spacing.sm,
-  },
-  text: {
-    ...typography.subheading,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
+  emoji: { fontSize: 30 },
+  title: { ...typography.title, fontSize: 20, textAlign: 'center' },
+  text: { ...typography.body, fontSize: 14, lineHeight: 21, textAlign: 'center', maxWidth: 310 },
 });

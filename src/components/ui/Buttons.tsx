@@ -8,8 +8,8 @@ import { useAppearance } from '../../context/AppearanceContext';
 type Variant = 'primary' | 'gradient' | 'cyan' | 'ghost' | 'danger';
 
 /**
- * The one button in the app. `neo` adds the Neo-Brutalist hard offset shadow
- * used on the loudest actions (Copy Code, Invite Friends).
+ * Shared button treatment for clear hierarchy and consistent touch feedback.
+ * `neo` preserves a little extra lift for the most important actions.
  */
 export function GCButton({
   label,
@@ -80,6 +80,8 @@ export function GCButton({
       disabled={disabled}
       haptic="medium"
       scaleTo={0.96}
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       style={[
         styles.wrap,
         neo && !disabled && shadows.hard,
@@ -109,25 +111,25 @@ const variantText: Record<Variant, TextStyle> = {
 };
 
 const variantGlow: Record<Variant, ViewStyle> = {
-  primary: shadows.glow,
-  gradient: shadows.glow,
-  cyan: shadows.glowCyan,
+  primary: {},
+  gradient: {},
+  cyan: {},
   ghost: {},
   danger: {},
 };
 
 const styles = StyleSheet.create({
-  wrap: { borderRadius: radius.pill },
+  wrap: { borderRadius: radius.md },
   base: {
-    borderRadius: radius.pill,
-    paddingVertical: 16,
+    borderRadius: radius.md,
+    paddingVertical: 14,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   full: { width: '100%' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  label: { ...typography.titleMd, fontSize: 17 },
+  label: { ...typography.bodyMedium, fontSize: 15 },
   labelDisabled: { color: colors.outline },
   disabled: { backgroundColor: colors.surfaceHigh },
 });

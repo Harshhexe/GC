@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import {
@@ -20,26 +19,25 @@ import {
   DOCK_HEIGHT,
   colors,
   fontFamily,
-  glass,
   gradients,
   radius,
-  shadows,
   spacing,
   typography,
 } from '../theme/theme';
 import { duration, easing, reduceMotion } from '../theme/motion';
-import { GROUP_THEMES, GroupThemeKey, groupTheme, GroupTheme } from '../theme/groupThemes';
+import { GROUP_THEMES, GroupThemeKey, groupTheme } from '../theme/groupThemes';
 import { useGCEntitlement } from '../hooks/useGCEntitlement';
 import { formatPaise, friendlyGroupCreateError, openGCCheckout, startGCPurchase } from '../lib/billing';
 import { GlassPanel } from '../components/ui/Glass';
-import { AppHeader, HeaderIconButton } from '../components/ui/AppHeader';
-import { useIsDesktopWeb } from '../hooks/useResponsiveLayout';
+import { GCButton } from '../components/ui/Buttons';
+import { AppHeader } from '../components/ui/AppHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { InviteCodeCard } from '../components/InviteCodeCard';
 import { supabase } from '../lib/supabase';
 import { uploadGroupAvatar } from '../lib/uploadAvatar';
 import { useAuth } from '../context/AuthContext';
+import { useAppearance } from '../context/AppearanceContext';
 import { successFeedback } from '../utils/haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -57,66 +55,30 @@ function normaliseCode(raw: string) {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH);
 }
 
-/** Dynamic multi-layered ambient glow background tied to selected theme (zero blob artifacts) */
-function ThemedGlowBackground({ theme }: { theme: GroupTheme }) {
-  const [c1, c2] = theme.colors;
-
+/** A restrained canvas leaves the selected group theme inside the preview. */
+function ThemedGlowBackground() {
+  const { theme } = useAppearance();
   return (
-    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot]} pointerEvents="none">
-      {/* Deep Dark Base */}
+    <View style={[StyleSheet.absoluteFill, styles.glowBgRoot, { backgroundColor: theme.palette.bg }]} pointerEvents="none">
       <LinearGradient
-        colors={['#0F0D15', '#08070C', '#050508']}
+        colors={[theme.palette.bg, theme.palette.appChrome]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-
-      {/* Top Atmosphere Spotlight */}
       <LinearGradient
-        colors={[`${c1}24`, `${c2}10`, 'transparent']}
+        colors={theme.isDark ? ['rgba(176,182,255,0.07)', 'transparent'] : ['rgba(79,70,229,0.025)', 'transparent']}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.65 }}
+        end={{ x: 0.5, y: 1 }}
         style={styles.topSpotlight}
-      />
-
-      {/* Top-Left Ambient Wash */}
-      <LinearGradient
-        colors={[`${c1}14`, 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.7, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Top-Right Secondary Accent Wash */}
-      <LinearGradient
-        colors={[`${c2}10`, 'transparent']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.3, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Center Subtle Tint */}
-      <LinearGradient
-        colors={['transparent', `${c1}08`, 'transparent']}
-        start={{ x: 0.5, y: 0.25 }}
-        end={{ x: 0.5, y: 0.75 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Bottom Grounding Vignette */}
-      <LinearGradient
-        colors={['transparent', 'rgba(5, 5, 8, 0.65)']}
-        start={{ x: 0.5, y: 0.6 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
       />
     </View>
   );
 }
 
 export default function AddGCScreen({ navigation, route }: Props) {
+  const { theme: appTheme } = useAppearance();
   const { session, profile } = useAuth();
-  const isDesktopWeb = useIsDesktopWeb();
   const [mode, setMode] = useState<'create' | 'join'>(route.params?.mode ?? 'create');
 
   const requestedMode = route.params?.mode;
@@ -322,18 +284,11 @@ export default function AddGCScreen({ navigation, route }: Props) {
   }
 
   return (
-    <View style={styles.root}>
-      <ThemedGlowBackground theme={activeTheme} />
+    <View style={[styles.root, { backgroundColor: appTheme.palette.bg }]}>
+      <ThemedGlowBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <AppHeader
           wordmark
-          // No back arrow on the desktop shell: Create is a rail tab, not a
-          // pushed route, so there is nowhere for "back" to go.
-          left={
-            isDesktopWeb ? undefined : (
-              <HeaderIconButton name="arrow-back" onPress={() => navigation.goBack()} />
-            )
-          }
           right={
             <Avatar
               imageUrl={profile?.avatar_url}
@@ -353,26 +308,37 @@ export default function AddGCScreen({ navigation, route }: Props) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Mode Switcher Segment (WhatsApp / Modern Messenger Style) */}
             {!created && (
-              <Animated.View entering={FadeIn.reduceMotion(reduceMotion)} style={styles.segmentTrack}>
+              <View style={styles.pageIntro}>
+                <Text style={[styles.pageEyebrow, { color: appTheme.palette.primary }]}>YOUR SPACE</Text>
+                <Text style={[styles.pageTitle, { color: appTheme.palette.onSurface }]}>{mode === 'create' ? 'Start a GC' : 'Join a GC'}</Text>
+                <Text style={[styles.pageSubtitle, { color: appTheme.palette.onSurfaceVariant }]}>
+                  {mode === 'create'
+                    ? 'Give your people one place to talk, share, and stay close.'
+                    : 'Have an invite code? You’re one step away from the conversation.'}
+                </Text>
+              </View>
+            )}
+
+            {!created && (
+              <Animated.View entering={FadeIn.reduceMotion(reduceMotion)} style={[styles.segmentTrack, { backgroundColor: appTheme.palette.surfaceLow, borderColor: appTheme.palette.border }]}>
                 <PressableScale
-                  style={[styles.segmentBtn, mode === 'create' && styles.segmentBtnActive]}
+                  style={[styles.segmentBtn, mode === 'create' && [styles.segmentBtnActive, { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.borderBright }]]}
                   scaleTo={0.97}
                   onPress={() => setMode('create')}
                 >
                   <Ionicons
                     name="add-circle"
                     size={16}
-                    color={mode === 'create' ? '#FFFFFF' : colors.onSurfaceVariant}
+                    color={mode === 'create' ? appTheme.palette.primary : appTheme.palette.onSurfaceVariant}
                   />
-                  <Text style={[styles.segmentText, mode === 'create' && styles.segmentTextActive]}>
+                  <Text style={[styles.segmentText, mode === 'create' && styles.segmentTextActive, { color: mode === 'create' ? appTheme.palette.onSurface : appTheme.palette.onSurfaceVariant }]}>
                     New Group
                   </Text>
                 </PressableScale>
 
                 <PressableScale
-                  style={[styles.segmentBtn, mode === 'join' && styles.segmentBtnActive]}
+                  style={[styles.segmentBtn, mode === 'join' && [styles.segmentBtnActive, { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.borderBright }]]}
                   scaleTo={0.97}
                   onPress={() => {
                     setMode('join');
@@ -382,9 +348,9 @@ export default function AddGCScreen({ navigation, route }: Props) {
                   <Ionicons
                     name="key"
                     size={15}
-                    color={mode === 'join' ? '#FFFFFF' : colors.onSurfaceVariant}
+                    color={mode === 'join' ? appTheme.palette.primary : appTheme.palette.onSurfaceVariant}
                   />
-                  <Text style={[styles.segmentText, mode === 'join' && styles.segmentTextActive]}>
+                  <Text style={[styles.segmentText, mode === 'join' && styles.segmentTextActive, { color: mode === 'join' ? appTheme.palette.onSurface : appTheme.palette.onSurfaceVariant }]}>
                     Join with Code
                   </Text>
                 </PressableScale>
@@ -401,12 +367,12 @@ export default function AddGCScreen({ navigation, route }: Props) {
               >
                 <GlassPanel borderRadius={radius.xl} style={styles.createdCard}>
                   <View style={styles.createdBadgeRow}>
-                    <View style={[styles.celebrationBadge, { backgroundColor: `${activeTheme.accent}20` }]}>
-                      <Ionicons name="sparkles" size={24} color={activeTheme.accent} />
+                    <View style={[styles.celebrationBadge, { backgroundColor: colors.surfaceHigh }]}>
+                      <Ionicons name="checkmark" size={25} color={colors.primary} />
                     </View>
-                    <Text style={styles.createdHeadline}>Group Created!</Text>
-                    <Text style={styles.createdSubtext}>
-                      Your GC is live. Share the invite code with your squad.
+                    <Text style={[styles.createdHeadline, { color: appTheme.palette.onSurface }]}>Your GC is ready</Text>
+                    <Text style={[styles.createdSubtext, { color: appTheme.palette.onSurfaceVariant }]}>
+                      Share the invite code with your people, then start talking.
                     </Text>
                   </View>
 
@@ -416,9 +382,9 @@ export default function AddGCScreen({ navigation, route }: Props) {
                       label={created.name}
                       size={90}
                       ringColors={activeTheme.colors}
-                      glow
+                      glow={false}
                     />
-                    <Text style={styles.createdGroupName} numberOfLines={1}>
+                    <Text style={[styles.createdGroupName, { color: appTheme.palette.onSurface }]} numberOfLines={1}>
                       {created.name}
                     </Text>
                   </View>
@@ -428,26 +394,15 @@ export default function AddGCScreen({ navigation, route }: Props) {
                   </View>
 
                   <View style={styles.createdActions}>
-                    <PressableScale
-                      style={styles.openChatBtnWrap}
-                      scaleTo={0.96}
-                      haptic="medium"
+                    <GCButton
+                      label="Open chat"
+                      iconRight={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
                       onPress={() => {
                         const id = created.id;
                         resetWizard();
                         navigation.navigate('Chat', { groupId: id });
                       }}
-                    >
-                      <LinearGradient
-                        colors={activeTheme.colors}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.openChatBtnGradient}
-                      >
-                        <Ionicons name="chatbubbles" size={18} color="#FFFFFF" />
-                        <Text style={styles.openChatBtnText}>Open Group Chat</Text>
-                      </LinearGradient>
-                    </PressableScale>
+                    />
 
                     {!entitlement || entitlement.canCreate ? (
                       <PressableScale style={styles.anotherLinkBtn} scaleTo={0.95} onPress={resetWizard}>
@@ -473,31 +428,23 @@ export default function AddGCScreen({ navigation, route }: Props) {
                 style={styles.createContainer}
               >
                 <GlassPanel borderRadius={radius.xl} style={styles.paywallCard}>
-                  <LinearGradient
-                    colors={['rgba(129,140,248,0.22)', 'rgba(244,114,182,0.08)', 'transparent']}
-                    start={{ x: 0.5, y: 0 }}
-                    end={{ x: 0.5, y: 1 }}
-                    style={styles.paywallBanner}
-                    pointerEvents="none"
-                  />
-
                   <View style={styles.paywallIcon}>
-                    <Ionicons name="sparkles" size={26} color="#FFFFFF" />
+                    <Ionicons name="add" size={26} color={colors.primary} />
                   </View>
 
-                  <Text style={styles.paywallTitle} accessibilityRole="header">
+                  <Text style={[styles.paywallTitle, { color: appTheme.palette.onSurface }]} accessibilityRole="header">
                     Add another GC
                   </Text>
-                  <Text style={styles.paywallBody}>
+                  <Text style={[styles.paywallBody, { color: appTheme.palette.onSurfaceVariant }]}>
                     Your first GC is free — you're using {entitlement.owned} of{' '}
                     {entitlement.allowance}. Unlock one more group for a one-time fee.
                   </Text>
 
                   <View style={styles.paywallPriceRow}>
-                    <Text style={styles.paywallPrice}>
+                    <Text style={[styles.paywallPrice, { color: appTheme.palette.onSurface }]}>
                       {formatPaise(entitlement.pricePaise)}
                     </Text>
-                    <Text style={styles.paywallPriceMeta}>one-time · per GC</Text>
+                    <Text style={[styles.paywallPriceMeta, { color: appTheme.palette.textMuted }]}>one-time · per GC</Text>
                   </View>
 
                   <View style={styles.paywallPerks}>
@@ -508,20 +455,20 @@ export default function AddGCScreen({ navigation, route }: Props) {
                     ].map((perk) => (
                       <View key={perk} style={styles.paywallPerkRow}>
                         <Ionicons name="checkmark-circle" size={15} color={colors.lime} />
-                        <Text style={styles.paywallPerkText}>{perk}</Text>
+                        <Text style={[styles.paywallPerkText, { color: appTheme.palette.onSurfaceVariant }]}>{perk}</Text>
                       </View>
                     ))}
                   </View>
 
                   {/* Phone input for Cashfree receipt & verification */}
                   <View style={styles.paywallPhoneWrap}>
-                    <Text style={styles.paywallPhoneLabel}>Mobile number for payment receipt</Text>
-                    <View style={styles.paywallPhoneInputRow}>
-                      <Text style={styles.paywallPhonePrefix}>+91</Text>
+                    <Text style={[styles.paywallPhoneLabel, { color: appTheme.palette.textMuted }]}>Mobile number for payment receipt</Text>
+                    <View style={[styles.paywallPhoneInputRow, { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.border }]}>
+                      <Text style={[styles.paywallPhonePrefix, { color: appTheme.palette.textMuted }]}>+91</Text>
                       <TextInput
-                        style={styles.paywallPhoneInput}
+                        style={[styles.paywallPhoneInput, { color: appTheme.palette.onSurface }]}
                         placeholder="10-digit number"
-                        placeholderTextColor="rgba(255,255,255,0.35)"
+                        placeholderTextColor={appTheme.palette.textMuted}
                         keyboardType="phone-pad"
                         maxLength={10}
                         value={phone}
@@ -535,36 +482,15 @@ export default function AddGCScreen({ navigation, route }: Props) {
 
                   {!!purchaseNote && <Text style={styles.paywallNote}>{purchaseNote}</Text>}
 
-                  <PressableScale
+                  <GCButton
+                    label={startingPurchase ? 'Opening checkout…' : `Pay ${formatPaise(entitlement.pricePaise)}`}
                     style={styles.paywallCta}
-                    scaleTo={0.96}
-                    haptic="medium"
                     disabled={startingPurchase}
                     onPress={handleBuySlot}
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: startingPurchase, busy: startingPurchase }}
-                    accessibilityLabel={`Pay ${formatPaise(entitlement.pricePaise)} for one more GC`}
-                  >
-                    <LinearGradient
-                      colors={gradients.brand}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.paywallCtaInner}
-                    >
-                      {startingPurchase ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="lock-open" size={16} color="#FFFFFF" />
-                          <Text style={styles.paywallCtaText}>
-                            Pay {formatPaise(entitlement.pricePaise)}
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </PressableScale>
+                    icon={startingPurchase ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="lock-open" size={16} color="#FFFFFF" />}
+                  />
 
-                  <Text style={styles.paywallFinePrint}>
+                  <Text style={[styles.paywallFinePrint, { color: appTheme.palette.textMuted }]}>
                     Payments are handled by Cashfree. You’ll finish in your browser,
                     then come back.
                   </Text>
@@ -596,7 +522,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
 
                 {/* 1. WhatsApp-Style Group Identity Card */}
                 <GlassPanel borderRadius={radius.xl} style={styles.profileCard}>
-                  <Text style={styles.sectionHeaderLabel}>GROUP INFO</Text>
+                  <Text style={[styles.sectionHeaderLabel, { color: appTheme.palette.onSurface }]}>Name and photo</Text>
 
                   <View style={styles.identityRow}>
                     {/* WhatsApp-Style Circular Avatar with Camera Badge */}
@@ -606,7 +532,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
                         label={name.trim() || 'GC'}
                         size={82}
                         ringColors={activeTheme.colors}
-                        glow
+                        glow={false}
                       />
                       <View style={[styles.cameraBadge, { backgroundColor: activeTheme.accent }]}>
                         <Ionicons name="camera" size={14} color="#000000" />
@@ -615,11 +541,11 @@ export default function AddGCScreen({ navigation, route }: Props) {
 
                     {/* Group Subject & Details */}
                     <View style={styles.identityInputsCol}>
-                      <View style={styles.nameFieldWrap}>
+                      <View style={[styles.nameFieldWrap, { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.border }]}>
                         <TextInput
-                          style={styles.nameInput}
-                          placeholder="Type group subject..."
-                          placeholderTextColor={colors.outline}
+                          style={[styles.nameInput, { color: appTheme.palette.onSurface }]}
+                          placeholder="Name your GC"
+                          placeholderTextColor={appTheme.palette.textMuted}
                           value={name}
                           onChangeText={(t) => {
                             setName(t);
@@ -629,8 +555,8 @@ export default function AddGCScreen({ navigation, route }: Props) {
                         />
                       </View>
                       <View style={styles.nameMetaRow}>
-                        <Text style={styles.nameHelpText}>Provide a group name and icon</Text>
-                        <Text style={styles.charCounter}>{name.length}/40</Text>
+                        <Text style={[styles.nameHelpText, { color: appTheme.palette.textMuted }]}>Choose a name your people will recognise</Text>
+                        <Text style={[styles.charCounter, { color: appTheme.palette.textMuted }]}>{name.length}/40</Text>
                       </View>
                     </View>
                   </View>
@@ -653,8 +579,8 @@ export default function AddGCScreen({ navigation, route }: Props) {
                 {/* 2. Theme & Vibe Customization Palette */}
                 <GlassPanel borderRadius={radius.xl} style={styles.themeCard}>
                   <View style={styles.themeHeaderRow}>
-                    <Text style={styles.sectionHeaderLabel}>GROUP THEME & VIBE</Text>
-                    <Text style={styles.selectedThemeName}>{activeTheme.name}</Text>
+                    <Text style={[styles.sectionHeaderLabel, { color: appTheme.palette.onSurface }]}>Group colour</Text>
+                    <Text style={[styles.selectedThemeName, { color: appTheme.palette.onSurfaceVariant }]}>{activeTheme.name}</Text>
                   </View>
 
                   <View style={styles.themeGrid}>
@@ -668,6 +594,7 @@ export default function AddGCScreen({ navigation, route }: Props) {
                           onPress={() => setTheme(t.key)}
                           style={[
                             styles.themeChip,
+                            { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.border },
                             isSelected && {
                               borderColor: t.accent,
                               backgroundColor: `${t.accent}1A`,
@@ -683,7 +610,8 @@ export default function AddGCScreen({ navigation, route }: Props) {
                           <Text
                             style={[
                               styles.themeChipTitle,
-                              isSelected && { color: '#FFFFFF', fontWeight: '700' },
+                              { color: appTheme.palette.onSurfaceVariant },
+                              isSelected && { color: appTheme.palette.onSurface, fontWeight: '700' },
                             ]}
                           >
                             {t.name}
@@ -699,8 +627,8 @@ export default function AddGCScreen({ navigation, route }: Props) {
 
                 {/* 3. Live Card Preview */}
                 <GlassPanel borderRadius={radius.xl} style={styles.previewCard}>
-                  <Text style={styles.sectionHeaderLabel}>CHAT LIST PREVIEW</Text>
-                  <View style={styles.previewContent}>
+                  <Text style={[styles.sectionHeaderLabel, { color: appTheme.palette.onSurface }]}>Preview</Text>
+                  <View style={[styles.previewContent, { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.border }]}>
                     <Avatar
                       imageUrl={photo?.uri}
                       label={name.trim() || 'GC'}
@@ -710,14 +638,12 @@ export default function AddGCScreen({ navigation, route }: Props) {
                     />
                     <View style={styles.previewTextCol}>
                       <View style={styles.previewTopRow}>
-                        <Text style={styles.previewGroupName} numberOfLines={1}>
+                        <Text style={[styles.previewGroupName, { color: appTheme.palette.onSurface }]} numberOfLines={1}>
                           {name.trim() || 'Your Group Name'}
                         </Text>
                         <Text style={[styles.previewTime, { color: activeTheme.accent }]}>just now</Text>
                       </View>
-                      <Text style={styles.previewSnippet} numberOfLines={1}>
-                        You created this group. Tap to start chatting!
-                      </Text>
+                  <Text style={[styles.previewSnippet, { color: appTheme.palette.onSurfaceVariant }]} numberOfLines={1}>Your conversation starts here</Text>
                     </View>
                   </View>
                 </GlassPanel>
@@ -731,42 +657,13 @@ export default function AddGCScreen({ navigation, route }: Props) {
                 )}
 
                 {/* Create CTA Button */}
-                <PressableScale
+                <GCButton
+                  label={busy ? 'Creating GC…' : 'Create GC'}
                   style={styles.createBtnWrap}
-                  scaleTo={0.96}
-                  haptic="medium"
                   onPress={handleCreate}
                   disabled={busy || !name.trim()}
-                >
-                  <LinearGradient
-                    colors={name.trim() ? activeTheme.colors : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.createBtnGradient,
-                      name.trim() && {
-                        shadowColor: activeTheme.accent,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.5,
-                        shadowRadius: 14,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={busy ? 'sync' : 'sparkles'}
-                      size={18}
-                      color={name.trim() ? '#FFFFFF' : colors.outline}
-                    />
-                    <Text
-                      style={[
-                        styles.createBtnText,
-                        !name.trim() && { color: colors.outline },
-                      ]}
-                    >
-                      {busy ? 'Creating GC...' : 'Create Group'}
-                    </Text>
-                  </LinearGradient>
-                </PressableScale>
+                  iconRight={busy ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
+                />
               </Animated.View>
             ) : (
               /* ═══════════════════════════════════════════════════════════════
@@ -778,11 +675,11 @@ export default function AddGCScreen({ navigation, route }: Props) {
               >
                 <GlassPanel borderRadius={radius.xl} style={styles.joinCard}>
                   <View style={styles.joinIconOrb}>
-                    <Ionicons name="key" size={32} color="#22D3EE" />
+                    <Ionicons name="key" size={27} color={colors.primary} />
                   </View>
 
-                  <Text style={styles.joinTitle}>Join Group Chat</Text>
-                  <Text style={styles.joinSubtext}>
+                  <Text style={[styles.joinTitle, { color: appTheme.palette.onSurface }]}>Enter your invite code</Text>
+                  <Text style={[styles.joinSubtext, { color: appTheme.palette.onSurfaceVariant }]}>
                     Enter the 6-character code from your group invite.
                   </Text>
 
@@ -802,11 +699,12 @@ export default function AddGCScreen({ navigation, route }: Props) {
                           key={i}
                           style={[
                             styles.codeDigitBox,
+                            { backgroundColor: appTheme.palette.surfaceHigh, borderColor: appTheme.palette.border },
                             isFilled && styles.codeDigitBoxFilled,
                             isFocused && styles.codeDigitBoxFocused,
                           ]}
                         >
-                          <Text style={styles.codeDigitText}>{char}</Text>
+                          <Text style={[styles.codeDigitText, { color: appTheme.palette.onSurface }]}>{char}</Text>
                         </View>
                       );
                     })}
@@ -836,42 +734,13 @@ export default function AddGCScreen({ navigation, route }: Props) {
                   )}
 
                   {/* Join Action Button */}
-                  <PressableScale
+                  <GCButton
+                    label={joining ? 'Joining GC…' : 'Join GC'}
                     style={styles.joinBtnWrap}
-                    scaleTo={0.96}
-                    haptic="medium"
                     onPress={handleJoin}
                     disabled={code.length !== CODE_LENGTH || joining}
-                  >
-                    <LinearGradient
-                      colors={code.length === CODE_LENGTH ? ['#06B6D4', '#3B82F6'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[
-                        styles.joinBtnGradient,
-                        code.length === CODE_LENGTH && {
-                          shadowColor: '#22D3EE',
-                          shadowOffset: { width: 0, height: 4 },
-                          shadowOpacity: 0.5,
-                          shadowRadius: 14,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={joining ? 'sync' : 'arrow-forward-circle'}
-                        size={19}
-                        color={code.length === CODE_LENGTH ? '#FFFFFF' : colors.outline}
-                      />
-                      <Text
-                        style={[
-                          styles.joinBtnText,
-                          code.length !== CODE_LENGTH && { color: colors.outline },
-                        ]}
-                      >
-                        {joining ? 'Joining Group...' : 'Join Group'}
-                      </Text>
-                    </LinearGradient>
-                  </PressableScale>
+                    iconRight={joining ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
+                  />
                 </GlassPanel>
               </Animated.View>
             )}
@@ -888,29 +757,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.28)',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
-  paywallBanner: { position: 'absolute', top: 0, left: 0, right: 0, height: 150 },
   paywallIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.pill,
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primaryContainer,
+    backgroundColor: colors.surfaceHigh,
     marginBottom: spacing.xs,
   },
   paywallTitle: {
     ...typography.headline,
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontSize: 24,
+    color: colors.onSurface,
     textAlign: 'center',
   },
   paywallBody: {
     ...typography.body,
-    fontSize: 13.5,
+    fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
@@ -925,7 +792,7 @@ const styles = StyleSheet.create({
     ...typography.headline,
     fontSize: 34,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onSurface,
     letterSpacing: -0.5,
   },
   paywallPriceMeta: { ...typography.caption, fontSize: 12, color: colors.textMuted },
@@ -953,12 +820,12 @@ const styles = StyleSheet.create({
   paywallPhoneInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    height: 46,
+    height: 52,
     gap: 8,
   },
   paywallPhonePrefix: {
@@ -982,16 +849,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.md,
   },
-  paywallCta: { width: '100%', marginTop: spacing.lg, borderRadius: radius.pill },
-  paywallCtaInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    minHeight: 52,
-    borderRadius: radius.pill,
-  },
-  paywallCtaText: { ...typography.label, fontSize: 16, color: '#FFFFFF', fontWeight: '800' },
+  paywallCta: { width: '100%', marginTop: spacing.lg },
   paywallFinePrint: {
     ...typography.caption,
     fontSize: 11,
@@ -1005,28 +863,26 @@ const styles = StyleSheet.create({
   scroll: {
     padding: CONTAINER_MARGIN,
     paddingBottom: DOCK_HEIGHT + spacing.xxl,
-    gap: spacing.md,
+    gap: spacing.lg,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
-
-  // Glow Background Styles
   glowBgRoot: { backgroundColor: colors.appRoot, overflow: 'hidden' },
-  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  cornerBlob: { position: 'absolute', borderRadius: 999 },
-  blobFill: { flex: 1, borderRadius: 999 },
-  blobTopLeft: { top: -60, left: -60, width: 270, height: 270, opacity: 0.75 },
-  blobTopRight: { top: -50, right: -50, width: 260, height: 260, opacity: 0.7 },
-  blobBottomLeft: { bottom: -60, left: -50, width: 270, height: 270, opacity: 0.65 },
-  blobBottomRight: { bottom: -70, right: -60, width: 290, height: 290, opacity: 0.7 },
-  blobCenter: { top: '35%', left: '20%', width: 250, height: 250, opacity: 0.55 },
+  topSpotlight: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
+  pageIntro: { gap: spacing.xs, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+  pageEyebrow: { ...typography.label, color: colors.primary, letterSpacing: 1.2 },
+  pageTitle: { ...typography.headline, fontSize: 36, lineHeight: 42, color: colors.onSurface },
+  pageSubtitle: { ...typography.body, fontSize: 14, lineHeight: 21, color: colors.onSurfaceVariant, maxWidth: 380 },
 
   // Segmented Mode Switcher Track
   segmentTrack: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceLow,
+    borderRadius: radius.md,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   segmentBtn: {
     flex: 1,
@@ -1034,16 +890,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
+    minHeight: 44,
+    borderRadius: radius.sm,
   },
   segmentBtnActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: colors.borderBright,
   },
   segmentText: { ...typography.label, fontSize: 13, color: colors.onSurfaceVariant, fontWeight: '600' },
-  segmentTextActive: { color: '#FFFFFF', fontWeight: '700' },
+  segmentTextActive: { color: colors.onSurface, fontWeight: '700' },
 
   // WhatsApp-Style Create Layout
   createContainer: { gap: spacing.md },
@@ -1065,13 +921,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.lime,
   },
-  profileCard: { padding: spacing.lg, gap: spacing.md },
+  profileCard: { padding: spacing.xl, gap: spacing.lg },
   sectionHeaderLabel: {
-    ...typography.label,
-    fontSize: 11,
-    color: colors.outline,
-    letterSpacing: 1,
-    fontWeight: '700',
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.onSurface,
   },
   identityRow: {
     flexDirection: 'row',
@@ -1100,17 +955,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   nameFieldWrap: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    minHeight: 52,
+    justifyContent: 'center',
   },
   nameInput: {
-    fontFamily: fontFamily.bodyBold,
+    fontFamily: fontFamily.bodyMedium,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.onSurface,
     padding: 0,
   },
   nameMetaRow: {
@@ -1140,7 +996,7 @@ const styles = StyleSheet.create({
   photoActionText: { ...typography.micro, fontSize: 11, fontWeight: '600' },
 
   // Theme Section
-  themeCard: { padding: spacing.lg, gap: spacing.md },
+  themeCard: { padding: spacing.xl, gap: spacing.lg },
   themeHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1149,7 +1005,7 @@ const styles = StyleSheet.create({
   selectedThemeName: {
     ...typography.label,
     fontSize: 12,
-    color: '#FFFFFF',
+    color: colors.onSurfaceVariant,
     fontWeight: '700',
   },
   themeGrid: {
@@ -1165,28 +1021,28 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    paddingVertical: 10,
+    backgroundColor: colors.surfaceHigh,
+    minHeight: 52,
     paddingHorizontal: 12,
   },
   themeSwatch: { width: 20, height: 20, borderRadius: 10 },
   themeChipTitle: { ...typography.caption, fontSize: 13, color: colors.onSurfaceVariant, flex: 1 },
 
   // Live Chat Preview Card
-  previewCard: { padding: spacing.lg, gap: spacing.sm },
+  previewCard: { padding: spacing.xl, gap: spacing.md },
   previewContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.border,
   },
   previewTextCol: { flex: 1, gap: 2 },
   previewTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  previewGroupName: { ...typography.title, fontSize: 16, color: '#FFFFFF', fontWeight: '700', flex: 1 },
+  previewGroupName: { ...typography.bodyMedium, fontSize: 15, color: colors.onSurface, flex: 1 },
   previewTime: { ...typography.micro, fontSize: 11, fontWeight: '600' },
   previewSnippet: { ...typography.body, fontSize: 12.5, color: colors.onSurfaceVariant },
 
@@ -1204,70 +1060,58 @@ const styles = StyleSheet.create({
   errorText: { ...typography.caption, color: '#F87171', flex: 1 },
 
   // Create Button
-  createBtnWrap: { borderRadius: radius.pill, marginTop: spacing.xs },
-  createBtnGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: glass.strokeBright,
-  },
-  createBtnText: { ...typography.label, fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  createBtnWrap: { marginTop: spacing.sm },
 
   // Join Flow Styles
   joinContainer: { gap: spacing.md },
   joinCard: {
     padding: spacing.xl,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   joinIconOrb: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: 'rgba(34, 211, 238, 0.12)',
+    width: 56,
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(34, 211, 238, 0.3)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,
   },
-  joinTitle: { ...typography.headline, fontSize: 24, color: '#FFFFFF', fontWeight: '800' },
-  joinSubtext: { ...typography.body, color: colors.onSurfaceVariant, textAlign: 'center', fontSize: 13 },
+  joinTitle: { ...typography.title, fontSize: 22, color: colors.onSurface },
+  joinSubtext: { ...typography.body, color: colors.onSurfaceVariant, fontSize: 14 },
   boxesContainer: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: 6,
     marginVertical: spacing.md,
+    width: '100%',
   },
   codeDigitBox: {
-    width: 44,
+    flex: 1,
+    minWidth: 0,
+    maxWidth: 48,
     height: 52,
     borderRadius: radius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   codeDigitBoxFilled: {
-    backgroundColor: 'rgba(34, 211, 238, 0.08)',
-    borderColor: 'rgba(34, 211, 238, 0.4)',
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.primary,
   },
   codeDigitBoxFocused: {
-    borderColor: '#22D3EE',
-    shadowColor: '#22D3EE',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
+    borderColor: colors.primary,
   },
   codeDigitText: {
     fontFamily: typography.headline.fontFamily,
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onSurface,
   },
   hiddenInput: {
     position: 'absolute',
@@ -1275,18 +1119,7 @@ const styles = StyleSheet.create({
     height: 1,
     opacity: 0.01,
   },
-  joinBtnWrap: { width: '100%', borderRadius: radius.pill, marginTop: spacing.sm },
-  joinBtnGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: glass.strokeBright,
-  },
-  joinBtnText: { ...typography.label, fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  joinBtnWrap: { width: '100%', marginTop: spacing.sm },
 
   // Created Success Card
   createdCardWrap: { width: '100%' },
@@ -1295,29 +1128,17 @@ const styles = StyleSheet.create({
   celebrationBadge: {
     width: 54,
     height: 54,
-    borderRadius: 27,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,
   },
-  createdHeadline: { ...typography.headline, fontSize: 26, color: '#FFFFFF', fontWeight: '800' },
+  createdHeadline: { ...typography.headline, fontSize: 26, color: colors.onSurface },
   createdSubtext: { ...typography.body, color: colors.onSurfaceVariant, textAlign: 'center', fontSize: 13 },
   createdAvatarWrap: { alignItems: 'center', gap: spacing.sm },
-  createdGroupName: { ...typography.title, fontSize: 20, color: '#FFFFFF', fontWeight: '700' },
+  createdGroupName: { ...typography.title, fontSize: 20, color: colors.onSurface },
   codeBlock: { width: '100%' },
   createdActions: { width: '100%', gap: spacing.sm },
-  openChatBtnWrap: { width: '100%', borderRadius: radius.pill },
-  openChatBtnGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: glass.strokeBright,
-  },
-  openChatBtnText: { ...typography.label, fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   anotherLinkBtn: { alignSelf: 'center', paddingVertical: spacing.xs },
   anotherLinkText: { ...typography.caption, color: colors.onSurfaceVariant, fontSize: 13 },
 });

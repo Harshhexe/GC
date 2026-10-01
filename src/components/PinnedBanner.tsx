@@ -47,19 +47,19 @@ export function PinnedBanner({ pins, onPressPin, onPressViewAll, accentColor }: 
       entering={FadeInUp.duration(duration.slow).easing(easing.out).reduceMotion(reduceMotion)}
       style={styles.wrap}
     >
-      <GlassPanel borderRadius={radius.md} style={[styles.container, { borderColor: `${activeAccent}44` }]}>
+      <GlassPanel borderRadius={radius.md} style={styles.container}>
         <PressableScale
           style={styles.tapArea}
           scaleTo={0.98}
           onPress={handlePressPin}
         >
-          <View style={[styles.pinIconWrap, { backgroundColor: `${activeAccent}20` }]}>
+          <View style={styles.pinIconWrap}>
             <Ionicons name="pin" size={15} color={activeAccent} />
           </View>
           <View style={styles.copyArea}>
             <View style={styles.headerRow}>
-              <Text style={[styles.title, { color: activeAccent }]}>
-                PINNED MESSAGE {pins.length > 1 ? `(${activeIndex + 1}/${pins.length})` : ''}
+              <Text style={styles.title}>
+                Pinned message {pins.length > 1 ? `${activeIndex + 1} of ${pins.length}` : ''}
               </Text>
               <Text style={styles.author} numberOfLines={1}>
                 • {pin.authorName}
@@ -105,8 +105,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: `${colors.primary}33`,
-    backgroundColor: `${colors.surface}BB`,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLow,
   },
   tapArea: {
     flex: 1,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: `${colors.primary}1F`,
+    backgroundColor: colors.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -132,10 +132,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    ...typography.micro,
+    ...typography.label,
+    fontSize: 13,
     fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.5,
+    color: colors.onSurface,
+    letterSpacing: 0,
   },
   author: {
     ...typography.micro,
@@ -162,7 +163,10 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   actionBtn: {
-    padding: 4,
+    width: 40,
+    height: 40,
     borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

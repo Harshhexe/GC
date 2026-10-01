@@ -270,7 +270,7 @@ export function usePersonalGroupTheme(groupId: string, fallbackThemeKey?: string
  * contrast is unchanged and the only difference is what it was asked to be:
  * the wallpaper no longer shows through.
  */
-export function flattenTint(hex: string, alpha: number, base = '#0A0A0F'): string {
+export function flattenTint(hex: string, alpha: number, base = '#0C1015'): string {
   const parse = (value: string) => {
     const clean = value.replace('#', '');
     const full =

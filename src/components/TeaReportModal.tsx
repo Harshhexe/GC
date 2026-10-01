@@ -72,14 +72,14 @@ export function TeaReportModal({
       {generating && (
         <View style={styles.stateBox}>
           <AIThinking tint={TEA_ACCENT} />
-          <Text style={styles.brewingText}>GC is brewing the tea report...</Text>
+          <Text style={styles.brewingText}>Preparing the Tea report…</Text>
         </View>
       )}
 
       {failed && (
         <View style={styles.stateBox}>
           <Text style={styles.failText}>
-            GC's brain couldn't process the tea right now 💀
+            The report isn't available right now.
           </Text>
           <GCButton
             label="Try again"
@@ -107,14 +107,14 @@ export function TeaReportModal({
             </Text>
           </Animated.View>
 
-          <Section label="THE STORY" delay={60}>
+          <Section label="The story" delay={60}>
             <GlassPanel borderRadius={radius.lg} style={styles.card}>
               <Text style={styles.body}>{report.summary}</Text>
             </GlassPanel>
           </Section>
 
           {report.people.length > 0 && (
-            <Section label="👀 PEOPLE INVOLVED" delay={120}>
+            <Section label="People involved" delay={120}>
               <GlassPanel borderRadius={radius.lg} style={styles.card}>
                 {report.people.map((p, i) => (
                   <View
@@ -145,7 +145,7 @@ export function TeaReportModal({
           )}
 
           {report.plotTwists.length > 0 && (
-            <Section label="🔥 PLOT TWISTS" delay={180}>
+            <Section label="Key moments" delay={180}>
               <GlassPanel borderRadius={radius.lg} style={styles.card}>
                 {report.plotTwists.map((t, i) => (
                   <View
@@ -178,7 +178,7 @@ export function TeaReportModal({
             </Section>
           )}
 
-          <Section label="🌡️ DRAMA LEVEL" delay={240}>
+          <Section label="Intensity" delay={240}>
             <GlassPanel borderRadius={radius.lg} style={styles.card}>
               <View style={styles.dramaRow}>
                 <Text style={styles.drama}>{'🔥'.repeat(Math.min(5, Math.max(1, report.dramaLevel)))}</Text>
@@ -190,7 +190,7 @@ export function TeaReportModal({
           </Section>
 
           {!!report.outcome && (
-            <Section label="🏁 OUTCOME" delay={300}>
+            <Section label="Outcome" delay={300}>
               <GlassPanel borderRadius={radius.lg} style={styles.card}>
                 <Text style={styles.body}>{report.outcome}</Text>
               </GlassPanel>
@@ -198,7 +198,7 @@ export function TeaReportModal({
           )}
 
           {report.receiptMessageIds.length > 0 && (
-            <Section label="🧾 RECEIPTS" delay={360}>
+            <Section label="Messages" delay={360}>
               <GlassPanel borderRadius={radius.lg} style={styles.card}>
                 <View style={styles.receiptList}>
                   {report.receiptMessageIds.map((id, i) => (
@@ -295,8 +295,8 @@ export function TeaReportModal({
       onRequestClose={onClose}
     >
       <View style={styles.root}>
-        <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
-        <AmbientBackground variant="vivid" />
+        <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
+        <AmbientBackground />
 
         {/* Safe Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 20) }]}>
@@ -347,9 +347,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    backgroundColor: 'rgba(251, 191, 36, 0.09)',
     borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.35)',
+    borderColor: 'rgba(251, 191, 36, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radius.pill,
@@ -364,14 +364,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0,
     shadowRadius: 8,
   },
   scrollView: {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.outlineVariant,
     shadowColor: '#000',
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.25,
     shadowRadius: 40,
     shadowOffset: { width: 0, height: 20 },
   },
@@ -468,7 +468,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.outline,
+    backgroundColor: colors.surfaceLow,
   },
   body: { ...typography.body, color: colors.onSurface, lineHeight: 21, flexShrink: 1 },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

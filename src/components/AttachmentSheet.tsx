@@ -1,14 +1,12 @@
-import { Platform, StyleSheet, Text, View, Dimensions } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { fontFamily, radius, spacing, colors, shadows } from '../theme/theme';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useAppearance } from '../context/AppearanceContext';
+import { fontFamily, radius, spacing, colors } from '../theme/theme';
 import { duration, easing, STAGGER_MS, reduceMotion } from '../theme/motion';
 import { PressableScale } from './ui/PressableScale';
 import { DraggableSheet } from './ui/DraggableSheet';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const COLUMNS = 4;
-const BOX_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - spacing.md * (COLUMNS - 1)) / COLUMNS;
 
 export type AttachmentAction = {
   id: string;
@@ -23,12 +21,8 @@ export type AttachmentAction = {
 };
 
 /**
- * Opened by the composer's "+" — 8 quick action boxes.
- *
- * The boxes replay their staggered entrance every time the sheet opens by
- * remounting (the row key is derived from `visible`), which works on both
- * native (DraggableSheet keeps its children mounted inside a Modal) and web
- * (DraggableSheet unmounts children entirely).
+ * Opened by the composer's "+". Native uses a draggable sheet; web keeps
+ * the actions in a small menu anchored beside the composer.
  */
 export function AttachmentSheet({
   visible,
@@ -59,6 +53,20 @@ export function AttachmentSheet({
   onClose: () => void;
   onClosed?: () => void;
 }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [visible, onClose]);
+
   const actions: AttachmentAction[] = [
     {
       id: 'photos',
@@ -147,11 +155,52 @@ export function AttachmentSheet({
 
   const stateKey = visible ? 'open' : 'closed';
 
+  if (Platform.OS === 'web') {
+    if (!visible) return null;
+    return (
+      <View style={styles.webOverlay}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityLabel="Close attachment menu"
+        />
+        <Animated.View
+          entering={FadeInUp.duration(duration.fast).reduceMotion(reduceMotion)}
+          style={[styles.webMenu, { backgroundColor: palette.surfaceLow, borderColor: palette.borderBright }]}
+        >
+          <View style={styles.webHeader}>
+            <View>
+              <Text style={[styles.webTitle, { color: palette.onSurface }]}>Add to chat</Text>
+              <Text style={[styles.webSubtitle, { color: palette.onSurfaceVariant }]}>Choose what to share</Text>
+            </View>
+            <PressableScale
+              style={[styles.webClose, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }]}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close attachment menu"
+            >
+              <Ionicons name="close" size={17} color={palette.onSurfaceVariant} />
+            </PressableScale>
+          </View>
+          <View style={styles.webGrid}>
+            {actions.map((action) => (
+              <WebAction key={action.id} action={action} />
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    );
+  }
+
   return (
-    <DraggableSheet visible={visible} onClose={onClose} onClosed={onClosed}>
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      onClosed={onClosed}
+    >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Attach</Text>
-        <Text style={styles.headerSubtitle}>Share media, files & more</Text>
+        <Text style={styles.headerTitle}>Add to chat</Text>
+        <Text style={styles.headerSubtitle}>Share something with your GC</Text>
       </View>
 
       <View style={styles.grid}>
@@ -172,6 +221,34 @@ export function AttachmentSheet({
   );
 }
 
+function WebAction({ action }: { action: AttachmentAction }) {
+  const { theme } = useAppearance();
+  const palette = theme.palette;
+  return (
+    <PressableScale
+      style={[styles.webAction, { backgroundColor: palette.surfaceHigh, borderColor: palette.border }, action.disabled && styles.boxDisabled]}
+      scaleTo={action.disabled ? 1 : 0.97}
+      disabled={action.disabled}
+      onPress={action.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={action.label}
+    >
+      <View style={[styles.webIcon, { backgroundColor: `${action.color}20` }]}>
+        <ActionGlyph action={action} size={18} />
+      </View>
+      <Text style={[styles.webActionLabel, { color: palette.onSurface }]} numberOfLines={1}>{action.label}</Text>
+      {action.badge && <Text style={[styles.webBadge, { color: action.color }]}>{action.badge}</Text>}
+    </PressableScale>
+  );
+}
+
+function ActionGlyph({ action, size }: { action: AttachmentAction; size: number }) {
+  if (action.emoji) return <Text style={{ fontSize: size, lineHeight: size + 4 }}>{action.emoji}</Text>;
+  if (action.isGif) return <Text style={[styles.gifWordmark, { color: action.color }]}>GIF</Text>;
+  if (action.icon) return <Ionicons name={action.icon} size={size} color={action.color} />;
+  return null;
+}
+
 function ActionBox({ action }: { action: AttachmentAction }) {
   return (
     <PressableScale
@@ -184,23 +261,10 @@ function ActionBox({ action }: { action: AttachmentAction }) {
       <View
         style={[
           styles.iconOrb,
-          {
-            backgroundColor: `${action.color}1F`,
-            borderColor: `${action.color}4D`,
-            shadowColor: action.color,
-            shadowOpacity: 0.35,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 4 },
-          },
+          { backgroundColor: colors.surfaceHigh },
         ]}
       >
-        {action.emoji ? (
-          <Text style={styles.emojiText}>{action.emoji}</Text>
-        ) : action.isGif ? (
-          <Text style={[styles.gifWordmark, { color: action.color }]}>GIF</Text>
-        ) : action.icon ? (
-          <Ionicons name={action.icon} size={22} color={action.color} />
-        ) : null}
+        <ActionGlyph action={action} size={22} />
       </View>
 
       <Text style={styles.boxLabel} numberOfLines={1}>
@@ -217,8 +281,83 @@ function ActionBox({ action }: { action: AttachmentAction }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
+  webOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+  },
+  webMenu: {
+    position: 'absolute',
+    bottom: 72,
+    left: 12,
+    right: 12,
+    maxWidth: 372,
+    padding: 12,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 12,
+  },
+  webHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  webTitle: {
+    fontFamily: fontFamily.display,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  webSubtitle: {
+    fontFamily: fontFamily.bodyMedium,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  webClose: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 7,
+  },
+  webAction: {
+    width: '49%',
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+  },
+  webIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webActionLabel: {
+    flex: 1,
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 12,
+  },
+  webBadge: {
+    fontFamily: fontFamily.bodyBold,
+    fontSize: 8,
+  },
+  header: {
+    alignItems: 'flex-start',
     paddingVertical: spacing.sm,
     marginBottom: spacing.md,
     gap: 2,
@@ -247,16 +386,15 @@ const styles = StyleSheet.create({
   },
   box: {
     aspectRatio: 0.95,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.surfaceHigh,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: 4,
     gap: spacing.xs + 2,
-    ...shadows.soft,
   },
   boxDisabled: {
     opacity: 0.5,
@@ -264,14 +402,9 @@ const styles = StyleSheet.create({
   iconOrb: {
     width: 46,
     height: 46,
-    borderRadius: 16,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    elevation: 3,
-  },
-  emojiText: {
-    fontSize: 20,
   },
   gifWordmark: {
     fontFamily: fontFamily.bodyBold,
@@ -282,7 +415,7 @@ const styles = StyleSheet.create({
   boxLabel: {
     fontFamily: fontFamily.bodySemi,
     fontSize: 11.5,
-    color: '#E2E8F0',
+    color: colors.onSurface,
     textAlign: 'center',
   },
   badge: {

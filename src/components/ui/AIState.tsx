@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -23,20 +23,7 @@ import { aiErrorMessage, type AIError } from '../../lib/ai';
  * provider happened to return.
  */
 
-const THINKING_LINES = [
-  'Gathering the lore...',
-  'Reading the chaos...',
-  'Connecting the dots...',
-  'Cooking the summary...',
-  'Scrolling back so you don’t have to...',
-];
-
-/**
- * Rotates through lines while the request is in flight. AI calls run for
- * several seconds, and a single frozen label makes that read as a hang.
- */
 export function AIThinking({ tint = colors.primary }: { tint?: string }) {
-  const [line, setLine] = useState(() => THINKING_LINES[0]);
   const pulse = useSharedValue(0);
 
   useEffect(() => {
@@ -46,12 +33,6 @@ export function AIThinking({ tint = colors.primary }: { tint?: string }) {
       true
     );
 
-    let index = 0;
-    const timer = setInterval(() => {
-      index = (index + 1) % THINKING_LINES.length;
-      setLine(THINKING_LINES[index]);
-    }, 2200);
-    return () => clearInterval(timer);
   }, [pulse]);
 
   const dotStyle = useAnimatedStyle(() => ({
@@ -64,9 +45,7 @@ export function AIThinking({ tint = colors.primary }: { tint?: string }) {
       <Animated.View style={[styles.orb, { backgroundColor: `${tint}26` }, dotStyle]}>
         <Ionicons name="sparkles" size={22} color={tint} />
       </Animated.View>
-      <Animated.Text key={line} entering={FadeIn} exiting={FadeOut} style={styles.thinkingText}>
-        {line}
-      </Animated.Text>
+      <Text style={styles.thinkingText}>Putting the pieces together…</Text>
     </Animated.View>
   );
 }
