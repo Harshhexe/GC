@@ -86,6 +86,7 @@ import { LinearBlurHeader } from '../components/LinearBlurHeader';
 import { TEA_THEME, groupTheme, useChatAppearance } from '../theme/groupThemes';
 import { useMessages } from '../hooks/useMessages';
 import { useWebKeyboardInset } from '../hooks/useWebKeyboardOpen';
+import { useWebBottomInset } from '../hooks/useWebBottomInset';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { usePrivateCommentCounts } from '../hooks/usePrivateComments';
 import { PrivateCommentThread } from '../components/PrivateCommentThread';
@@ -230,6 +231,7 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   // The web half of the same signal — RN's Keyboard events never fire there.
   const webKeyboardInset = useWebKeyboardInset();
+  const webBottomInset = useWebBottomInset();
   const keyboardOpen = isKeyboardOpen || webKeyboardInset > 0;
 
   useEffect(() => {
@@ -268,7 +270,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       // the portion of it covered by the keyboard. That reduces the list's
       // available flex height and keeps the textarea flush above the keyboard.
       return {
-        paddingBottom: webKeyboardInset > 0 ? webKeyboardInset + 2 : 6,
+        paddingBottom: webKeyboardInset > 0 ? webKeyboardInset + 2 : Math.max(insets.bottom, webBottomInset, 6),
       };
     }
     if (Platform.OS === 'android') {
@@ -280,7 +282,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     return {
       paddingBottom: keyboardOpen ? spacing.xs : Math.max(insets.bottom, spacing.xs),
     };
-  }, [webKeyboardInset, keyboardOpen, insets.bottom]);
+  }, [webKeyboardInset, webBottomInset, keyboardOpen, insets.bottom]);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);

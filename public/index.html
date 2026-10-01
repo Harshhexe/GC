@@ -105,9 +105,10 @@
            alone reads visualViewport and adds its keyboard inset below its
            composer; the rest of the interface keeps this stable geometry.
 
-           100dvh / 100vw (not inset:0 or height:100%) — on iOS standalone
-           PWA, fixed+inset:0 clips to the safe area and leaves a black gap
-           at the home indicator.  dvh spans the full physical screen. */
+           In a browser tab, dvh tracks the visible viewport as its toolbar
+           changes size. Installed iOS PWAs need the large viewport instead;
+           WebKit can subtract the status-bar inset from dvh there, leaving a
+           strip below the dock and composer. */
         position: fixed;
         top: 0;
         left: 0;
@@ -115,6 +116,11 @@
         width: 100vw;
         overflow: hidden;
         background-color: #090C10;
+      }
+      @media (display-mode: standalone) {
+        #root {
+          height: 100vh;
+        }
       }
     </style>
   </head>

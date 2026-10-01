@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -8,6 +8,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { PressableScale } from '../components/ui/PressableScale';
 import { useAuth } from '../context/AuthContext';
 import { useAppearance } from '../context/AppearanceContext';
+import { useWebBottomInset } from '../hooks/useWebBottomInset';
 import { timingBase } from '../theme/motion';
 import { colors, fontFamily } from '../theme/theme';
 import { selectFeedback } from '../utils/haptics';
@@ -84,22 +85,7 @@ export default function Dock({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { theme } = useAppearance();
-  const [webBottomInset, setWebBottomInset] = useState(0);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined' || typeof window === 'undefined') return;
-    const update = () => {
-      const node = document.createElement('div');
-      node.style.cssText = 'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';
-      document.body.appendChild(node);
-      const inset = Number.parseInt(window.getComputedStyle(node).paddingBottom, 10);
-      node.remove();
-      setWebBottomInset(Number.isFinite(inset) ? inset : 0);
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
+  const webBottomInset = useWebBottomInset();
 
   return (
     <View

@@ -17,8 +17,8 @@ export const KEYBOARD_MIN_PX = 120;
  * or otherwise mutate the app root.
  *
  * `offsetTop` matters when WebKit pans the visual viewport to reveal the
- * focused textarea. The keyboard begins at `offsetTop + height`, so the only
- * covered part of the full-screen app is the remainder below that point.
+ * focused textarea. The keyboard begins at `offsetTop + height`. Compare it
+ * with the app root, which may be taller than innerHeight in an iOS PWA.
  */
 export function useWebKeyboardInset(): number {
   const [inset, setInset] = useState(0);
@@ -30,7 +30,8 @@ export function useWebKeyboardInset(): number {
 
     const sync = () => {
       const viewportBottom = vv.offsetTop + vv.height;
-      const covered = Math.max(0, Math.round(window.innerHeight - viewportBottom));
+      const rootBottom = document.getElementById('root')?.getBoundingClientRect().bottom ?? window.innerHeight;
+      const covered = Math.max(0, Math.round(rootBottom - viewportBottom));
       setInset(covered > KEYBOARD_MIN_PX ? covered : 0);
     };
 
