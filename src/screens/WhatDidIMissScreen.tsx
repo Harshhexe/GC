@@ -640,75 +640,81 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
         />
 
         <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* React Bits AI Hero */}
-          <SpotlightCard
-            spotlightColor={`${activeTheme.accent}26`}
-            borderColor="rgba(255, 255, 255, 0.12)"
-            borderRadius={26}
-            style={styles.heroCard}
-          >
-            <View style={styles.heroInner}>
-              <View style={styles.heroTopRow}>
-                <AIPulsingCore accentColor={activeTheme.accent} size={46} icon="sparkles" />
-                <View style={styles.heroBadgeCol}>
-                  <NeonBadge label="LIVE INTELLIGENCE" color={activeTheme.accent} />
-                  <ShinyText
-                    text="NEURAL DIGEST"
-                    style={styles.heroShimmerText}
-                    shineColor="#FFFFFF"
-                    baseColor="rgba(255, 255, 255, 0.6)"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.heroTitleWrap}>
-                <DecryptedText
-                  text="The Story So Far."
-                  style={styles.heroTitle}
-                  speed={30}
-                />
-                <Text style={styles.heroDescription}>
-                  The highlights, spicy plot twists, and secret mentions from {groupName}. All in one place.
-                </Text>
-              </View>
-
-              {/* Bento Stat Grid */}
-              <View style={styles.bentoStatsGrid}>
-                <BentoStatBox
-                  icon="at"
-                  iconColor="#A78BFA"
-                  value={recap.mentions.length + privateForMe.length}
-                  label="Mentions"
-                  sublabel="For you"
-                />
-                <BentoStatBox
-                  icon="cafe"
-                  iconColor="#F59E0B"
-                  value={todaysTea.sessions.length}
-                  label="Tea Stories"
-                  sublabel="Spilled"
-                />
-                <BentoStatBox
-                  icon="calendar"
-                  iconColor="#F472B6"
-                  value={dailyHistory.entries.length}
-                  label="Daily Drops"
-                  sublabel="Archive"
-                />
-                <BentoStatBox
-                  icon="people"
-                  iconColor="#38BDF8"
-                  value={members.length}
-                  label="Members"
-                  sublabel="Active"
-                />
-              </View>
-            </View>
-          </SpotlightCard>
-
           {/* TAB 1: MISSED (Vibe, AI Highlights & Mentions) */}
           {activeTab === 'missed' && (
             <>
+              {/* React Bits AI Hero */}
+              <Animated.View
+                entering={FadeInDown.duration(duration.slow)
+                  .easing(easing.out)
+                  .reduceMotion(reduceMotion)}
+              >
+                <SpotlightCard
+                  spotlightColor={`${activeTheme.accent}26`}
+                  borderColor="rgba(255, 255, 255, 0.12)"
+                  borderRadius={26}
+                  style={styles.heroCard}
+                >
+                  <View style={styles.heroInner}>
+                    <View style={styles.heroTopRow}>
+                      <AIPulsingCore accentColor={activeTheme.accent} size={46} icon="sparkles" />
+                      <View style={styles.heroBadgeCol}>
+                        <NeonBadge label="LIVE INTELLIGENCE" color={activeTheme.accent} />
+                        <ShinyText
+                          text="NEURAL DIGEST"
+                          style={styles.heroShimmerText}
+                          shineColor="#FFFFFF"
+                          baseColor="rgba(255, 255, 255, 0.6)"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.heroTitleWrap}>
+                      <DecryptedText
+                        text="The Story So Far."
+                        style={styles.heroTitle}
+                        speed={30}
+                      />
+                      <Text style={styles.heroDescription}>
+                        The highlights, spicy plot twists, and secret mentions from {groupName}. All in one place.
+                      </Text>
+                    </View>
+
+                    {/* Bento Stat Grid */}
+                    <View style={styles.bentoStatsGrid}>
+                      <BentoStatBox
+                        icon="at"
+                        iconColor="#A78BFA"
+                        value={recap.mentions.length + privateForMe.length}
+                        label="Mentions"
+                        sublabel="For you"
+                      />
+                      <BentoStatBox
+                        icon="cafe"
+                        iconColor="#F59E0B"
+                        value={todaysTea.sessions.length}
+                        label="Tea Stories"
+                        sublabel="Spilled"
+                      />
+                      <BentoStatBox
+                        icon="calendar"
+                        iconColor="#F472B6"
+                        value={dailyHistory.entries.length}
+                        label="Daily Drops"
+                        sublabel="Archive"
+                      />
+                      <BentoStatBox
+                        icon="people"
+                        iconColor="#38BDF8"
+                        value={members.length}
+                        label="Members"
+                        sublabel="Active"
+                      />
+                    </View>
+                  </View>
+                </SpotlightCard>
+              </Animated.View>
+
               {/* Vibe check */}
               <Animated.View
                 entering={FadeInDown.delay(STAGGER_MS)
@@ -1153,86 +1159,75 @@ export default function WhatDidIMissScreen({ route, navigation }: Props) {
                 />
               </Section>
 
-              {/* Who Missed 11:11 */}
+              {/* 11:11 roll call */}
               <Section
-                icon="alarm-outline"
+                icon="sparkles-outline"
                 iconColor={colors.yellow}
-                title="Who Missed 11:11 Today"
+                title="11:11 roll call"
                 delay={STAGGER_MS * 2}
                 onLayout={(e) => {
                   elevenElevenYRef.current = e.nativeEvent.layout.y;
                 }}
                 highlighted={highlight1111}
-                trailing={
-                  recap.missedElevenEleven.length > 0 ? (
-                    <View style={[styles.countBadge, { backgroundColor: colors.yellow }]}>
-                      <Text style={[styles.countBadgeText, { color: colors.bg }]}>
-                        {recap.missedElevenEleven.length}
-                      </Text>
-                    </View>
-                  ) : undefined
-                }
               >
-                {recap.missedElevenEleven.length === 0 ? (
-                  <Text style={styles.emptyMentions}>
-                    Everyone made a wish at 11:11 today! ✨ Pure perfection.
-                  </Text>
-                ) : (
-                  recap.missedElevenEleven.map((item) => (
-                    <View key={item.id} style={styles.missedCard}>
-                      <View style={styles.missedHead}>
-                        <Avatar
-                          emoji={item.authorEmoji}
-                          imageUrl={item.authorAvatarUrl}
-                          label={item.authorName}
-                          size={32}
-                          ring={false}
-                          ringColors={[item.authorColor, item.authorColor]}
-                        />
-                        <View style={styles.missedAuthorInfo}>
-                          <Text style={[styles.mentionName, { color: item.authorColor }]}>
-                            {item.authorName}
-                          </Text>
-                          <Text style={styles.missedSubtitle}>
-                            {item.status === 'yapping'
-                              ? `Too busy typing at ${item.timeLabel} today`
-                              : `Didn't make a wish today 💤`}
-                          </Text>
+                <View style={styles.missedOverview}>
+                  <View style={styles.missedOverviewIcon}>
+                    <Ionicons name="moon-outline" size={19} color={colors.yellow} />
+                  </View>
+                  <View style={styles.missedOverviewCopy}>
+                    <Text style={styles.missedOverviewEyebrow}>TODAY'S WISH WINDOW</Text>
+                    <Text style={styles.missedOverviewTitle}>
+                      {loading
+                        ? 'Checking the group…'
+                        : recap.missedElevenEleven.length === 0
+                          ? 'No misses on the board'
+                          : `${recap.missedElevenEleven.length} ${recap.missedElevenEleven.length === 1 ? 'person' : 'people'} missed it`}
+                    </Text>
+                  </View>
+                  <Text style={styles.missedOverviewTime}>11:11</Text>
+                </View>
+                {recap.missedElevenEleven.length > 0 && (
+                  <View style={styles.missedList}>
+                    {recap.missedElevenEleven.map((item, index) => (
+                      <View key={item.id} style={[styles.missedRow, index > 0 && styles.missedRowDivider]}>
+                        <View style={styles.missedHead}>
+                          <Avatar
+                            emoji={item.authorEmoji}
+                            imageUrl={item.authorAvatarUrl}
+                            label={item.authorName}
+                            size={38}
+                            ring={false}
+                            ringColors={[item.authorColor, item.authorColor]}
+                          />
+                          <View style={styles.missedAuthorInfo}>
+                            <Text style={styles.missedName} numberOfLines={1}>{item.authorName}</Text>
+                            <Text style={styles.missedSubtitle}>
+                              {item.status === 'yapping' ? `Active at ${item.timeLabel}` : 'No wish found today'}
+                            </Text>
+                          </View>
+                          <View style={[styles.missedStatus, item.status === 'yapping' && styles.missedStatusChatting]}>
+                            <Ionicons
+                              name={item.status === 'yapping' ? 'chatbubble-outline' : 'moon-outline'}
+                              size={12}
+                              color={item.status === 'yapping' ? colors.yellow : colors.onSurfaceVariant}
+                            />
+                            <Text style={[styles.missedStatusText, item.status === 'yapping' && styles.missedStatusTextChatting]}>
+                              {item.status === 'yapping' ? 'Chatting' : 'No wish'}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={styles.spacer} />
-                        <View
-                          style={[
-                            styles.timeTag,
-                            item.status === 'silent' && {
-                              backgroundColor: 'rgba(255, 107, 107, 0.15)',
-                              borderColor: 'rgba(255, 107, 107, 0.35)',
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.timeTagText,
-                              item.status === 'silent' && { color: '#FF6B6B' },
-                            ]}
-                          >
-                            {item.status === 'yapping' ? item.timeLabel : 'MISSED'}
-                          </Text>
-                        </View>
+                        {item.status === 'yapping' && !!item.text && (
+                          <View style={styles.missedQuoteBox}>
+                            <View style={styles.missedQuoteRule} />
+                            <Text style={styles.missedMessageText} numberOfLines={2}>
+                              {item.text}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={styles.missedRoast}>{item.roast}</Text>
                       </View>
-                      {item.status === 'yapping' && !!item.text && (
-                        <View style={styles.missedQuoteBox}>
-                          <Ionicons name="chatbox-ellipses-outline" size={14} color={colors.yellow} />
-                          <Text style={styles.missedMessageText} numberOfLines={2}>
-                            "{item.text}"
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.roastBox}>
-                        <Ionicons name="flame" size={13} color="#FF6B6B" />
-                        <Text style={styles.roastText}>{item.roast}</Text>
-                      </View>
-                    </View>
-                  ))
+                    ))}
+                  </View>
                 )}
               </Section>
             </>
@@ -1349,6 +1344,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     marginBottom: spacing.xs,
+    width: '100%',
   },
   heroInner: {
     padding: spacing.lg,
@@ -1404,19 +1400,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+    width: '100%',
   },
   awardsRowInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+    width: '100%',
   },
   dailyRowInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+    width: '100%',
   },
   highlightInner: {
     padding: spacing.md,
@@ -1571,53 +1573,64 @@ const styles = StyleSheet.create({
   viewMessage: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
   viewMessageText: { ...typography.label, fontSize: 11 },
   aiFootnote: { ...typography.micro, color: colors.textMuted, fontStyle: 'italic' },
-  dailyList: { gap: spacing.sm },
+  dailyList: {
+    gap: spacing.sm,
+    width: '100%',
+  },
   dailyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: 'transparent',
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderBright,
-    padding: spacing.lg,
+    width: '100%',
   },
   dailyRowDate: {
-    backgroundColor: `${colors.tertiary}1A`,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: `${colors.tertiary}33`,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
-  dailyRowDateText: { ...typography.label, fontSize: 11, color: colors.tertiary },
-  dailyRowCopy: { flex: 1, gap: 1 },
-  dailyRowWord: { ...typography.bodyMedium, color: colors.onSurface, textTransform: 'lowercase' },
-  dailyRowMeta: { ...typography.micro, color: colors.onSurfaceVariant },
+  dailyRowDateText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#38BDF8',
+    letterSpacing: 0.5,
+  },
+  dailyRowCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  dailyRowWord: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'capitalize',
+    letterSpacing: -0.2,
+  },
+  dailyRowMeta: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontWeight: '500',
+  },
   teaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(233, 189, 105, 0.24)',
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    width: '100%',
   },
-  teaRowEmoji: { fontSize: 20 },
-  teaRowTitle: { ...typography.bodyMedium, color: colors.onSurface },
+  teaRowEmoji: { fontSize: 22 },
+  teaRowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
   awardsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(233, 189, 105, 0.24)',
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    width: '100%',
   },
-  awardsRowEmoji: { fontSize: 20 },
-  awardsRowTitle: { ...typography.bodyMedium, color: colors.onSurface },
+  awardsRowEmoji: { fontSize: 22 },
+  awardsRowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
   statRow: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -1683,42 +1696,51 @@ const styles = StyleSheet.create({
   mentionName: { ...typography.label, fontSize: 13 },
   mentionTime: { ...typography.micro, color: colors.textMuted },
   mentionText: { ...typography.body, color: colors.onSurfaceVariant },
-  missedCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.15)',
-  },
-  missedHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  missedAuthorInfo: { flex: 1, gap: 1 },
-  missedSubtitle: { ...typography.micro, fontSize: 11, color: colors.onSurfaceVariant },
-  timeTag: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-  },
-  timeTagText: { ...typography.label, fontSize: 10.5, color: colors.yellow },
-  missedQuoteBox: {
+  missedOverview: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    padding: 10,
-    borderRadius: radius.sm,
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(233, 189, 105, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(233, 189, 105, 0.15)',
   },
-  missedMessageText: {
-    ...typography.body,
-    fontSize: 13,
-    color: colors.onSurface,
-    fontStyle: 'italic',
-    flex: 1,
+  missedOverviewIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(233, 189, 105, 0.12)',
   },
+  missedOverviewCopy: { flex: 1, minWidth: 0, gap: 3 },
+  missedOverviewEyebrow: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2, color: colors.yellow },
+  missedOverviewTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
+  missedOverviewTime: { fontSize: 16, fontWeight: '800', color: colors.yellow, letterSpacing: -0.5 },
+  missedList: { marginTop: spacing.xs },
+  missedRow: { paddingVertical: spacing.md, gap: spacing.sm },
+  missedRowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  missedHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  missedAuthorInfo: { flex: 1, minWidth: 0, gap: 3 },
+  missedName: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
+  missedSubtitle: { fontSize: 11, color: colors.textMuted },
+  missedStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+  },
+  missedStatusChatting: { backgroundColor: 'rgba(233, 189, 105, 0.10)' },
+  missedStatusText: { fontSize: 10, fontWeight: '700', color: colors.onSurfaceVariant },
+  missedStatusTextChatting: { color: colors.yellow },
+  missedQuoteBox: { flexDirection: 'row', alignItems: 'stretch', gap: 10, marginLeft: 46 },
+  missedQuoteRule: { width: 2, borderRadius: 2, backgroundColor: 'rgba(233, 189, 105, 0.6)' },
+  missedMessageText: { flex: 1, fontSize: 12, lineHeight: 17, color: colors.onSurfaceVariant },
+  missedRoast: { marginLeft: 46, fontSize: 12, lineHeight: 17, fontWeight: '600', color: colors.yellow },
   roastBox: {
     flexDirection: 'row',
     alignItems: 'center',

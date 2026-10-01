@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     backgroundColor: 'rgba(15, 19, 29, 0.72)',
+    width: '100%',
   },
   glassGround: {
     backgroundColor: Platform.OS === 'web' ? 'rgba(16, 21, 33, 0.75)' : 'rgba(14, 18, 28, 0.45)',
@@ -151,5 +152,6 @@ const styles = StyleSheet.create({
   contentWrap: {
     position: 'relative',
     zIndex: 2,
+    width: '100%',
   },
 });
